@@ -57,7 +57,7 @@ if __name__ == '__main__':
                                          beta_1=0.9,
                                          beta_2=0.98,
                                          epsilon=1e-9)
-  output_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/SMC-T-v2/output'
+  output_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T-v2/output'
   datetime = datetime.today()
   datetime_str = datetime.strftime("%A.%d.%B.%Y-%I.%M%p")
   output_path = os.path.join(output_path, datetime_str)
@@ -111,10 +111,10 @@ if __name__ == '__main__':
 
   # ------------------- SMC algo on pre-trained Transformer -------------------------------------------------------------------------------------------------------------
   # load checkpoint:
-  # ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-  # ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_1")
-  # ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_path, max_to_keep=EPOCHS)
-  # restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, logger=logger)
+  ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
+  ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_1")
+  ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_path, max_to_keep=EPOCHS)
+  restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, logger=logger)
 
   logger.info("<--------------------------------------------------------------------------------------->")
   logger.info('starting SMC algo on trained Transformer...')
