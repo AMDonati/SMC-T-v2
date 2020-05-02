@@ -25,7 +25,7 @@ if __name__ == '__main__':
   BATCH_SIZE = args.bs
   TRAIN_SPLIT = 0.7
 
-  data_path = '../../data/synthetic_dataset_1_feat.npy'
+  data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
   input_data = np.load(data_path)
 
   train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data,
@@ -50,6 +50,7 @@ if __name__ == '__main__':
                                                                 cv=False)
 
   # ------------------------------ Define hyperparameters ------------------------------------------------------------------------------------------
+
   d_model = args.d_model
   EPOCHS = args.ep
   for (_, tar) in train_dataset.take(1):

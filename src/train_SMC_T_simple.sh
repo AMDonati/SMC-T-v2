@@ -1,0 +1,1 @@
+python src/train/train_SMC_T_simple.py -bs 64 -d_model 12 -ep 20 -data_path "../../data" -output_path "../../output"
