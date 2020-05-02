@@ -1,7 +1,3 @@
-#TODO: test the classification loss for a number of classes equal to 2.
-#TODO: add a mask option in the loss for nlp datasets.
-
-#TODO: debug the mse_with_particles function for the regression case.
 import tensorflow as tf
 
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
@@ -165,7 +161,7 @@ def loss_function_binary(real, predictions, weights, transformer, classic_loss=T
   return loss
 
 
-def loss_function_regression(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
+def loss_function_regression(real, predictions):
   '''
   :param real: targets > shape (B,P,S) (B,P,S,F)
   :param predictions > shape (B,P,S,1) (B,P,S,F)
@@ -175,17 +171,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
   :return:
   a scalar computing the SMC loss as defined in the paper.
   '''
-  if classic_loss:
-    # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
-    loss_mse, loss_mse_std = mse_with_particles(real=real, pred=predictions)
-  else:
-    loss_mse = 0
-  if SMC_loss:
-    # take minus the log_likelihood.
-    loss_smc = -transformer.compute_SMC_log_likelihood(sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
-  else:
-    loss_smc = 0
-  loss = loss_mse + loss_smc
+  loss_mse, loss_mse_std = mse_with_particles(real=real, pred=predictions)
 
   # compute mse from average prediction.
   avg_prediction = tf.reduce_mean(predictions, axis=1) # (B,S,F)
@@ -193,7 +179,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
   loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1) # (B)
   loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1)
 
-  return loss, loss_mse, loss_mse_from_avg_pred,  loss_mse_std
+  return loss_mse, loss_mse_from_avg_pred,  loss_mse_std
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -210,26 +196,6 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     arg2 = step * (self.warmup_steps ** -1.5)
 
     return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
-
-def compute_accuracy_variance(predictions_val, tar, accuracy_metric):
-  """
-  :param predictions_val: particles of predictions > shape (B,P,S,V)
-  :param tar: targets > shape (B,S)
-  :param accuracy_metric: the tf.keras.metric object used to compute the accuracy.
-  :return:
-  """
-  accuracies=[]
-  num_particles=tf.shape(predictions_val)[1]
-
-  for m in range(num_particles):
-    pred_particle=predictions_val[:,m,:,:] # shape (B,S,V)
-    acc_particle=accuracy_metric(tar, pred_particle)
-    accuracies.append(acc_particle.numpy())
-
-  accuracies.sort()
-  variance_acc=accuracies[num_particles-1]-accuracies[0]
-
-  return variance_acc
 
 if __name__ == "__main__":
   #------------------------ testing of categorical ce with particules function......-----------------------------------------------------

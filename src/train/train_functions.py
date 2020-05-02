@@ -15,7 +15,7 @@ from utils.utils_train import saving_training_history
 from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
-def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, checkpoint_path, args, logger, num_train):
+def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, checkpoint_path, logger, num_train):
   #TODO: remove this function.
   LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_Baseline_{}".format(num_train))
   LSTM_ckpt_path = LSTM_ckpt_path+'/'+'LSTM-{epoch}'
@@ -227,7 +227,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
     # training step:
     for (batch, (inp, tar)) in enumerate(train_dataset):
       total_loss_batch, train_metrics, _ = train_step_SMC_T(inputs=inp,
-                                                               targets=tar,
+                                                            targets=tar,
                                                                smc_transformer=smc_transformer,
                                                                optimizer=optimizer,
                                                                train_accuracy=train_accuracy,

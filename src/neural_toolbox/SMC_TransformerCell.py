@@ -81,7 +81,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     K, V, R = states # getting states
 
     #TODO: here remove the first timestep element of K,V,R when self.dec_timestep == 1 (because the cell computes twice
-    #TODO: the first element of the sequence). 
+    #TODO: the first element of the sequence).
 
     # multi-head attention:
     (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)

@@ -109,6 +109,11 @@ if __name__ == '__main__':
 
   logger.info("test loss at the end of training: {}".format(loss_test))
 
+
+
+
+
+
   # ------------------- SMC algo on pre-trained Transformer -------------------------------------------------------------------------------------------------------------
   # load checkpoint:
   ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
