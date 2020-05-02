@@ -80,10 +80,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2) # adding sequence dim.
     K, V, R = states # getting states
 
-    #TODO: here remove the first timestep element of K,V,R when self.dec_timestep == 1 (because the cell computes twice
-    #TODO: the first element of the sequence).
-
-    # multi-head attention:
+    # self attention:
     (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
     predictions = self.output_layer(z)  # (B,P,1,F_y)
 
@@ -95,14 +92,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # -------- SMC Algo at inference .... ---------------------------------------------------------------------------------------------------------
     if self.noise:
       # computing resampling weights
-      w_squeezed = self.compute_w_regression(predictions=predictions, y=y)
-      i_t = tf.random.categorical(w_squeezed, self.num_particles)  # (B,P,1)
+      w = self.compute_w_regression(predictions=predictions, y=y)
+      i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
       # resample K, V, and R
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
 
-      self.list_weights.append(w_squeezed.numpy())
+      self.list_weights.append(w.numpy())
       self.list_indices.append(i_t.numpy())
 
     output = attn_weights # attn_weights > shape (B,P,1,S).

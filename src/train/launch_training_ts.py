@@ -39,8 +39,8 @@ import argparse
 import warnings
 
 from preprocessing.time_series.df_to_dataset import df_to_data_regression
-from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
-from preprocessing.time_series.df_to_dataset import split_input_target_uni_step
+from preprocessing.time_series.df_to_dataset import data_to_dataset_4D
+from preprocessing.time_series.df_to_dataset import split_input_target
 from preprocessing.time_series.df_to_dataset import split_synthetic_dataset
 
 from utils.utils_train import create_run_dir
@@ -192,11 +192,11 @@ if __name__ == "__main__":
     print('val data sample', val_data[0].shape)
 
   if not cv:
-    train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_uni_step(
+    train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_4D(
     train_data=train_data,
     val_data=val_data,
     test_data=test_data,
-    split_fn=split_input_target_uni_step,
+    split_fn=split_input_target,
     BUFFER_SIZE=BUFFER_SIZE,
     BATCH_SIZE=BATCH_SIZE,
     target_feature=target_feature,
@@ -207,11 +207,11 @@ if __name__ == "__main__":
       print('target example', tar[0])
 
   else:
-    list_train_dataset, list_val_dataset, test_dataset, list_train_dataset_for_RNN, list_val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_uni_step(
+    list_train_dataset, list_val_dataset, test_dataset, list_train_dataset_for_RNN, list_val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_4D(
       train_data=train_data,
       val_data=val_data,
       test_data=test_data,
-      split_fn=split_input_target_uni_step,
+      split_fn=split_input_target,
       BUFFER_SIZE=BUFFER_SIZE,
       BATCH_SIZE=BATCH_SIZE,
       target_feature=target_feature,

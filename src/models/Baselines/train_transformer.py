@@ -2,8 +2,8 @@ import tensorflow as tf
 import numpy as np
 import os
 from datetime import datetime
-from preprocessing.time_series.df_to_dataset import split_synthetic_dataset, data_to_dataset_uni_step, \
-  split_input_target_uni_step
+from preprocessing.time_series.df_to_dataset import split_synthetic_dataset, data_to_dataset_4D, \
+  split_input_target
 from models.Baselines.Transformer_without_enc import Transformer
 from models.Baselines.SMC_on_classic_transformer import SMC_on_Transformer
 from train.loss_functions import CustomSchedule
@@ -33,14 +33,14 @@ if __name__ == '__main__':
   np.save(train_data_path, train_data)
   np.save(test_data_path, test_data)
 
-  train_dataset, val_dataset, test_dataset = data_to_dataset_uni_step(train_data=train_data,
-                                                                      val_data=val_data,
-                                                                      test_data=test_data,
-                                                                      split_fn=split_input_target_uni_step,
-                                                                      BUFFER_SIZE=BUFFER_SIZE,
-                                                                      BATCH_SIZE=BATCH_SIZE,
-                                                                      target_feature=None,
-                                                                      cv=False)
+  train_dataset, val_dataset, test_dataset = data_to_dataset_4D(train_data=train_data,
+                                                                val_data=val_data,
+                                                                test_data=test_data,
+                                                                split_fn=split_input_target,
+                                                                BUFFER_SIZE=BUFFER_SIZE,
+                                                                BATCH_SIZE=BATCH_SIZE,
+                                                                target_feature=None,
+                                                                cv=False)
 
   # -------------------- define hyperparameters -----------------------------------------------------------------------------------
   d_model = 6

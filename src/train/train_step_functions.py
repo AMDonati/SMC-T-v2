@@ -10,7 +10,7 @@ train_step_signature = [
 @tf.function(input_signature=train_step_signature) #TODO: debug this problem
 def train_step_classic_T(inputs, targets, transformer, optimizer):
   '''training step for the classic Transformer model'''
-  .
+
   assert len(tf.shape(inputs)) == 4
   assert len(tf.shape(targets)) == 4
 
@@ -31,18 +31,15 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
   return loss
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
-@tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs,
-                     targets,
-                     smc_transformer,
-                     optimizer):
- '''
- :param inputs:
- :param targets:
- :param smc_transformer:
- :param optimizer:
- :return:
- '''
+#@tf.function(input_signature=train_step_signature)
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
+  '''
+  :param inputs:
+  :param targets:
+  :param smc_transformer:
+  :param optimizer:
+  :return:
+  '''
 
   assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
@@ -66,17 +63,17 @@ def train_step_SMC_T(inputs,
 
   return loss
 
-
-@tf.function
-def train_step_rnn_classif(inp, target, model, optimizer, accuracy_metric):
-  with tf.GradientTape() as tape:
-    predictions = model(inp)
-    loss = tf.reduce_mean(
-      tf.keras.losses.sparse_categorical_crossentropy(target, predictions, from_logits=True))
-  grads = tape.gradient(loss, model.trainable_variables)
-  optimizer.apply_gradients(zip(grads, model.trainable_variables))
-  train_acc_batch = accuracy_metric(target, predictions)
-  return loss, train_acc_batch
+#
+# @tf.function
+# def train_step_rnn_classif(inp, target, model, optimizer, accuracy_metric):
+#   with tf.GradientTape() as tape:
+#     predictions = model(inp)
+#     loss = tf.reduce_mean(
+#       tf.keras.losses.sparse_categorical_crossentropy(target, predictions, from_logits=True))
+#   grads = tape.gradient(loss, model.trainable_variables)
+#   optimizer.apply_gradients(zip(grads, model.trainable_variables))
+#   train_acc_batch = accuracy_metric(target, predictions)
+#   return loss, train_acc_batch
 
 
 

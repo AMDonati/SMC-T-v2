@@ -74,7 +74,7 @@ if __name__ == "__main__":
   b = 8
   seq_len = 5
   F = 1
-  d_model = 12
+  d_model = 6
 
   inputs = tf.constant([[[1],[2],[3],[4],[5]]], shape=(1, seq_len, F), dtype=tf.float32) # ok works with len(tf.shape(inputs)==3.
   inputs = tf.tile(inputs, multiples=[b,1,1])
@@ -88,6 +88,7 @@ if __name__ == "__main__":
 
   transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len)
   predictions, (K,V,R), attn_weights = transformer(inputs=inputs, targets=targets)
+
   print('predictions', predictions.shape)
   print('K', K.shape)
   print('attention weights', attn_weights.shape)

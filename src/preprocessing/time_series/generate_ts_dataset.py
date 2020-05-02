@@ -2,11 +2,11 @@ import tensorflow as tf
 import numpy as np
 
 
-def generate_onesample(A, cov_matrix, seq_len, num_features):
+def generate_onesample(A, std_matrix, seq_len, num_features):
   X = tf.random.normal(shape=(1, num_features))
   list_X=[X]
   for s in range(seq_len):
-    X = tf.matmul(X,A) + tf.random.normal(stddev=cov_matrix, shape=(1,num_features))
+    X = tf.matmul(X,A) + tf.random.normal(stddev=std_matrix, shape=(1, num_features))
     list_X.append(X)
   X_obs = tf.stack(list_X, axis=1)
   return X_obs
@@ -21,7 +21,7 @@ if __name__ == "__main__":
   list_samples = []
 
   for N in range(num_samples):
-    X_seq = generate_onesample(A=A, cov_matrix=std_matrix, seq_len=seq_len, num_features=num_features)
+    X_seq = generate_onesample(A=A, std_matrix=std_matrix, seq_len=seq_len, num_features=num_features)
     list_samples.append(X_seq)
 
   X_data = tf.stack(list_samples, axis=0)
