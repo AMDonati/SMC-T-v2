@@ -9,11 +9,24 @@ from train.loss_functions import CustomSchedule
 
 if __name__ == '__main__':
 
+  #  trick for boolean parser args.
+  def str2bool(v):
+    if isinstance(v, bool):
+      return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+      return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+      return False
+    else:
+      raise argparse.ArgumentTypeError('Boolean value expected.')
+
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-d_model", type=int, required=True, default=2, help="depth of attention parameters")
   parser.add_argument("-bs", type=int, required=True, default=128, help="batch size")
   parser.add_argument("-ep", type=int, default=20, help="number of epochs")
+  parser.add_argument("-full_model", type=str2bool, required=True, default=False, help="simple transformer or one with ffn and layer norm")
+  parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
   parser.add_argument("-data_path", type=str, default="../../data", help="path for saving data")
   parser.add_argument("-output_path", type=str, default="../../output", help="path for output folder")
 
@@ -64,7 +77,7 @@ if __name__ == '__main__':
                                          beta_2=0.98,
                                          epsilon=1e-9)
   output_path = args.output_path
-  out_file = 'Recurrent_T_depth_{}_bs_{}'.format(d_model, BATCH_SIZE)
+  out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
 
   output_path = os.path.join(output_path, out_file)
   if not os.path.isdir(output_path):
@@ -81,11 +94,9 @@ if __name__ == '__main__':
 
   # ------ Training of the recurrent Transformer ---------------------------------------------------------------------------------------------------
   logger.info('hparams...')
-  logger.info('d_model: {} - batch size {}'.format(d_model, BATCH_SIZE))
+  logger.info('d_model: {} - batch size {} - full model? {} - dff: {}'.format(d_model, BATCH_SIZE, args.full_model, args.dff))
 
-  smc_transformer = SMC_Transformer(d_model=d_model,
-                                    output_size=output_size,
-                                    seq_len=seq_len)
+  smc_transformer = SMC_Transformer(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=args.full_model, dff=args.dff)
 
   train_SMC_transformer(smc_transformer=smc_transformer,
                         optimizer=optimizer,

@@ -3,13 +3,16 @@ import collections
 # additional imports
 from models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
 from models.SMC_Transformer.transformer_utils import resample
+from neural_toolbox.classic_layers import point_wise_feed_forward_network
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-  def __init__(self, d_model, output_size, seq_len, **kwargs):
+  def __init__(self, d_model, output_size, seq_len, full_model, dff, **kwargs):
     '''
+    :param full_model:
+    :param dff:
     '''
     # store the decoding timestep
     self.dec_timestep = 0 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
@@ -17,6 +20,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.d_model = d_model
     self.output_size = output_size
     self.seq_len = seq_len
+    self.full_model = full_model
+
+    if self.full_model:
+      self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
+      self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+      self.ffn = point_wise_feed_forward_network(d_model, dff)
 
     # initializing smc parameters for training
     self.num_particles = 1
@@ -82,12 +91,19 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # self attention:
     (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
-    predictions = self.output_layer(z)  # (B,P,1,F_y)
 
-    # storing z in R:
+    if self.full_model:
+      out = self.layernorm1(z + x)
+      r = self.ffn(out)
+      r = self.layernorm2(r + out)
+    else:
+      r = z
+
+    predictions = self.output_layer(r)  # (B,P,1,F_y)
+    # storing r in R:
     R_past = R[:,:,:self.dec_timestep,:]
     R_future = R[:,:,self.dec_timestep+1:,:]
-    R = tf.concat([R_past, z, R_future], axis=-2)
+    R = tf.concat([R_past, r, R_future], axis=-2)
 
     # -------- SMC Algo at inference .... ---------------------------------------------------------------------------------------------------------
     if self.noise:

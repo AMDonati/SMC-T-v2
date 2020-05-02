@@ -445,23 +445,8 @@ if __name__ == "__main__":
     logger.info("start evaluation for SMC Transformer...")
     #TODO: add evaluation for LSTM & Baseline Transformer.
     # restoring latest checkpoint for SMC Transformer
-    smc_transformer = SMC_Transformer(num_layers=num_layers,
-                                      d_model=d_model,
-                                      num_heads=num_heads,
-                                      dff=dff,
-                                      output_size=target_vocab_size,
-                                      maximum_position_encoding=maximum_position_encoding_smc,
-                                      num_particles=num_particles,
-                                      sigma=sigma,
-                                      sigma_obs=omega,
-                                      rate=rate,
-                                      noise_encoder=noise_encoder,
-                                      noise_SMC_layer=noise_SMC_layer,
-                                      seq_len=seq_len,
-                                      data_type=data_type,
-                                      task_type=task_type,
-                                      resampling=resampling,
-                                      target_feature=target_feature)
+    smc_transformer = SMC_Transformer(d_model=d_model, output_size=target_vocab_size, seq_len=seq_len, full_model=False,
+                                      dff=)
 
     # creating checkpoint manager
     smc_T_ckpt = tf.train.Checkpoint(transformer=smc_transformer,

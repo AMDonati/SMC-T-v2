@@ -89,23 +89,7 @@ if __name__ == "__main__":
   C = F if target_feature is None else 1
   maximum_position_encoding = 50
 
-  sample_transformer = SMC_Transformer(
-    num_layers=num_layers,
-    d_model=d_model,
-    num_heads=num_heads,
-    dff=dff,
-    output_size=C,
-    maximum_position_encoding=maximum_position_encoding,
-    num_particles=1,
-    seq_len=seq_len,
-    sigma=sigma,
-    sigma_obs=omega,
-    noise_encoder=False,
-    noise_SMC_layer=False,
-    data_type=data_type,
-    task_type=task_type,
-    target_feature=target_feature,
-    rate=rate)
+  sample_transformer = SMC_Transformer(d_model=d_model, output_size=C, seq_len=seq_len, full_model=False, dff=)
 
   train_data = tf.random.uniform(shape=(b,seq_len+1,F))
   train_labels = tf.random.uniform(shape=(b,seq_len,1))

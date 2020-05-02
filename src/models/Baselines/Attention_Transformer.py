@@ -18,7 +18,7 @@ def scaled_dot_product_attention(q, k, v, mask):
   if mask is not None:
     scaled_attention_logits += (mask * -1e9)
 
-    # softmax is normalized on the last axis (seq_len_k) so that the scores add up to 1.
+  # softmax is normalized on the last axis (seq_len_k) so that the scores add up to 1.
   attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B,P,S_q, S_k) or (B,S,S)
 
   output = tf.matmul(attention_weights, v)  # (B,P,S,D) or (B,S,S)
@@ -68,8 +68,6 @@ class OneHeadAttention(tf.keras.layers.Layer):
         self.V = tf.concat([self.V, v], axis=-2)
       assert tf.shape(self.K)[-2] == self.dec_timestep + 1
       assert tf.shape(self.V)[-2] == self.dec_timestep + 1
-      #print('decoding timestep', self.dec_timestep)
-      #print('length of K', tf.shape(self.K)[-2])
 
     else:
       self.K, self.V = k, v

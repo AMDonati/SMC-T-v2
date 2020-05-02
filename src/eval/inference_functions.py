@@ -524,23 +524,7 @@ if __name__ == "__main__":
   C = F if target_feature is None else 1
   maximum_position_encoding = 50
 
-  sample_transformer = SMC_Transformer(
-    num_layers=num_layers,
-    d_model=d_model,
-    num_heads=num_heads,
-    dff=dff,
-    output_size=C,
-    maximum_position_encoding=maximum_position_encoding,
-    num_particles=num_particles_training,
-    seq_len=seq_len,
-    sigma=sigma,
-    sigma_obs=omega,
-    noise_encoder=noise_encoder,
-    noise_SMC_layer=noise_SMC_layer,
-    data_type=data_type,
-    task_type=task_type,
-    target_feature=target_feature,
-    rate=rate)
+  sample_transformer = SMC_Transformer(d_model=d_model, output_size=C, seq_len=seq_len, full_model=False, dff=)
 
   inputs = tf.random.uniform(shape=(b,seq_len+1,F))
 
@@ -593,23 +577,7 @@ if __name__ == "__main__":
   num_updates = 5
   alpha = 0.7
 
-  sample_transformer = SMC_Transformer(
-    num_layers=num_layers,
-    d_model=d_model,
-    num_heads=num_heads,
-    dff=dff,
-    output_size=C,
-    maximum_position_encoding=maximum_position_encoding,
-    num_particles=num_particles_training,
-    seq_len=seq_len,
-    sigma=sigma,
-    sigma_obs=omega,
-    noise_encoder=noise_encoder,
-    noise_SMC_layer=noise_SMC_layer,
-    data_type=data_type,
-    task_type=task_type,
-    target_feature=target_feature,
-    rate=rate)
+  sample_transformer = SMC_Transformer(d_model=d_model, output_size=C, seq_len=seq_len, full_model=False, dff=)
 
   (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=inputs,
                                                                                             smc_transformer=sample_transformer,

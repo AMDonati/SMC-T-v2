@@ -131,23 +131,8 @@ if __name__ == "__main__":
                                        epsilon=1e-9)
   target_vocab_size = num_features if target_feature is None else 1
   # create a SMC_Transformer
-  smc_transformer = SMC_Transformer(num_layers=num_layers,
-                                    d_model=d_model,
-                                    num_heads=num_heads,
-                                    dff=dff,
-                                    output_size=target_vocab_size,
-                                    maximum_position_encoding=maximum_position_encoding_smc,
-                                    num_particles=num_particles,
-                                    sigma=sigma,
-                                    sigma_obs=omega,
-                                    rate=rate,
-                                    noise_encoder=noise_encoder,
-                                    noise_SMC_layer=noise_SMC_layer,
-                                    seq_len=seq_len,
-                                    data_type=data_type,
-                                    task_type=task_type,
-                                    resampling=resampling,
-                                    target_feature=target_feature)
+  smc_transformer = SMC_Transformer(d_model=d_model, output_size=target_vocab_size, seq_len=seq_len, full_model=False,
+                                    dff=)
 
   # get checkpoint path for SMC_Transformer
   smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")

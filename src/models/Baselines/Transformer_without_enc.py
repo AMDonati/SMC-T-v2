@@ -30,12 +30,12 @@ class DecoderLayer(tf.keras.layers.Layer):
     attn1, attn_weights = self.mha(inputs=inputs, mask=look_ahead_mask)  # (batch_size, target_seq_len, d_model)
 
     attn1 = self.dropout1(attn1, training=training) # (B,S,D)
-    #out1 = self.layernorm1(attn1 + input) # (B,S,D)
-    #ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
-    ffn_output = self.ffn(attn1)
+    out1 = self.layernorm1(attn1 + input) # (B,S,D)
+    ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
+    #ffn_output = self.ffn(attn1)
     ffn_output = self.dropout3(ffn_output, training=training)
-    #out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
-    out3 = ffn_output
+    out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
+   #out3 = ffn_output
 
     return out3, attn_weights
 

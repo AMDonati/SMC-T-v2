@@ -11,12 +11,10 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transformer(tf.keras.Model):
 
-  def __init__(self, d_model, output_size, seq_len):
+  def __init__(self, d_model, output_size, seq_len, full_model, dff):
     super(SMC_Transformer, self).__init__()
 
-    self.cell = SMC_Transf_Cell(d_model=d_model,
-                                output_size=output_size,
-                                seq_len=seq_len)
+    self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model, dff=dff)
 
     # for pre_processing words in the one_layer case.
     self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts') # for regression case.
@@ -24,6 +22,8 @@ class SMC_Transformer(tf.keras.Model):
     self.output_size = output_size
     self.d_model = d_model
     self.seq_len = seq_len
+    self.full_model = full_model
+    self.dff = dff
 
   def call(self, inputs, targets):
     '''
@@ -75,6 +75,8 @@ if __name__ == "__main__":
   seq_len = 5
   F = 1
   d_model = 6
+  full_model = False
+  dff = 24
 
   inputs = tf.constant([[[1],[2],[3],[4],[5]]], shape=(1, seq_len, F), dtype=tf.float32) # ok works with len(tf.shape(inputs)==3.
   inputs = tf.tile(inputs, multiples=[b,1,1])
@@ -86,7 +88,7 @@ if __name__ == "__main__":
   targets = tf.expand_dims(targets, axis=1)
   print('targets', targets.shape)
 
-  transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len)
+  transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff)
   predictions, (K,V,R), attn_weights = transformer(inputs=inputs, targets=targets)
 
   print('predictions', predictions.shape)
