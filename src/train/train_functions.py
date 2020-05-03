@@ -111,14 +111,14 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
 
     avg_val_loss = sum_val_loss / (batch_val + 1)
 
-    logger.info('train loss: {} - val loss: {}'.format(avg_train_loss.numpy(), avg_val_loss.numpy()))
+    logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(avg_train_loss.numpy(), avg_val_loss.numpy()))
     average_losses_baseline.append(avg_train_loss.numpy())
     val_losses_baseline.append(avg_val_loss.numpy())
 
     ckpt_manager.save()
-    logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+    logger.info('Time taken for 1 epoch: {:10.1f} secs\n'.format(time.time() - start))
 
-  logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
+  logger.info('total training time for {:10.1f} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
   # storing history of losses and accuracies in a csv file
   keys = ['train loss', 'val loss']

@@ -7,12 +7,12 @@ train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
 ]
 
-@tf.function(input_signature=train_step_signature) #TODO: debug this problem
+#@tf.function(input_signature=train_step_signature) #TODO: debug this problem
 def train_step_classic_T(inputs, targets, transformer, optimizer):
   '''training step for the classic Transformer model'''
 
-  assert len(tf.shape(inputs)) == 4
-  assert len(tf.shape(targets)) == 4
+  #assert len(tf.shape(inputs)) == 4
+  #assert len(tf.shape(targets)) == 4
 
   seq_len = tf.shape(inputs)[-2]
   mask_transformer = create_look_ahead_mask(seq_len)

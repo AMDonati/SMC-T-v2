@@ -82,7 +82,7 @@ class Decoder(tf.keras.layers.Layer):
                                          look_ahead_mask=look_ahead_mask)
       attention_weights['decoder_layer{}'.format(i + 1)] = block
 
-    return inputs, attention_weights #(B,S,D), # (B,S,S)?
+    return inputs, attention_weights # (B,S,S)?
 
 """## Create the Transformer
 The transTransformer consists of the decoder and a final linear layer. 
@@ -116,7 +116,7 @@ class Transformer(tf.keras.Model):
     '''
 
     dec_output, attention_weights = self.decoder(inputs=inputs, training=training, look_ahead_mask=mask) # (B,S,D)
-    final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
+    final_output = self.final_layer(dec_output)  # (B, S, F_y)
 
     return final_output, attention_weights
 
