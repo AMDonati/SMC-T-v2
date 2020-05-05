@@ -59,7 +59,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :param predictions: output of final layer: (B,P,1,F_y)
     :param y: current target element > shape (B,P,1,F_y).
     :return:
-    resampling weights of shape (B,P). 
+    resampling weights of shape (B,P).
     '''
     mu_t = y - predictions # (B,P,1,F_y)
     mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
@@ -112,20 +112,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     R_future = R[:,:,self.dec_timestep+1:,:]
     R = tf.concat([R_past, r, R_future], axis=-2)
 
-    # -------- SMC Algo at inference .... ---------------------------------------------------------------------------------------------------------
+    # -------- SMC Algo ---------------------------------------------------------------------------------------------------------
     if self.noise:
-      # computing resampling weights
       w = self.compute_w_regression(predictions=predictions, y=y)
       i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
+      w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
+      self.list_weights.append(w.numpy())
+      self.list_indices.append(i_t.numpy())
       # resample K, V, and R
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
+      # Getting internal noises for comuting the loss.
+      internal_noises = [self.attention_smc.noise_k, self.attention_smc.noise_q, self.attention_smc.noise_v, self.attention_smc.noise_z]
+      output = [attn_weights, internal_noises] # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
+    else:
+      output = [attn_weights]
 
-      self.list_weights.append(w.numpy())
-      self.list_indices.append(i_t.numpy())
-
-    output = attn_weights # attn_weights > shape (B,P,1,S).
     new_states = NestedState(K=K, V=V, R=R)
     self.dec_timestep += 1
 

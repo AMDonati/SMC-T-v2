@@ -25,6 +25,29 @@ class SMC_Transformer(tf.keras.Model):
     self.full_model = full_model
     self.dff = dff
 
+  def compute_SMC_loss(self):
+
+    assert self.cell.noise == self.cell.attention_smc.noise == True
+    list_noises = [self.internal_noises[i] for i in range(4)] # (B,P,S,D).
+    list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
+                                         self.cell.attention_smc.sigma_z] # (D,D)
+    loss_parts = []
+    for noise, sigma in zip(list_noises, list_sigmas):
+      if len(tf.shape(sigma)) == 0: # scalar case.
+        temp = tf.scalar_mul((sigma_obs)**-2, noise)
+      else:
+        Sigma_inv = tf.matmul(tf.linalg.inv(sigma), tf.linalg.inv(sigma), transpose_b=True) # (D,D)
+        temp = tf.einsum('bijk,kk->bijk', noise, Sigma_inv)
+      loss_part = tf.einsum('bijk,bijk->bij', temp, noise)
+      loss_parts.append(loss_part)
+
+    smc_loss = (1/2) * tf.stack(loss_parts, axis=0) # (4,B,P,S) # multiplication by 1/2 because the smc loss is (-log likelihood).
+    smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
+    smc_loss = tf.reduce_mean(smc_loss) #mean over all other dims.
+
+    return smc_loss
+
+
   def call(self, inputs, targets):
     '''
     :param inputs: input_data: shape (B,P,S,F_x) with P=1 during training.
@@ -58,7 +81,8 @@ class SMC_Transformer(tf.keras.Model):
     self.cell.dec_timestep = 0 # reset decoding timestep of the cell to 0.
 
     # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-    attn_weights = tf.squeeze(outputs, axis=-2) # (B,S,P,S)
+    outputs = [tf.squeeze(out, axis=-2) for out in outputs]
+    attn_weights = tf.transpose(outputs[0], perm=[0, 2, 1, 3])
     # states
     K, V, R = new_states[0], new_states[1], new_states[2] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
@@ -66,7 +90,10 @@ class SMC_Transformer(tf.keras.Model):
     R = R[:,:,1:,:] # (B,P,S,D)
 
     Y0_T = self.final_layer(R) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
-    attn_weights = tf.transpose(attn_weights, perm=[0,2,1,3])
+
+    if self.cell.noise:
+      self.internal_noises = outputs[1]  # (4,B,S,P,D). stacking of the 4 internal noises (k,q,v,z) on the first dimension.
+      self.internal_noises = tf.transpose(self.internal_noises, perm=[0,1,3,2,4]) # (4,B,P,S,D).
 
     return Y0_T, (K,V,R), attn_weights
 
@@ -95,7 +122,7 @@ if __name__ == "__main__":
   print('K', K.shape)
   print('attention weights', attn_weights.shape)
 
-  # test when addding SMC during inference.
+  # ---------------------------------------------test when adding SMC during inference----------------------------------------------------------
   num_particles = 10
   sigma = 0.1
   sigma_obs = 0.5
@@ -111,7 +138,9 @@ if __name__ == "__main__":
   print('K', K.shape)
   print('attention weights', attn_weights.shape)
 
-
+  # ------------------------------------------- test of compute_smc_loss -------------------------------------------------------------------------
+  smc_loss = transformer.compute_SMC_loss()
+  print('smc loss', smc_loss.numpy())
 
 
 

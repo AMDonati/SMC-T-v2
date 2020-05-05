@@ -46,14 +46,19 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     assert len(tf.shape(inputs)) == 4 # (B,P,1,D)
 
     # computing current k,q,v from inputs
-    k = self.wk(inputs) # (B,P,1,D)
-    q = self.wq(inputs) # (B,P,1,D)
-    v = self.wv(inputs) # (B,P,1,D)
+    k_ = self.wk(inputs) # (B,P,1,D)
+    q_ = self.wq(inputs) # (B,P,1,D)
+    v_ = self.wv(inputs) # (B,P,1,D)
 
     if self.noise:
-      k = self.add_noise(k, self.sigma_k)
-      q = self.add_noise(q, self.sigma_q)
-      v = self.add_noise(v, self.sigma_v)
+      k = self.add_noise(k_, self.sigma_k)
+      q = self.add_noise(q_, self.sigma_q)
+      v = self.add_noise(v_, self.sigma_v)
+      self.noise_k = k - k_
+      self.noise_q = q - q_
+      self.noise_v = v - v_
+    else:
+      k, q, v = k_, q_, v_
 
     K_past = K[:, :, :timestep, :]
     K_future = K[:, :, timestep + 1:, :]
@@ -69,11 +74,14 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)  # (B,P,1,S)
     # softmax to get pi:
     attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B, P, 1, S)
-    z = tf.matmul(attention_weights, V)  # (B,P,1,S)
-    z = self.dense(z)
+    z_ = tf.matmul(attention_weights, V)  # (B,P,1,S)
+    z_ = self.dense(z_)
 
     if self.noise:
-      z = self.add_noise(z, self.sigma_z)
+      z = self.add_noise(z_, self.sigma_z)
+      self.noise_z = z - z_
+    else:
+      z = z_
 
     return (z, K, V), attention_weights
 
