@@ -54,19 +54,26 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     '''
     # FORMULA
     # logw = -0.5 * mu_t ^ T * mu_t / omega
-    # logw = logw - min(logw)
+    # logw = logw - max(logw)
     # w = exp(logw)
-    :param predictions: output of final layer (logits.) > shape (B,P,F) or (B,P,1,F) (regression case)
-    :param y: current sequence element (x_t) > shape (B,F,1); F > 1 for multivariate case.
+    :param predictions: output of final layer: (B,P,1,F_y)
+    :param y: current target element > shape (B,P,1,F_y).
     :return:
+    resampling weights of shape (B,P). 
     '''
-    mu_t = y - predictions # (B,P,F)
-    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
-    log_w = tf.scalar_mul(-1 / (2 * (self.sigma_obs) ** 2), log_w)# omega here is the stddev.
-    log_w = tf.squeeze(log_w, axis=-1)
-    log_w_min = tf.reduce_min(log_w, axis=1, keepdims=True)
-    log_w = log_w - log_w_min
+    mu_t = y - predictions # (B,P,1,F_y)
+    mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
+
+    if len(tf.shape(self.sigma_obs)) == 0: # self.sigma_obs is a scalar std.
+      temp = tf.scalar_mul((self.sigma_obs)**-2, mu_t)
+    else: # self.sigma_obs is a std matrix of shape (F_y, F_y)
+      Sigma_obs_inv = tf.matmul(tf.linalg.inv(self.sigma_obs), tf.linalg.inv(self.sigma_obs), transpose_b=True) # (F_y, F_y)
+      temp = tf.einsum('bij,jj->bij', mu_t, Sigma_obs_inv) # (B,P,F_y)
+
+    log_w = (-1 / 2) * tf.matmul(temp, mu_t, transpose_b=True)  # (B,P,P)
+    log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
+    log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
+    log_w = log_w - log_w_max
     w = tf.math.exp(log_w)
     # normalization
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
@@ -127,8 +134,26 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 if __name__ == "__main__":
   batch_size = 8
   d_model = 12
-  target_vocab_size = 1
+  output_size = 1
   seq_len = 4
   task_type = 'regression'
 
+  # ---- test of compute w_regression ------------------------------------
+  temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=False, dff=0)
+  SMC_Transf_Cell.sigma_obs = 0.5
+
+  temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+  temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+
+  temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
+  print('w', temp_w.shape)
+
+  output_size = 3
+  temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+  temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+
+  diag = tf.linalg.diag(tf.random.uniform(shape=(output_size,), dtype=tf.float32))
+  SMC_Transf_Cell.sigma_obs = tf.matmul(diag, diag, transpose_b=True)
+  temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
+  print('w', temp_w.shape)
 

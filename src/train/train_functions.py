@@ -1,26 +1,16 @@
 import tensorflow as tf
-from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
-from train.loss_functions import loss_function_regression
-
-from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-
 import time
 import os
-import statistics
+from utils.utils_train import saving_training_history, write_to_csv, restoring_checkpoint
 
-from utils.utils_train import saving_training_history
-from utils.utils_train import saving_model_outputs
-from utils.utils_train import restoring_checkpoint
+def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):
 
-def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, checkpoint_path, logger, num_train):
-  #TODO: remove this function.
   LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_Baseline_{}".format(num_train))
   LSTM_ckpt_path = LSTM_ckpt_path+'/'+'LSTM-{epoch}'
 
-  start_epoch = 0
   callbacks = [
     tf.keras.callbacks.ModelCheckpoint(
       filepath=LSTM_ckpt_path,
@@ -34,9 +24,9 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
 
   # --- starting the training ... -----------------------------------------------
   start_training = time.time()
-  rnn_history = model.fit(train_dataset_for_RNN,
+  rnn_history = model.fit(train_dataset,
                           epochs=EPOCHS,
-                          validation_data=val_dataset_for_RNN,
+                          validation_data=val_dataset,
                           callbacks=callbacks,
                           verbose=2)
 
@@ -45,13 +35,9 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
   keys = ['train_loss', 'val_loss']
   values = [train_loss_history_rnn, val_loss_history_rnn]
   csv_fname = 'rnn_history_{}.csv'.format(num_train)
+  dict_hist = dict(zip(keys, values))
+  write_to_csv(output_dir=os.path.join(output_path, csv_fname), dic=dict_hist)
 
-  saving_training_history(keys=keys,
-                          values=values,
-                          output_path=output_path,
-                          csv_fname=csv_fname,
-                          logger=logger,
-                          start_epoch=start_epoch)
 
   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
   logger.info('training of a RNN Baseline for a timeseries dataset done...')

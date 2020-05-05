@@ -79,7 +79,7 @@ if __name__ == '__main__':
                                          epsilon=1e-9)
   output_path = args.output_path
   out_file = 'Classic_T_depth_{}_dff_{}_pe_{}_bs_{}'.format(d_model, dff, maximum_position_encoding, BATCH_SIZE)
-  output_path = os.path.join(output_path, )
+  output_path = os.path.join(output_path, out_file)
   if not os.path.isdir(output_path):
     os.makedirs(output_path)
 

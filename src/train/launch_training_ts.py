@@ -306,15 +306,15 @@ if __name__ == "__main__":
         print('LSTM summary', model.summary())
 
         train_LSTM(model=model,
-                 optimizer=optimizer_LSTM,
-                 EPOCHS=EPOCHS,
-                 train_dataset_for_RNN=train_dataset_for_RNN,
-                 val_dataset_for_RNN=val_dataset_for_RNN,
-                 checkpoint_path=checkpoint_path,
-                 args=args,
-                 output_path=output_path,
-                 logger=logger,
-                 num_train=1)
+                   optimizer=optimizer_LSTM,
+                   EPOCHS=EPOCHS,
+                   train_dataset=train_dataset_for_RNN,
+                   val_dataset=val_dataset_for_RNN,
+                   checkpoint_path=checkpoint_path,
+                   args=args,
+                   output_path=output_path,
+                   logger=logger,
+                   num_train=1)
       else:
         for train_num, (train_dataset_for_RNN, val_dataset_for_RNN) in enumerate(zip(list_train_dataset_for_RNN, list_val_dataset_for_RNN)):
           if train_num == 0:
@@ -324,15 +324,15 @@ if __name__ == "__main__":
 
           logger.info("starting training of train/val split number {}".format(train_num))
           train_LSTM(model=model,
-                   optimizer=optimizer,
-                   EPOCHS=EPOCHS,
-                   train_dataset_for_RNN=train_dataset_for_RNN,
-                   val_dataset_for_RNN=val_dataset_for_RNN,
-                   checkpoint_path=checkpoint_path,
-                   args=args,
-                   output_path=output_path,
-                   logger=logger,
-                   num_train=train_num+1)
+                     optimizer=optimizer,
+                     EPOCHS=EPOCHS,
+                     train_dataset=train_dataset_for_RNN,
+                     val_dataset=val_dataset_for_RNN,
+                     checkpoint_path=checkpoint_path,
+                     args=args,
+                     output_path=output_path,
+                     logger=logger,
+                     num_train=train_num+1)
           logger.info("training of a LSTM for train/val split number {} done...".format(train_num + 1))
           logger.info(
           "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")

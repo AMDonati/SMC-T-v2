@@ -22,6 +22,19 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     self.sigma_z = dict_sigmas['z']
     self.noise = True
 
+  def add_noise(self, params, sigma):
+    '''
+    :param params: K,q,V or z. shape (B,P,S,D) for K, V. or shape (B,P,1,D) for q, z.
+    :param sigma: scalar or matrix of shape (D,D).
+    :return:
+    '''
+    gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
+    if len(tf.shape(sigma)) == 0: # sigma is a scalar
+      noise = tf.scalar_mul(sigma, gaussian_noise)
+    else: # sigma is the std matrix of shape (B,B)
+      noise = tf.einsum('bijk,kk->bijk', params, sigma)
+    return params + noise
+
   def call(self, inputs, timestep, K, V):
     '''
     :param inputs: X_t (B,P,1,D) with P = 1 during training.
@@ -38,9 +51,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     v = self.wv(inputs) # (B,P,1,D)
 
     if self.noise:
-      k = k + tf.random.normal(stddev=self.sigma_k, shape=tf.shape(k))
-      q = q + tf.random.normal(stddev=self.sigma_q, shape=tf.shape(q))
-      v = v + tf.random.normal(stddev=self.sigma_v, shape=tf.shape(v))
+      k = self.add_noise(k, self.sigma_k)
+      q = self.add_noise(q, self.sigma_q)
+      v = self.add_noise(v, self.sigma_v)
 
     K_past = K[:, :, :timestep, :]
     K_future = K[:, :, timestep + 1:, :]
@@ -60,7 +73,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     z = self.dense(z)
 
     if self.noise:
-      z = z + tf.random.normal(stddev=self.sigma_z, shape=tf.shape(z))
+      z = self.add_noise(z, self.sigma_z)
 
     return (z, K, V), attention_weights
 
@@ -81,6 +94,15 @@ if __name__ == "__main__":
   print('temp_K', temp_K.shape)
   print('temp_V', temp_V.shape)
   print('attention_weights', attn_weights.shape)
+
+  # test of add noise function.
+  temp_params = tf.random.uniform(shape=(B,10,S,d_model), dtype=tf.float32)
+  sigma = 0.5
+  new_params = temp_attention.add_noise(temp_params, sigma)
+  print('new params', new_params.shape)
+  sigma = tf.random.uniform(shape=(d_model, d_model), dtype=tf.float32)
+  new_params = temp_attention.add_noise(temp_params, sigma)
+  print('new params', new_params.shape)
 
   # test with noise and more than one particule
   num_particles = 10
