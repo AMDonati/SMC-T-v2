@@ -82,20 +82,24 @@ class SMC_Transformer(tf.keras.Model):
 
     # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
     outputs = [tf.squeeze(out, axis=-2) for out in outputs]
-    attn_weights = tf.transpose(outputs[0], perm=[0, 2, 1, 3])
+    R = tf.transpose(outputs[0], perm=[0,2,1,3]) # (B,P,S,D) # R not resampled.
+    attn_weights = tf.transpose(outputs[1], perm=[0, 2, 1, 3])
+
+
     # states
-    K, V, R = new_states[0], new_states[1], new_states[2] # (B,P,S+1,D)
+    K, V, R_resampl = new_states[0], new_states[1], new_states[2] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
     V = V[:,:,1:,:] # (B,S,P,D)
-    R = R[:,:,1:,:] # (B,P,S,D)
+    R_resampl = R_resampl[:,:,1:,:] # (B,P,S,D)
 
-    Y0_T = self.final_layer(R) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
+    pred_resampl = self.final_layer(R_resampl) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
+    pred = self.final_layer(R)
 
     if self.cell.noise:
       self.internal_noises = outputs[1]  # (4,B,S,P,D). stacking of the 4 internal noises (k,q,v,z) on the first dimension.
       self.internal_noises = tf.transpose(self.internal_noises, perm=[0,1,3,2,4]) # (4,B,P,S,D).
 
-    return Y0_T, (K,V,R), attn_weights
+    return (pred, pred_resampl), (K,V,R_resampl), attn_weights
 
 if __name__ == "__main__":
   b = 8
@@ -116,7 +120,7 @@ if __name__ == "__main__":
   print('targets', targets.shape)
 
   transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff)
-  predictions, (K,V,R), attn_weights = transformer(inputs=inputs, targets=targets)
+  (predictions, _), (K,V,R), attn_weights = transformer(inputs=inputs, targets=targets)
 
   print('predictions', predictions.shape)
   print('K', K.shape)
@@ -133,8 +137,9 @@ if __name__ == "__main__":
   transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                       sigma_obs=sigma_obs,
                                       num_particles=num_particles)
-  predictions, (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
-  print('predictions', predictions.shape)
+  (pred, pred_resampl), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+  print('predictions', pred.shape)
+  print('predictions resampled', pred_resampl.shape)
   print('K', K.shape)
   print('attention weights', attn_weights.shape)
 

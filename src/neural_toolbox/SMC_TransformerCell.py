@@ -38,7 +38,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]))
-    self.output_size = (tf.TensorShape([self.num_particles, 1, self.seq_len]))  # attention_weights
+    self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
+                        tf.TensorShape([self.num_particles, 1, self.seq_len])) # r, attention_weights
 
     super(SMC_Transf_Cell, self).__init__(**kwargs)
 
@@ -124,9 +125,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
       # Getting internal noises for computing the loss.
       internal_noises = [self.attention_smc.noise_k, self.attention_smc.noise_q, self.attention_smc.noise_v, self.attention_smc.noise_z]
-      output = [attn_weights, internal_noises] # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
+      output = [r, attn_weights, internal_noises] # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
     else:
-      output = [attn_weights]
+      output = [r, attn_weights]
 
     new_states = NestedState(K=K, V=V, R=R)
     self.dec_timestep += 1

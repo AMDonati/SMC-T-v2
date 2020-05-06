@@ -27,6 +27,9 @@ if __name__ == '__main__':
   parser.add_argument("-ep", type=int, default=20, help="number of epochs")
   parser.add_argument("-full_model", type=str2bool, required=True, default=False, help="simple transformer or one with ffn and layer norm")
   parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
+  parser.add_argument("-particules", type=int, help="number of particules")
+  parser.add_argument("-sigmas", type=list, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+  parser.add_argument("-sigma_obs", type=float, help="values for sigma obs")
   parser.add_argument("-data_path", type=str, default="../../data", help="path for saving data")
   parser.add_argument("-output_path", type=str, default="../../output", help="path for output folder")
 
@@ -78,7 +81,13 @@ if __name__ == '__main__':
                                          epsilon=1e-9)
   output_path = args.output_path
   out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
-
+  if args.sigmas is not None:
+    out_file = out_file + '__p_{}_sigmas_{}_{}_{}_{}_sigmaObs_{}'.format(args.particules,
+                                                                        args.sigmas[0],
+                                                                       args.sigmas[1],
+                                                                       args.sigmas[2],
+                                                                       args.sigmas[3],
+                                                                       args.sigma_obs)
   output_path = os.path.join(output_path, out_file)
   if not os.path.isdir(output_path):
     os.makedirs(output_path)
@@ -98,6 +107,12 @@ if __name__ == '__main__':
 
   smc_transformer = SMC_Transformer(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=args.full_model, dff=args.dff)
 
+  if args.sigmas is not None:
+    logger.info("SMC Transformer with internal sigmas: {}, sigma_obs: {} for {} particules".format(args.sigmas, args.sigma_obs, args.particules))
+    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], args.sigmas))
+    smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs, num_particles=args.particules)
+    assert smc_transformer.cell.noise == smc_transformer.cell.attention_smc.noise == True
+
   train_SMC_transformer(smc_transformer=smc_transformer,
                         optimizer=optimizer,
                         EPOCHS=EPOCHS,
@@ -107,12 +122,14 @@ if __name__ == '__main__':
                         logger=logger,
                         num_train=1)
 
+  logger.info("computing test loss and metric at the end of training...")
   # computing loss on test_dataset:
   for (inp, tar) in test_dataset:
-    predictions_test, _, _ = smc_transformer(inputs=inp, targets=tar)
-    test_loss = tf.keras.losses.MSE(tar, predictions_test)
-    test_loss = tf.reduce_mean(test_loss, axis=-1)
-    test_loss = tf.reduce_mean(test_loss, axis=-1)
-    test_loss = tf.reduce_mean(test_loss, axis=-1)
+    (preds_test, preds_test_resampl), _, _ = smc_transformer(inputs=inp, targets=tar) # predictions test are the ones not resampled.
+    tar_tiled = tf.tile(tar, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
+    test_loss = tf.keras.losses.MSE(tar_tiled, preds_test_resampl)
+    test_loss = tf.reduce_mean(test_loss)
+    test_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_test, axis=1, keepdims=True)) # (B,1,S)
+    test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
-  logger.info("test loss at the end of training: {}".format(test_loss))
+  logger.info("test loss: {} - test mse metric from avg particule: {}".format(test_loss, test_metric_avg_pred))
