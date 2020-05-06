@@ -30,7 +30,7 @@ class SMC_Transformer(tf.keras.Model):
     assert self.cell.noise == self.cell.attention_smc.noise == True
     list_noises = [self.internal_noises[i] for i in range(4)] # (B,P,S,D).
     list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
-                                         self.cell.attention_smc.sigma_z] # (D,D)
+                                         self.cell.attention_smc.sigma_z] # (D,D) or scalar.
     loss_parts = []
     for noise, sigma in zip(list_noises, list_sigmas):
       if len(tf.shape(sigma)) == 0: # scalar case.

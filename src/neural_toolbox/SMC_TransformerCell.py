@@ -44,10 +44,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def add_SMC_parameters(self, dict_sigmas, sigma_obs, num_particles):
 
+    self.noise = True
     self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
     self.num_particles = num_particles
     self.sigma_obs = sigma_obs
-    self.noise = True
     self.list_weights, self.list_indices  = [], []
 
   def compute_w_regression(self, predictions, y):
@@ -75,8 +75,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     log_w = log_w - log_w_max
     w = tf.math.exp(log_w)
-    # normalization
-    w = w / tf.reduce_sum(w, axis=1, keepdims=True)
+    w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
 
     assert len(tf.shape(w)) == 2
     # check if w contains a nan number
@@ -123,7 +122,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
-      # Getting internal noises for comuting the loss.
+      # Getting internal noises for computing the loss.
       internal_noises = [self.attention_smc.noise_k, self.attention_smc.noise_q, self.attention_smc.noise_v, self.attention_smc.noise_z]
       output = [attn_weights, internal_noises] # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
     else:

@@ -128,7 +128,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
   ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                              optimizer=optimizer)
   smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_{}".format(num_train))
-  ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS) #TODO: change this?
+  ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
   # if a checkpoint exists, restore the latest checkpoint.
   start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args_load_ckpt=True, logger=logger)
@@ -150,28 +150,38 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
   for epoch in range(start_epoch, EPOCHS):
     start = time.time()
     logger.info('Epoch {}/{}'.format(epoch+1, EPOCHS))
-    sum_train_loss, sum_val_loss = 0., 0.
+
+    if smc_transformer.cell.noise:
+      train_loss, val_loss = [0. for _ in range(3)], [0. for _ in range(2)]
+    else:
+      train_loss, val_loss = [0.], [0.]
 
     for batch, (inp, tar) in enumerate(train_dataset):
-      train_loss_batch = train_step_SMC_T(inputs=inp,
+      train_loss_mse, train_loss_avg_pred, train_total_loss = train_step_SMC_T(inputs=inp,
                                           targets=tar,
                                           smc_transformer=smc_transformer,
                                           optimizer=optimizer)
-      sum_train_loss += train_loss_batch
+      train_loss[0] += train_loss_mse
+      if smc_transformer.cell.noise:
+        train_loss[1] += train_loss_avg_pred
+        train_loss[2] += train_total_loss
 
-    train_loss = sum_train_loss / (batch+1)
-
-    for batch, (inp, tar) in enumerate(val_dataset):
+    for batch_val, (inp, tar) in enumerate(val_dataset):
       predictions_val, _, _ = smc_transformer(inputs=inp, targets=tar) # shape (B,1,S,F_y)
-      val_loss_batch = tf.keras.losses.MSE(tar, predictions_val) # (B,1,S)
-      val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1) # (B,1)
-      val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1) # (B)
-      val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
-      sum_val_loss+= val_loss_batch
+      val_loss_mse = tf.keras.losses.MSE(tar, predictions_val) # (B,1,S)
+      val_loss_mse = tf.reduce_mean(val_loss_mse) # mean over all dims.
+      val_loss[0] += val_loss_mse
+      if smc_transformer.cell.noise:
+        val_loss_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(predictions_val, axis=1, keepdims=True))
+        val_loss_avg_pred = tf.reduce_mean(val_loss_avg_pred)
+        val_loss[1] += val_loss_avg_pred
 
-    val_loss = sum_val_loss / (batch + 1)
+    train_loss, val_loss = [i / (batch + 1) for i in train_loss],  [i /(batch_val + 1) for i in val_loss]
+    logger.info('train mse loss: {:5.3f} - val mse loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
+    if smc_transformer.cell.noise:
+      logger.info('train mse loss from avg particule: {:5.3f} - train total loss: {:5.3f} - val mse loss from avg particule: {:5.3f}'.format(
+        train_loss[1].numpy(), train_loss[2].numpy(), val_loss[1].numpy()))
 
-    logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(train_loss.numpy(), val_loss.numpy()))
     ckpt_manager.save()
     logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 

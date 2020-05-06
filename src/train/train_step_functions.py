@@ -46,10 +46,20 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
   with tf.GradientTape() as tape:
     predictions, _,  _ = smc_transformer(inputs=inputs,
                                          targets=targets) # predictions: shape (B,P,S,F_y) with P=1 during training.
-    loss = tf.keras.losses.MSE(targets, predictions) # (B,P,S)
-    loss = tf.reduce_mean(loss, axis=-1) # (B,P)
-    loss = tf.reduce_mean(loss, axis=-1) # (B,)
-    loss = tf.reduce_mean(loss, axis=-1)
+    if smc_transformer.cell.num_particles > 1:
+      targets_tiled = tf.tile(targets, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
+    else:
+      targets_tiled = targets
+    classic_loss = tf.keras.losses.MSE(targets_tiled, predictions) # (B,P,S)
+    classic_loss = tf.reduce_mean(classic_loss) # mean over all dimensions.
+
+    if smc_transformer.cell.noise:
+      smc_loss = smc_transformer.compute_SMC_loss()
+      loss = classic_loss + smc_loss
+      mse_loss_avg_pred = tf.keras.losses(targets, tf.reduce_mean(predictions, axis=1, keepdims=True)) # (B,1,S)
+      mse_loss_avg_pred = tf.reduce_mean(mse_loss_avg_pred)
+    else:
+      loss = classic_loss
 
     gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 
@@ -61,7 +71,10 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  return loss
+  if smc_transformer.cell.noise:
+    return classic_loss, mse_loss_avg_pred, loss
+  else:
+    return loss, None, None
 
 #
 # @tf.function
