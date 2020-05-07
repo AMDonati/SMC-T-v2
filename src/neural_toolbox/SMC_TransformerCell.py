@@ -45,11 +45,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     super(SMC_Transf_Cell, self).__init__(**kwargs)
 
   def add_SMC_parameters(self, dict_sigmas, sigma_obs, num_particles):
-
     self.noise = True
     self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
     self.num_particles = num_particles
-    self.sigma_obs = sigma_obs
+    if sigma_obs is not None:
+      self.sigma_obs = sigma_obs
+    else:
+      self.sigma_obs = tf.Variable(0.5, shape=())
+      print('learning sigma_obs...')
     self.list_weights, self.list_indices  = [], []
 
   def compute_w_regression(self, predictions, y):
@@ -63,16 +66,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :return:
     resampling weights of shape (B,P).
     '''
+    assert len(tf.shape(self.sigma_obs)) == 0
     mu_t = y - predictions # (B,P,1,F_y)
     mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
 
-    if len(tf.shape(self.sigma_obs)) == 0: # self.sigma_obs is a scalar std.
-      temp = tf.scalar_mul((self.sigma_obs)**-2, mu_t)
-    else: # self.sigma_obs is a std matrix of shape (F_y, F_y)
-      Sigma_obs_inv = tf.matmul(tf.linalg.inv(self.sigma_obs), tf.linalg.inv(self.sigma_obs), transpose_b=True) # (F_y, F_y)
-      temp = tf.einsum('bij,jj->bij', mu_t, Sigma_obs_inv) # (B,P,F_y)
-
-    log_w = (-1 / 2) * tf.matmul(temp, mu_t, transpose_b=True)  # (B,P,P)
+    log_w = (-1/2*(self.sigma_obs)**2) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     log_w = log_w - log_w_max
@@ -163,3 +161,38 @@ if __name__ == "__main__":
   temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
   print('w', temp_w.shape)
 
+  # ------------------------------------- code draft -------------------------------------------------------------------------------------
+  # def compute_w_regression(self, predictions, y):
+  #   '''
+  #   # FORMULA
+  #   # logw = -0.5 * mu_t ^ T * mu_t / omega
+  #   # logw = logw - max(logw)
+  #   # w = exp(logw)
+  #   :param predictions: output of final layer: (B,P,1,F_y)
+  #   :param y: current target element > shape (B,P,1,F_y).
+  #   :return:
+  #   resampling weights of shape (B,P).
+  #   '''
+  #   mu_t = y - predictions # (B,P,1,F_y)
+  #   mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
+  #
+  #   if len(tf.shape(self.sigma_obs)) == 0: # self.sigma_obs is a scalar std.
+  #     temp = tf.scalar_mul((self.sigma_obs)**-2, mu_t)
+  #   else: # self.sigma_obs is a std matrix of shape (F_y, F_y)
+  #     Sigma_obs_inv = tf.matmul(tf.linalg.inv(self.sigma_obs), tf.linalg.inv(self.sigma_obs), transpose_b=True) # (F_y, F_y)
+  #     temp = tf.einsum('bij,jj->bij', mu_t, Sigma_obs_inv) # (B,P,F_y)
+  #
+  #   log_w = (-1 / 2) * tf.matmul(temp, mu_t, transpose_b=True)  # (B,P,P)
+  #   log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
+  #   log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
+  #   log_w = log_w - log_w_max
+  #   w = tf.math.exp(log_w)
+  #   w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
+  #
+  #   assert len(tf.shape(w)) == 2
+  #   # check if w contains a nan number
+  #   bool_tens = tf.math.is_nan(w)
+  #   has_nan = tf.math.reduce_any(bool_tens).numpy()
+  #   assert has_nan == False
+  #
+  #   return w

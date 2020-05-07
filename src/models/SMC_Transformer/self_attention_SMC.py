@@ -22,11 +22,11 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
       self.sigma_v = dict_sigmas['v']
       self.sigma_z = dict_sigmas['z']
     else:
-      self.sigma_k = dict_sigmas['k']
-      self.sigma_q = dict_sigmas['q']
-      self.sigma_v = dict_sigmas['v']
-      self.sigma_z = dict_sigmas['z']
-      #TODO: define sigma as a Variable.
+      self.sigma_k = tf.Variable(0.5, shape=(), name='sigma_k')
+      self.sigma_q = tf.Variable(0.5, shape=(), name='sigma_q')
+      self.sigma_v = tf.Variable(0.5, shape=(), name='sigma_v')
+      self.sigma_z = tf.Variable(0.5, shape=(), name='sigma_z')
+      print('learning internal sigmas...')
     self.noise = True
 
   def add_noise(self, params, sigma):
@@ -35,11 +35,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     :param sigma: scalar or matrix of shape (D,D).
     :return:
     '''
+    assert len(tf.shape(sigma)) == 0
     gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-    if len(tf.shape(sigma)) == 0: # sigma is a scalar
-      noise = tf.scalar_mul(sigma, gaussian_noise)
-    else: # sigma is the std matrix of shape (B,B)
-      noise = tf.einsum('bijk,kk->bijk', params, sigma)
+    noise = sigma * gaussian_noise
     return params + noise
 
   def call(self, inputs, timestep, K, V):
@@ -111,7 +109,6 @@ if __name__ == "__main__":
   #temp_attention_logits = tf.random.uniform(shape=(B, P, 1, S))
   #scaled_attention_logits_masked = tf.concat([temp_attention_logits[:,:,:,:dec_timestep+1], -1e9 * tf.ones(shape=(B,P,1,S))], axis=-1)
 
-
   temp_attention = Self_Attention_SMC(d_model)
   (temp_z, temp_K, temp_V), attn_weights = temp_attention(x, dec_timestep, K, V)
   print('temp_out', temp_z.shape)
@@ -121,12 +118,12 @@ if __name__ == "__main__":
 
   # test of add noise function.
   temp_params = tf.random.uniform(shape=(B,10,S,d_model), dtype=tf.float32)
-  sigma = 0.5
+  sigma = tf.Variable(0.5, shape=())
   new_params = temp_attention.add_noise(temp_params, sigma)
   print('new params', new_params.shape)
-  sigma = tf.random.uniform(shape=(d_model, d_model), dtype=tf.float32)
-  new_params = temp_attention.add_noise(temp_params, sigma)
-  print('new params', new_params.shape)
+  #sigma = tf.random.uniform(shape=(d_model, d_model), dtype=tf.float32)
+  #new_params = temp_attention.add_noise(temp_params, sigma)
+  #print('new params', new_params.shape)
 
   # test with noise and more than one particule
   num_particles = 10
@@ -142,5 +139,28 @@ if __name__ == "__main__":
   print('temp_V', temp_V.shape)
   print('attention_weights', attn_weights.shape)
 
+  # with learned noise
+  temp_attention.add_SMC_parameters(dict_sigmas=None)
+  (temp_z, temp_K, temp_V), attn_weights = temp_attention(x, dec_timestep, K, V)
+  print('temp_out', temp_z.shape)
+  print('temp_K', temp_K.shape)
+  print('temp_V', temp_V.shape)
+  print('attention_weights', attn_weights.shape)
+
+  # -------------------------------------------- code draft -----------------------------------------------------------------------
+  # matriciel case for add noise;
+
+  # def add_noise(self, params, sigma):
+  #   '''
+  #   :param params: K,q,V or z. shape (B,P,S,D) for K, V. or shape (B,P,1,D) for q, z.
+  #   :param sigma: scalar or matrix of shape (D,D).
+  #   :return:
+  #   '''
+  #   gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
+  #   if len(tf.shape(sigma)) == 0: # sigma is a scalar
+  #     noise = tf.scalar_mul(sigma, gaussian_noise)
+  #   else: # sigma is the std matrix of shape (B,B)
+  #     noise = tf.einsum('bijk,kk->bijk', params, sigma)
+  #   return params + noise
 
 
