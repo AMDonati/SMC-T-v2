@@ -34,10 +34,10 @@ class SMC_Transformer(tf.keras.Model):
     loss_parts = []
     for noise, sigma in zip(list_noises, list_sigmas):
       var = sigma**2
-      loss_part = 1/2 * (var * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
+      loss_part = 1/2 * ((1/var)* tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
       loss_parts.append(loss_part)
 
-    smc_loss = tf.stack(loss_parts, axis=0) # (4,B,P,S) # multiplication by 1/2 because the smc loss is (-log likelihood).
+    smc_loss = tf.stack(loss_parts, axis=0) # (4,B,P,S)
     smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
     smc_loss = tf.reduce_mean(smc_loss) #mean over all other dims.
 
@@ -45,7 +45,7 @@ class SMC_Transformer(tf.keras.Model):
     var_obs = self.cell.sigma_obs**2
     F_y = tf.shape(targets)[-1].numpy()
     diff = targets - predictions # shape (B,P,S,F_y)
-    classic_loss = 1/2 * (var_obs * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(var_obs))
+    classic_loss = 1/2 * ((1/var_obs) * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(var_obs))
     classic_loss = tf.reduce_mean(classic_loss)
 
     return smc_loss + classic_loss
