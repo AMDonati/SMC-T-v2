@@ -63,7 +63,7 @@ class SMC_Transformer(tf.keras.Model):
     input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
-    shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len+1, self.d_model) # S+1: trick because of dummy init.
+    shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len, self.d_model) # S+1: trick because of dummy init.
     K0 = tf.zeros(shape=shape, dtype=tf.float32)
     initial_state = NestedState(K=K0,
                                 V=K0,
@@ -79,24 +79,20 @@ class SMC_Transformer(tf.keras.Model):
                                                             inputs=inputs_for_rnn,
                                                             initial_states=initial_state)
     self.cell.dec_timestep = 0 # reset decoding timestep of the cell to 0.
+    self.cell.cell_count = 0 # additional counter to avoid duplicate of first timestep.
 
     # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
     outputs = [tf.squeeze(out, axis=-2) for out in outputs]
     R = tf.transpose(outputs[0], perm=[0,2,1,3]) # (B,P,S,D) # R not resampled.
     attn_weights = tf.transpose(outputs[1], perm=[0, 2, 1, 3])
-
-
     # states
     K, V, R_resampl = new_states[0], new_states[1], new_states[2] # (B,P,S+1,D)
-    K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
-    V = V[:,:,1:,:] # (B,S,P,D)
-    R_resampl = R_resampl[:,:,1:,:] # (B,P,S,D)
 
     pred_resampl = self.final_layer(R_resampl) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
     pred = self.final_layer(R)
 
     if self.cell.noise:
-      self.internal_noises = outputs[1]  # (4,B,S,P,D). stacking of the 4 internal noises (k,q,v,z) on the first dimension.
+      self.internal_noises = outputs[2]  # (4,B,S,P,D). stacking of the 4 internal noises (k,q,v,z) on the first dimension.
       self.internal_noises = tf.transpose(self.internal_noises, perm=[0,1,3,2,4]) # (4,B,P,S,D).
 
     return (pred, pred_resampl), (K,V,R_resampl), attn_weights

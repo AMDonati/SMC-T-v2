@@ -16,10 +16,17 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
   def add_SMC_parameters(self, dict_sigmas):
     # noise parameters.
-    self.sigma_k = dict_sigmas['k']
-    self.sigma_q = dict_sigmas['q']
-    self.sigma_v = dict_sigmas['v']
-    self.sigma_z = dict_sigmas['z']
+    if dict_sigmas is not None:
+      self.sigma_k = dict_sigmas['k']
+      self.sigma_q = dict_sigmas['q']
+      self.sigma_v = dict_sigmas['v']
+      self.sigma_z = dict_sigmas['z']
+    else:
+      self.sigma_k = dict_sigmas['k']
+      self.sigma_q = dict_sigmas['q']
+      self.sigma_v = dict_sigmas['v']
+      self.sigma_z = dict_sigmas['z']
+      #TODO: define sigma as a Variable.
     self.noise = True
 
   def add_noise(self, params, sigma):
@@ -36,11 +43,12 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     return params + noise
 
   def call(self, inputs, timestep, K, V):
+    #TODO: add mask here.
     '''
     :param inputs: X_t (B,P,1,D) with P = 1 during training.
     :param timestep:
     :param K: (B,P,S,D) with P=1 during training.
-    :param V: (B,P,S,D) with P= 1 during training.
+    :param V: (B,P,S,D) with P=1 during training.
     :return:
     '''
     assert len(tf.shape(inputs)) == 4 # (B,P,1,D)
@@ -72,8 +80,11 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     # scale matmul_qk
     dk = tf.cast(tf.shape(K)[-1], tf.float32)
     scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)  # (B,P,1,S)
+    batch_size, num_particles, seq_len = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
+    scaled_attention_logits_masked = tf.concat([scaled_attention_logits[:,:,:,:timestep+1],
+                                                -1e9 * tf.ones(shape=(batch_size,num_particles,1,seq_len-(timestep+1)))], axis=-1)
     # softmax to get pi:
-    attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B, P, 1, S)
+    attention_weights = tf.nn.softmax(scaled_attention_logits_masked, axis=-1)  # (B, P, 1, S)
     z_ = tf.matmul(attention_weights, V)  # (B,P,1,S)
     z_ = self.dense(z_)
 
@@ -90,11 +101,16 @@ if __name__ == "__main__":
   B = 8
   S = 20
   d_model = 512
-  dec_timestep = 1
+  P = 10
+  dec_timestep = 3
 
-  x = tf.ones(shape=(B, 1, 1, d_model))
-  K = tf.random.uniform(shape=(B, 1, S, d_model))
-  V = tf.random.uniform(shape=(B, 1, S, d_model))
+  x = tf.ones(shape=(B, P, 1, d_model))
+  K = tf.zeros(shape=(B, P, S, d_model))
+  V = tf.zeros(shape=(B, P, S, d_model))
+
+  #temp_attention_logits = tf.random.uniform(shape=(B, P, 1, S))
+  #scaled_attention_logits_masked = tf.concat([temp_attention_logits[:,:,:,:dec_timestep+1], -1e9 * tf.ones(shape=(B,P,1,S))], axis=-1)
+
 
   temp_attention = Self_Attention_SMC(d_model)
   (temp_z, temp_K, temp_V), attn_weights = temp_attention(x, dec_timestep, K, V)

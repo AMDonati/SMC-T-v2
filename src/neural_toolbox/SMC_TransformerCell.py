@@ -16,6 +16,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     '''
     # store the decoding timestep
     self.dec_timestep = 0 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
+    self.cell_count = 0
     self.attention_smc = Self_Attention_SMC(d_model=d_model)
     self.d_model = d_model
     self.output_size = output_size
@@ -130,7 +131,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       output = [r, attn_weights]
 
     new_states = NestedState(K=K, V=V, R=R)
-    self.dec_timestep += 1
+    self.cell_count += 1
+    if self.cell_count > 1:
+      self.dec_timestep += 1
 
     return output, new_states
 
