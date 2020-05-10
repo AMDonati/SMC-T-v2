@@ -27,7 +27,7 @@ if __name__ == '__main__':
   parser.add_argument("-ep", type=int, default=10, help="number of epochs")
   parser.add_argument("-full_model", type=str2bool, default=False, help="simple transformer or one with ffn and layer norm")
   parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
-  parser.add_argument("-particles", type=int, default=5, help="number of particules")
+  parser.add_argument("-particles", type=int, default=5, help="number of particles")
   parser.add_argument("-sigmas", type=list, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
   parser.add_argument("-sigma_obs", type=float, help="values for sigma obs")
   parser.add_argument("-smc", type=str2bool, required=True, help="Recurrent Transformer with or without smc algo")
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                                          epsilon=1e-9)
   output_path = args.output_path
   out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
-  if args.particules is not None:
+  if args.particles is not None:
     out_file = out_file + '__p_{}'.format(args.particles)
   if args.sigmas is not None:
     out_file = out_file + '_sigmas_{}_{}_{}_{}_sigmaObs_{}'.format(args.sigmas[0],
@@ -131,4 +131,4 @@ if __name__ == '__main__':
     test_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_test, axis=1, keepdims=True)) # (B,1,S)
     test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
-  logger.info("test mse metric from avg particule: {}".format(test_metric_avg_pred))
+  logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
