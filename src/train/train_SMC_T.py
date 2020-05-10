@@ -114,8 +114,11 @@ if __name__ == '__main__':
 
   if args.smc:
     logger.info("SMC Transformer for {} particles".format(args.particles))
-    # dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], args.sigmas)) #TODO: implement the not learned case for sigma.
-    smc_transformer.cell.add_SMC_parameters(dict_sigmas=args.sigmas, sigma_obs=args.sigma_obs, num_particles=args.particles)
+    if args.sigmas is not None:
+      dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], args.sigmas))
+    else:
+      dict_sigmas = None
+    smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs, num_particles=args.particles)
     assert smc_transformer.cell.noise == smc_transformer.cell.attention_smc.noise == True
 
   train_SMC_transformer(smc_transformer=smc_transformer,

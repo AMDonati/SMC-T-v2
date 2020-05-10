@@ -73,15 +73,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     log_w = (-1 / (2 * self.Sigma_obs)) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
-    log_w = log_w - log_w_max
-    w = tf.math.exp(log_w)
+    log_w_scaled = log_w - log_w_max
+    w = tf.math.exp(log_w_scaled)
     w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
-
-    assert len(tf.shape(w)) == 2
     # check if w contains a nan number
     bool_tens = tf.math.is_nan(w)
     has_nan = tf.math.reduce_any(bool_tens).numpy()
+    if has_nan:
+      log_w_min = tf.reduce_min(log_w, axis=1, keepdims=True)
+      log_w_scaled = log_w - log_w_min
+      w = tf.math.exp(log_w_scaled)
+      w = w / tf.reduce_sum(w, axis=1, keepdims=True)  # normalization.
+      # recheck if w contains a nan number
+      bool_tens = tf.math.is_nan(w)
+      has_nan = tf.math.reduce_any(bool_tens).numpy()
     assert has_nan == False
+
+    assert len(tf.shape(w)) == 2
 
     return w
 
