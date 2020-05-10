@@ -87,12 +87,13 @@ if __name__ == '__main__':
   out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
   if args.particles is not None:
     out_file = out_file + '__p_{}'.format(args.particles)
+  if args.sigma_obs is not None:
+    out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
   if args.sigmas is not None:
-    out_file = out_file + '_sigmas_{}_{}_{}_{}_sigmaObs_{}'.format(args.sigmas[0],
-                                                                   args.sigmas[1],
-                                                                   args.sigmas[2],
-                                                                   args.sigmas[3],
-                                                                   args.sigma_obs)
+    out_file = out_file + '_sigmas_{}_{}_{}_{}'.format(args.sigmas[0],
+                                                       args.sigmas[1],
+                                                       args.sigmas[2],
+                                                       args.sigmas[3])
   output_path = os.path.join(output_path, out_file)
   if not os.path.isdir(output_path):
     os.makedirs(output_path)
