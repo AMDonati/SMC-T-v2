@@ -30,23 +30,33 @@ class SMC_Transformer(tf.keras.Model):
     d = self.d_model
     list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
                                          self.cell.attention_smc.sigma_z] # (D,D) or scalar.
-    loss_parts = []
+    loss_parts, loss_parts_no_log = [], []
     for noise, sigma in zip(self.internal_noises, list_sigmas):
       var = sigma**2
+      loss_part_no_log = 1/2 * (1/var) * tf.einsum('bijk,bijk->bij', noise, noise)
       loss_part = 1/2 * ((1/var) * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
       loss_parts.append(loss_part)
+      loss_parts_no_log.append(loss_part_no_log)
 
     smc_loss = tf.stack(loss_parts, axis=0) # (4,B,P,S)
     smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
     smc_loss = tf.reduce_mean(smc_loss) # mean over all other dims.
+    smc_loss_no_log = tf.stack(loss_parts_no_log, axis=0)  # (4,B,P,S)
+    smc_loss_no_log = tf.reduce_sum(smc_loss_no_log, axis=0)  # sum of loss parts. # (B,P,S)
+    smc_loss_no_log = tf.reduce_mean(smc_loss_no_log)  # mean over all other dims.
 
     # "classic loss" part:
     F_y = tf.shape(targets)[-1].numpy()
     diff = targets - predictions # shape (B,P,S,F_y)
     classic_loss = 1/2 * ((1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(self.cell.Sigma_obs))
     classic_loss = tf.reduce_mean(classic_loss)
+    classic_loss_no_log = 1/2 * (1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
+    classic_loss_no_log = tf.reduce_mean(classic_loss_no_log)
 
-    return smc_loss + classic_loss
+    total_loss = smc_loss + classic_loss
+    total_loss_no_log = smc_loss_no_log + classic_loss_no_log
+
+    return total_loss, total_loss_no_log
 
 
   def call(self, inputs, targets):
@@ -167,8 +177,9 @@ if __name__ == "__main__":
   mult3_2 = tf.einsum('bijk,bijk->bij', temp_mu_3, temp_mu_3)
 
 
-  smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
+  smc_loss, smc_loss_no_log = transformer.compute_SMC_loss(targets=targets, predictions=pred)
   print('smc loss', smc_loss.numpy())
+  print('smc loss no log', smc_loss_no_log.numpy())
 
 
   # --------------------------------------------- code draft -------------------------------------------------------------------------------------

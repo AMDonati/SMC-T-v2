@@ -51,7 +51,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if sigma_obs is not None:
       self.Sigma_obs = sigma_obs
     else:
-      #self.Sigma_obs = tf.square(tf.Variable(0.5, shape=(), name='Sigma_obs_sqrt')) # here: sigma_obs is the variance.
       self.Sigma_obs = tf.Variable(0.5, shape=(), name='Sigma_obs')
       self.Sigma_obs.assign(tf.square(self.Sigma_obs))
       print('learning sigma_obs...')
