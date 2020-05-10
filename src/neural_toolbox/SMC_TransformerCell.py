@@ -15,7 +15,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :param dff:
     '''
     # store the decoding timestep
-    self.dec_timestep = 0 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
+    self.dec_timestep = 0
     self.cell_count = 0
     self.attention_smc = Self_Attention_SMC(d_model=d_model)
     self.d_model = d_model
@@ -49,11 +49,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
     self.num_particles = num_particles
     if sigma_obs is not None:
-      self.sigma_obs = sigma_obs
+      self.Sigma_obs = sigma_obs
     else:
-      self.sigma_obs = tf.Variable(0.5, shape=())
+      #self.Sigma_obs = tf.square(tf.Variable(0.5, shape=(), name='Sigma_obs_sqrt')) # here: sigma_obs is the variance.
+      self.Sigma_obs = tf.Variable(0.5, shape=(), name='Sigma_obs')
+      self.Sigma_obs.assign(tf.square(self.Sigma_obs))
       print('learning sigma_obs...')
-    self.list_weights, self.list_indices  = [], []
+    self.list_weights, self.list_indices = [], []
 
   def compute_w_regression(self, predictions, y):
     '''
@@ -66,11 +68,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :return:
     resampling weights of shape (B,P).
     '''
-    assert len(tf.shape(self.sigma_obs)) == 0
+    assert len(tf.shape(self.Sigma_obs)) == 0
     mu_t = y - predictions # (B,P,1,F_y)
     mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
-
-    log_w = (-1/2*(self.sigma_obs)**2) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
+    log_w = (-1 / (2 * self.Sigma_obs)) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     log_w = log_w - log_w_max
@@ -123,7 +124,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
       # Getting internal noises for computing the loss.
-      internal_noises = [self.attention_smc.noise_k, self.attention_smc.noise_q, self.attention_smc.noise_v, self.attention_smc.noise_z]
+      internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
       output = [r, attn_weights, internal_noises] # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
     else:
       output = [r, attn_weights]

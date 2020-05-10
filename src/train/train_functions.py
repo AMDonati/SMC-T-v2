@@ -44,7 +44,6 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
   logger.info(
     ">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
-
 def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):
   # storing the losses & accuracy in a list for each epoch
   average_losses_baseline, val_losses_baseline = [], []
@@ -137,12 +136,18 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
 
   # check the pass forward.
   for input_example_batch, target_example_batch in train_dataset.take(1):
-    example_batch_predictions, _, _ = smc_transformer(inputs=input_example_batch, targets=target_example_batch)
-    print("predictions shape: {}".format(example_batch_predictions.shape))
+    (temp_preds,temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch, targets=target_example_batch)
+    logger.info("predictions shape: {}".format(temp_preds.shape))
+    print('first element and first dim of predictions - t0', temp_preds[0,:,0, 0].numpy())
+    print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
+    print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
+    print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
+    print('first element and first dim of predictions - t24', temp_preds[0, :, -1, 0].numpy())
+    print('first element and first dim of predictions resampled - t24', temp_preds_resampl[0, :, -1, 0].numpy())
 
   if start_epoch > 0:
     if start_epoch > EPOCHS:
-      print("adding {} more epochs to existing training".format(EPOCHS))
+      logger.info("adding {} more epochs to existing training".format(EPOCHS))
       start_epoch = 0
     else:
       logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
@@ -152,35 +157,42 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
     logger.info('Epoch {}/{}'.format(epoch+1, EPOCHS))
 
     if smc_transformer.cell.noise:
-      train_loss, val_loss = [0. for _ in range(3)], [0. for _ in range(2)]
+      train_loss, val_loss = [0. for _ in range(2)], [0. for _ in range(2)]
     else:
       train_loss, val_loss = [0.], [0.]
 
     for batch, (inp, tar) in enumerate(train_dataset):
-      train_loss_mse, train_metric_avg_pred, train_total_loss = train_step_SMC_T(inputs=inp,
+      train_loss_batch, train_metric_avg_pred = train_step_SMC_T(inputs=inp,
                                           targets=tar,
                                           smc_transformer=smc_transformer,
                                           optimizer=optimizer)
-      train_loss[0] += train_loss_mse
+      train_loss[0] += train_loss_batch
       if smc_transformer.cell.noise:
         train_loss[1] += train_metric_avg_pred
-        train_loss[2] += train_total_loss
 
     for batch_val, (inp, tar) in enumerate(val_dataset):
-      (preds_val, preds_val_resampl), _ = smc_transformer(inputs=inp, targets=tar) # shape (B,1,S,F_y)
-      val_loss_mse = tf.keras.losses.MSE(tar, preds_val_resampl) # (B,1,S)
-      val_loss_mse = tf.reduce_mean(val_loss_mse) # mean over all dims.
-      val_loss[0] += val_loss_mse
+      (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar) # shape (B,1,S,F_y)
       if smc_transformer.cell.noise:
+        tar_tiled = tf.tile(tar, multiples=[1,smc_transformer.cell.num_particles,1,1])
+        val_loss_batch = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
         val_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_val, axis=1, keepdims=True))
         val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)
+        val_loss[0] += val_loss_batch
         val_loss[1] += val_metric_avg_pred
+      else:
+        val_loss_batch = tf.keras.losses.MSE(tar, preds_val_resampl)  # (B,1,S)
+        val_loss_batch = tf.reduce_mean(val_loss_batch)  # mean over all dims.
+        val_loss[0] += val_loss_batch
 
     train_loss, val_loss = [i / (batch + 1) for i in train_loss],  [i /(batch_val + 1) for i in val_loss]
-    logger.info('train mse loss: {:5.3f} - val mse loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
+    logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
     if smc_transformer.cell.noise:
-      logger.info('train total loss: {:5.3f} - train mse metric from avg particule: {:5.3f} - val mse metric from avg particule: {:5.3f}'.format(
-        train_loss[2].numpy(), train_loss[1].numpy(), val_loss[1].numpy()))
+      logger.info('train mse metric from avg particule: {:5.3f} - val mse metric from avg particule: {:5.3f}'.format(train_loss[1].numpy(), val_loss[1].numpy()))
+      logger.info('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(smc_transformer.cell.Sigma_obs,
+                                                                                               smc_transformer.cell.attention_smc.sigma_k,
+                                                                                               smc_transformer.cell.attention_smc.sigma_q,
+                                                                                               smc_transformer.cell.attention_smc.sigma_v,
+                                                                                               smc_transformer.cell.attention_smc.sigma_z))
 
     ckpt_manager.save()
     logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))

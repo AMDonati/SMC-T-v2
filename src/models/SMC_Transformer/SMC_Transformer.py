@@ -28,24 +28,22 @@ class SMC_Transformer(tf.keras.Model):
   def compute_SMC_loss(self, targets, predictions):
     assert self.cell.noise == self.cell.attention_smc.noise == True
     d = self.d_model
-    list_noises = [self.internal_noises[i] for i in range(4)] # (B,P,S,D).
     list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
                                          self.cell.attention_smc.sigma_z] # (D,D) or scalar.
     loss_parts = []
-    for noise, sigma in zip(list_noises, list_sigmas):
+    for noise, sigma in zip(self.internal_noises, list_sigmas):
       var = sigma**2
-      loss_part = 1/2 * ((1/var)* tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
+      loss_part = 1/2 * ((1/var) * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
       loss_parts.append(loss_part)
 
     smc_loss = tf.stack(loss_parts, axis=0) # (4,B,P,S)
     smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
-    smc_loss = tf.reduce_mean(smc_loss) #mean over all other dims.
+    smc_loss = tf.reduce_mean(smc_loss) # mean over all other dims.
 
     # "classic loss" part:
-    var_obs = self.cell.sigma_obs**2
     F_y = tf.shape(targets)[-1].numpy()
     diff = targets - predictions # shape (B,P,S,F_y)
-    classic_loss = 1/2 * ((1/var_obs) * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(var_obs))
+    classic_loss = 1/2 * ((1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(self.cell.Sigma_obs))
     classic_loss = tf.reduce_mean(classic_loss)
 
     return smc_loss + classic_loss
@@ -61,6 +59,9 @@ class SMC_Transformer(tf.keras.Model):
     assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
     seq_len = tf.shape(inputs)[-2]
     assert self.seq_len == seq_len
+
+    inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1]) # tiling inputs if needed on the particles dimensions.
+    targets = tf.tile(targets, multiples=[1, self.cell.num_particles, 1, 1])
 
     input_tensor_processed = self.input_dense_projection(inputs) # (B,P,S,D)
     input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
@@ -89,14 +90,19 @@ class SMC_Transformer(tf.keras.Model):
     R = tf.transpose(outputs[0], perm=[0,2,1,3]) # (B,P,S,D) # R not resampled.
     attn_weights = tf.transpose(outputs[1], perm=[0, 2, 1, 3])
     # states
-    K, V, R_resampl = new_states[0], new_states[1], new_states[2] # (B,P,S+1,D)
+    K, V, R_resampl = new_states[0], new_states[1], new_states[2] # (B,P,S,D)
 
-    pred_resampl = self.final_layer(R_resampl) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
+    pred_resampl = self.final_layer(R_resampl) # (B,P,S,C) used to compute the categorical cross_entropy loss.
     pred = self.final_layer(R)
 
+    # computing resampled noises for K, and V.
+    self.noise_K_resampled = K - self.cell.attention_smc.wk(input_tensor_processed)
+    self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
+
     if self.cell.noise:
-      self.internal_noises = outputs[2]  # (4,B,S,P,D). stacking of the 4 internal noises (k,q,v,z) on the first dimension.
-      self.internal_noises = tf.transpose(self.internal_noises, perm=[0,1,3,2,4]) # (4,B,P,S,D).
+      self.noise_q = tf.transpose(outputs[-1][0,:,:,:,:], perm=[0,2,1,3]) # (B,P,S,D).
+      self.noise_z = tf.transpose(outputs[-1][1,:,:,:,:], perm=[0,2,1,3]) # (B,P,S,D)
+      self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z]
 
     return (pred, pred_resampl), (K,V,R_resampl), attn_weights
 
@@ -131,10 +137,8 @@ if __name__ == "__main__":
   sigma_obs = 0.5
   dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
-  inputs = tf.tile(inputs, multiples=[1,num_particles,1,1])
-  targets = tf.tile(targets, multiples=[1,num_particles,1,1])
-  transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                      sigma_obs=sigma_obs,
+  transformer.cell.add_SMC_parameters(dict_sigmas=None,
+                                      sigma_obs=None,
                                       num_particles=num_particles)
   (pred, pred_resampl), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
   print('predictions', pred.shape)
@@ -144,16 +148,30 @@ if __name__ == "__main__":
 
   # ------------------------------------------- test of compute_smc_loss -------------------------------------------------------------------------
   #test of tf.einsum:
-  temp_mu = 0.2 * tf.ones(shape=(b, num_particles, seq_len, d_model))
-  temp = 0.5 * tf.ones(shape=(b, num_particles, seq_len, d_model))
-  mult = tf.matmul(temp_mu, temp, transpose_b=True)
+  b = 1
+  P = 1
+  seq_len = 5
+  d = 2
+  temp_mu = tf.constant([[[[0.1, 1], [0.2, 2], [0.3, 3], [0.4, 4], [0.5, 5]]]], shape=(1,1,seq_len,d))
+  temp_mu_exp = tf.expand_dims(temp_mu, axis=-2)
+  mult = tf.matmul(temp_mu_exp, temp_mu_exp, transpose_b=True)
   mult_2 = tf.einsum('bijk,bijk->bij', temp_mu, temp_mu)
+  solution = tf.constant([1.01, 4.04, 9.09, 16.16, 25.25])
+
+  # batch_size = 2
+  temp_mu_2 = tf.concat([temp_mu, 2*temp_mu], axis=0)
+  mult2_2 = tf.einsum('bijk,bijk->bij', temp_mu_2, temp_mu_2)
+
+  # p = 2
+  temp_mu_3 = tf.concat([temp_mu, 2 * temp_mu], axis=1)
+  mult3_2 = tf.einsum('bijk,bijk->bij', temp_mu_3, temp_mu_3)
+
 
   smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
   print('smc loss', smc_loss.numpy())
 
-  # --------------------------------------------- code draft -------------------------------------------------------------------------------------
 
+  # --------------------------------------------- code draft -------------------------------------------------------------------------------------
   # def compute_SMC_loss(self):
   #
   #   assert self.cell.noise == self.cell.attention_smc.noise == True

@@ -11,9 +11,6 @@ train_step_signature = [
 def train_step_classic_T(inputs, targets, transformer, optimizer):
   '''training step for the classic Transformer model'''
 
-  #assert len(tf.shape(inputs)) == 4
-  #assert len(tf.shape(targets)) == 4
-
   seq_len = tf.shape(inputs)[-2]
   mask_transformer = create_look_ahead_mask(seq_len)
 
@@ -70,9 +67,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
   if smc_transformer.cell.noise:
-    return classic_loss, mse_metric_avg_pred, loss
+    return loss, mse_metric_avg_pred
   else:
-    return loss, None, None
+    return loss, loss
 
 #
 # @tf.function
