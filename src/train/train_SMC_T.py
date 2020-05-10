@@ -27,7 +27,7 @@ if __name__ == '__main__':
   parser.add_argument("-ep", type=int, default=10, help="number of epochs")
   parser.add_argument("-full_model", type=str2bool, default=False, help="simple transformer or one with ffn and layer norm")
   parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
-  parser.add_argument("-particules", type=int, default=5, help="number of particules")
+  parser.add_argument("-particles", type=int, default=5, help="number of particules")
   parser.add_argument("-sigmas", type=list, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
   parser.add_argument("-sigma_obs", type=float, help="values for sigma obs")
   parser.add_argument("-smc", type=str2bool, required=True, help="Recurrent Transformer with or without smc algo")
@@ -83,7 +83,7 @@ if __name__ == '__main__':
   output_path = args.output_path
   out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
   if args.particules is not None:
-    out_file = out_file + '__p_{}'.format(args.particules)
+    out_file = out_file + '__p_{}'.format(args.particles)
   if args.sigmas is not None:
     out_file = out_file + '_sigmas_{}_{}_{}_{}_sigmaObs_{}'.format(args.sigmas[0],
                                                                    args.sigmas[1],
@@ -110,9 +110,9 @@ if __name__ == '__main__':
   smc_transformer = SMC_Transformer(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=args.full_model, dff=args.dff)
 
   if args.smc:
-    logger.info("SMC Transformer for {} particules".format(args.particules))
+    logger.info("SMC Transformer for {} particles".format(args.particles))
     # dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], args.sigmas)) #TODO: implement the not learned case for sigma.
-    smc_transformer.cell.add_SMC_parameters(dict_sigmas=args.sigmas, sigma_obs=args.sigma_obs, num_particles=args.particules)
+    smc_transformer.cell.add_SMC_parameters(dict_sigmas=args.sigmas, sigma_obs=args.sigma_obs, num_particles=args.particles)
     assert smc_transformer.cell.noise == smc_transformer.cell.attention_smc.noise == True
 
   train_SMC_transformer(smc_transformer=smc_transformer,
