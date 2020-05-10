@@ -23,7 +23,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-d_model", type=int, required=True, help="depth of attention parameters")
-  parser.add_argument("-bs", type=int, default=64, help="batch size")
+  parser.add_argument("-bs", type=int, default=256, help="batch size")
   parser.add_argument("-ep", type=int, default=10, help="number of epochs")
   parser.add_argument("-full_model", type=str2bool, default=False, help="simple transformer or one with ffn and layer norm")
   parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
@@ -120,6 +120,7 @@ if __name__ == '__main__':
       dict_sigmas = None
     smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs, num_particles=args.particles)
     assert smc_transformer.cell.noise == smc_transformer.cell.attention_smc.noise == True
+    logger.info("Sigma_obs init: {}".format(smc_transformer.cell.Sigma_obs.numpy()))
 
   train_SMC_transformer(smc_transformer=smc_transformer,
                         optimizer=optimizer,
