@@ -65,18 +65,17 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
     #print('dict of variables and associated gradients', var_and_grad_dict)
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
-
-  smc_transformer.cell.Sigma_obs.assign(tf.math.maximum(0,smc_transformer.cell.Sigma_obs))
-  smc_transformer.cell.attention_smc.sigma_k.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_k))
-  smc_transformer.cell.attention_smc.sigma_q.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_q))
-  smc_transformer.cell.attention_smc.sigma_v.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_v))
-  smc_transformer.cell.attention_smc.sigma_z.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_z))
-
-  assert smc_transformer.cell.Sigma_obs >= 0
-  assert smc_transformer.cell.attention_smc.sigma_k >=0
-  assert smc_transformer.cell.attention_smc.sigma_q >=0
-  assert smc_transformer.cell.attention_smc.sigma_v >=0
-  assert smc_transformer.cell.attention_smc.sigma_z >=0
+  if smc_transformer.cell.noise:
+    smc_transformer.cell.Sigma_obs.assign(tf.math.maximum(0,smc_transformer.cell.Sigma_obs))
+    smc_transformer.cell.attention_smc.sigma_k.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_k))
+    smc_transformer.cell.attention_smc.sigma_q.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_q))
+    smc_transformer.cell.attention_smc.sigma_v.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_v))
+    smc_transformer.cell.attention_smc.sigma_z.assign(tf.math.maximum(0, smc_transformer.cell.attention_smc.sigma_z))
+    assert smc_transformer.cell.Sigma_obs >= 0
+    assert smc_transformer.cell.attention_smc.sigma_k >=0
+    assert smc_transformer.cell.attention_smc.sigma_q >=0
+    assert smc_transformer.cell.attention_smc.sigma_v >=0
+    assert smc_transformer.cell.attention_smc.sigma_z >=0
 
   if smc_transformer.cell.noise:
     return loss, smc_loss_no_log, mse_metric_avg_pred

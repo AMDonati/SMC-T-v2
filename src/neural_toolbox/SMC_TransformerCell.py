@@ -74,19 +74,20 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     log_w_scaled = log_w - log_w_max
-    w = tf.math.exp(log_w_scaled)
-    w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
+    w = tf.math.exp(log_w)
+    #w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
+    w = tf.nn.softmax(w)
     # check if w contains a nan number
     bool_tens = tf.math.is_nan(w)
     has_nan = tf.math.reduce_any(bool_tens).numpy()
-    if has_nan:
-      log_w_min = tf.reduce_min(log_w, axis=1, keepdims=True)
-      log_w_scaled = log_w - log_w_min
-      w = tf.math.exp(log_w_scaled)
-      w = w / tf.reduce_sum(w, axis=1, keepdims=True)  # normalization.
-      # recheck if w contains a nan number
-      bool_tens = tf.math.is_nan(w)
-      has_nan = tf.math.reduce_any(bool_tens).numpy()
+    # if has_nan:
+    #   log_w_min = tf.reduce_min(log_w, axis=1, keepdims=True)
+    #   log_w_scaled = log_w - log_w_min
+    #   w = tf.math.exp(log_w_scaled)
+    #   w = w / tf.reduce_sum(w, axis=1, keepdims=True)  # normalization.
+    #   # recheck if w contains a nan number
+    #   bool_tens = tf.math.is_nan(w)
+    #   has_nan = tf.math.reduce_any(bool_tens).numpy()
     assert has_nan == False
 
     assert len(tf.shape(w)) == 2
@@ -152,7 +153,7 @@ if __name__ == "__main__":
 
   # ---- test of compute w_regression ------------------------------------
   temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=False, dff=0)
-  SMC_Transf_Cell.sigma_obs = 0.5
+  temp_cell.add_SMC_parameters(dict_sigmas=None, sigma_obs=0.5, num_particles=10)
 
   temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
   temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
@@ -160,14 +161,14 @@ if __name__ == "__main__":
   temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
   print('w', temp_w.shape)
 
-  output_size = 3
-  temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
-  temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
-
-  diag = tf.linalg.diag(tf.random.uniform(shape=(output_size,), dtype=tf.float32))
-  SMC_Transf_Cell.sigma_obs = tf.matmul(diag, diag, transpose_b=True)
-  temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
-  print('w', temp_w.shape)
+  # output_size = 3
+  # temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+  # temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
+  #
+  # diag = tf.linalg.diag(tf.random.uniform(shape=(output_size,), dtype=tf.float32))
+  # SMC_Transf_Cell.sigma_obs = tf.matmul(diag, diag, transpose_b=True)
+  # temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
+  # print('w', temp_w.shape)
 
   # ------------------------------------- code draft -------------------------------------------------------------------------------------
   # def compute_w_regression(self, predictions, y):
