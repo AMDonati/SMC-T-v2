@@ -51,7 +51,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if sigma_obs is not None:
       self.Sigma_obs = sigma_obs
     else:
-      self.Sigma_obs = tf.Variable(1.225, shape=(), name='Sigma_obs')
+      self.Sigma_obs = tf.Variable(0.5, shape=(), name='Sigma_obs')
       self.Sigma_obs.assign(tf.square(self.Sigma_obs))
       print('learning sigma_obs...')
     self.list_weights, self.list_indices = [], []
@@ -74,7 +74,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
     log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     #log_w_scaled = log_w - log_w_max
-    w = tf.math.exp(log_w)
+    #w = tf.math.exp(log_w)
     #w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
     w = tf.nn.softmax(w)
     # check if w contains a nan number
