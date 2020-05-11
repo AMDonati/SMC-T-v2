@@ -21,12 +21,12 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-rnn_units", type=int, required=True, default=2, help="depth of attention parameters")
-  parser.add_argument("-bs", type=int, required=True, default=128, help="batch size")
+  parser.add_argument("-rnn_units", type=int, required=True, help="number of rnn units")
+  parser.add_argument("-bs", type=int, default=128, help="batch size")
   parser.add_argument("-ep", type=int, default=20, help="number of epochs")
   parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
-  parser.add_argument("-data_path", type=str, default="../../data", help="path for saving data")
-  parser.add_argument("-output_path", type=str, default="../../output", help="path for output folder")
+  parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
+  parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
 
   args = parser.parse_args()
 
@@ -60,7 +60,6 @@ if __name__ == '__main__':
   rnn_units = args.rnn_units
   learning_rate = args.lr
   EPOCHS = args.ep
-
   # define optimizer
   optimizer = tf.keras.optimizers.Adam(learning_rate,
                                        beta_1=0.9,

@@ -10,19 +10,15 @@ train_step_signature = [
 #@tf.function(input_signature=train_step_signature) #TODO: debug this problem
 def train_step_classic_T(inputs, targets, transformer, optimizer):
   '''training step for the classic Transformer model'''
-
   seq_len = tf.shape(inputs)[-2]
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
     predictions, _ = transformer(inputs=inputs, training=True, mask=mask_transformer)
-
     loss = tf.keras.losses.MSE(targets, predictions)
-    # averaging loss over the seq and batch dims
-    loss = tf.reduce_mean(loss, axis=-1) # (B,)
-    loss = tf.reduce_mean(loss, axis=-1)
+    loss = tf.reduce_mean(loss) # averaging loss over the seq and batch dims.
+    gradients = tape.gradient(loss, transformer.trainable_variables)
 
-  gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
   return loss

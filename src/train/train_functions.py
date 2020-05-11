@@ -22,6 +22,8 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
   model.compile(optimizer=optimizer,
                 loss='mse')
 
+  print(model.summary())
+
   # --- starting the training ... -----------------------------------------------
   start_training = time.time()
   rnn_history = model.fit(train_dataset,
@@ -29,6 +31,8 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
                           validation_data=val_dataset,
                           callbacks=callbacks,
                           verbose=2)
+
+
 
   train_loss_history_rnn = rnn_history.history['loss']
   val_loss_history_rnn = rnn_history.history['val_loss']
@@ -47,7 +51,6 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
 def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):
   # storing the losses & accuracy in a list for each epoch
   average_losses_baseline, val_losses_baseline = [], []
-
   # creating checkpoint manager
   ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
   baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_{}".format(num_train))
@@ -90,8 +93,7 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
                                                       training=False,
                                                       mask=create_look_ahead_mask(seq_len))
       val_loss_batch = tf.keras.losses.MSE(tar, predictions_val)
-      val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
-      val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
+      val_loss_batch = tf.reduce_mean(val_loss_batch)
       sum_val_loss += val_loss_batch
 
     avg_val_loss = sum_val_loss / (batch_val + 1)

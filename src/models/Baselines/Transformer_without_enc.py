@@ -11,11 +11,13 @@ class DecoderLayer(tf.keras.layers.Layer):
     super(DecoderLayer, self).__init__()
     self.full_model = full_model
     self.rate = rate
-    self.ffn = point_wise_feed_forward_network(d_model, dff)
-    self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.dropout1 = tf.keras.layers.Dropout(rate)
-    self.dropout3 = tf.keras.layers.Dropout(rate)
+
+    if full_model:
+      self.ffn = point_wise_feed_forward_network(d_model, dff)
+      self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+      self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+      self.dropout1 = tf.keras.layers.Dropout(rate)
+      self.dropout3 = tf.keras.layers.Dropout(rate)
 
     if num_heads > 1:
       self.mha = MultiHeadAttention(d_model, num_heads)
