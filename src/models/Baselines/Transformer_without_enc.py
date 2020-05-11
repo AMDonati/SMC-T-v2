@@ -7,9 +7,9 @@ from models.Baselines.Attention_Transformer import OneHeadAttention
 
 
 class DecoderLayer(tf.keras.layers.Layer):
-  def __init__(self, d_model, num_heads, dff, rate):
+  def __init__(self, d_model, num_heads, dff, rate, full_model):
     super(DecoderLayer, self).__init__()
-
+    self.full_model = full_model
     self.rate = rate
     self.ffn = point_wise_feed_forward_network(d_model, dff)
     self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -29,13 +29,14 @@ class DecoderLayer(tf.keras.layers.Layer):
 
     attn1, attn_weights = self.mha(inputs=inputs, mask=look_ahead_mask)  # (batch_size, target_seq_len, d_model)
 
-    attn1 = self.dropout1(attn1, training=training) # (B,S,D)
-    out1 = self.layernorm1(attn1 + input) # (B,S,D)
-    ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
-    #ffn_output = self.ffn(attn1)
-    ffn_output = self.dropout3(ffn_output, training=training)
-    out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
-   #out3 = ffn_output
+    if self.full_model:
+      attn1 = self.dropout1(attn1, training=training) # (B,S,D)
+      out1 = self.layernorm1(attn1 + input) # (B,S,D)
+      ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
+      ffn_output = self.dropout3(ffn_output, training=training)
+      out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
+    else:
+      out3 = attn1
 
     return out3, attn_weights
 
@@ -43,8 +44,8 @@ class Decoder(tf.keras.layers.Layer):
   '''Class Decoder with the Decoder architecture
   -args
     '''
-  def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-               maximum_position_encoding, data_type, rate):
+  def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, maximum_position_encoding, rate,
+               full_model):
     super(Decoder, self).__init__()
     self.d_model = d_model
     self.num_layers = num_layers
@@ -54,20 +55,14 @@ class Decoder(tf.keras.layers.Layer):
     self.input_dense_projection = tf.keras.layers.Dense(d_model) # for regression case (multivariate > to be able to have a d_model > F).
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
-    self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate) for _ in range(num_layers)]
+    self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate, full_model=full_model) for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(self.rate)
-    self.data_type = data_type
+    self.full_model = full_model
 
   def call(self, inputs, training, look_ahead_mask):
     seq_len = tf.shape(inputs)[1]
     attention_weights = {}
-
-    # adding an embedding only if x is a nlp dataset.
-    if self.data_type=='nlp':
-      inputs = self.embedding(inputs)  # (B,S,D) # CAUTION: target_vocab_size needs to be bigger than d_model...
-    elif self.data_type == 'time_series_uni' or 'time_series_multi':
-      inputs = self.input_dense_projection(inputs)
-
+    inputs = self.input_dense_projection(inputs)
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32)) #TODO: add this on the SMC_Transformer as well?
 
     if self.maximum_position_encoding is not None:
@@ -82,7 +77,7 @@ class Decoder(tf.keras.layers.Layer):
                                          look_ahead_mask=look_ahead_mask)
       attention_weights['decoder_layer{}'.format(i + 1)] = block
 
-    return inputs, attention_weights # (B,S,S)?
+    return inputs, attention_weights # (B,S,S)
 
 """## Create the Transformer
 The transTransformer consists of the decoder and a final linear layer. 
@@ -90,20 +85,16 @@ The output of the decoder is the input to the linear layer and its output is ret
 """
 
 class Transformer(tf.keras.Model):
-  def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, maximum_position_encoding, data_type, rate):
+  def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, maximum_position_encoding, rate,
+               full_model):
     super(Transformer, self).__init__()
-    self.decoder = Decoder(num_layers=num_layers,
-                           d_model=d_model, num_heads=num_heads,
-                           dff=dff,
-                           target_vocab_size=target_vocab_size,
-                           maximum_position_encoding=maximum_position_encoding,
-                           data_type=data_type, rate=rate)
+    self.decoder = Decoder(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
+                           target_vocab_size=target_vocab_size, maximum_position_encoding=maximum_position_encoding,
+                           rate=rate, full_model=full_model)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
   def stop_SMC_algo(self):
     self.decoder.dec_layers[-1].mha.noise = False
-
 
   def call(self, inputs, training, mask):
     '''
@@ -133,15 +124,9 @@ if __name__ == "__main__":
   S = 20
   rate = 0
 
-  sample_transformer = Transformer(
-    num_layers=num_layers,
-    d_model=d_model,
-    num_heads=num_heads,
-    dff=dff,
-    target_vocab_size=C,
-    maximum_position_encoding=maximum_position_encoding,
-    data_type=data_type,
-    rate=rate)
+  sample_transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
+                                   target_vocab_size=C, maximum_position_encoding=maximum_position_encoding, rate=rate,
+                                   full_model=False)
 
   temp_input = tf.random.uniform((B, 10, 1, F), dtype=tf.float32, minval=0, maxval=200)
 

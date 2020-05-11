@@ -95,7 +95,7 @@ if __name__ == "__main__":
   list_targets = [tf.random.uniform(shape=(B,P,1,F)) for _ in range(S)]
 
   sample_transformer = Transformer(num_layers=1, d_model=d_model, num_heads=1, dff=dff, target_vocab_size=C,
-                                   maximum_position_encoding=maximum_position_encoding, data_type=data_type, rate=rate)
+                                   maximum_position_encoding=maximum_position_encoding, rate=rate, full_model=)
 
   predictions, K, V = SMC_on_Transformer(transformer=sample_transformer,
                                          dict_sigmas=dict_sigmas,

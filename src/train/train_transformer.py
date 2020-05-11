@@ -97,14 +97,8 @@ if __name__ == '__main__':
   logger.info('d_model:{} - dff:{} - positional encoding: {} - learning rate: {}'.format(d_model, dff, maximum_position_encoding, learning_rate))
   logger.info('Transformer with one head and one layer')
 
-  transformer = Transformer(num_layers=1,
-                            d_model=d_model,
-                            num_heads=1,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding,
-                            data_type=data_type,
-                            rate=0)
+  transformer = Transformer(num_layers=1, d_model=d_model, num_heads=1, dff=dff, target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=maximum_position_encoding, rate=0, full_model=)
 
   train_baseline_transformer(transformer=transformer,
                              optimizer=optimizer,

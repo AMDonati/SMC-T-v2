@@ -336,23 +336,14 @@ if __name__ == "__main__":
                                          beta_2=0.98,
                                          epsilon=1e-9)
 
-    transformer = Transformer(num_layers=num_layers,
-                              d_model=d_model,
-                              num_heads=num_heads,
-                              dff=dff,
+    transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
                               target_vocab_size=target_vocab_size,
-                              maximum_position_encoding=maximum_position_encoding_baseline,
-                              data_type=data_type,
-                              rate=rate)
+                              maximum_position_encoding=maximum_position_encoding_baseline, rate=rate, full_model=)
 
-    transformer_w_dropout = Transformer(num_layers=num_layers,
-                              d_model=d_model,
-                              num_heads=num_heads,
-                              dff=dff,
-                              target_vocab_size=target_vocab_size,
-                              maximum_position_encoding=maximum_position_encoding_baseline,
-                              data_type=data_type,
-                              rate=dropout_rate)
+    transformer_w_dropout = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
+                                        target_vocab_size=target_vocab_size,
+                                        maximum_position_encoding=maximum_position_encoding_baseline, rate=dropout_rate,
+                                        full_model=)
 
     # restore 2 transformers
     baseline_T_ckpt_path = os.path.join(checkpoint_T_path, "transformer_baseline_1")

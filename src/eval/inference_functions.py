@@ -641,22 +641,13 @@ if __name__ == "__main__":
   num_mc_samples = 25
 
   test_dataset = tf.random.uniform(shape=(B, S, num_feat))
-  transformer = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
+  transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
                             target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding_baseline,
-                            data_type=data_type,
-                            rate=rate)
-  transformer_w_dropout = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding_baseline,
-                            data_type=data_type,
-                            rate=0.1)
+                            maximum_position_encoding=maximum_position_encoding_baseline, rate=rate, full_model=)
+  transformer_w_dropout = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
+                                      target_vocab_size=target_vocab_size,
+                                      maximum_position_encoding=maximum_position_encoding_baseline, rate=0.1,
+                                      full_model=)
 
   output_path_T = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/temp'
 

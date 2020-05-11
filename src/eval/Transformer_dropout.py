@@ -81,14 +81,9 @@ if __name__ == "__main__":
   test_dataset = test_dataset.batch(B, drop_remainder=True)
 
   # create a transformer model.
-  transformer = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
+  transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
                             target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding_baseline,
-                            data_type=data_type,
-                            rate=rate)
+                            maximum_position_encoding=maximum_position_encoding_baseline, rate=rate, full_model=)
   # MC Dropout on Baseline Transformer:
   MC_Dropout_Transformer(transformer=transformer,
                          test_dataset=test_dataset,
