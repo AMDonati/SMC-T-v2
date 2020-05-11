@@ -122,7 +122,6 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
   logger.info('training of a classic Transformer for a time-series dataset done...')
   logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
-
 def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, checkpoint_path, logger, num_train):
 
   # creating checkpoint manager

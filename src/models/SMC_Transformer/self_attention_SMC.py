@@ -22,13 +22,13 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
       self.sigma_v = dict_sigmas['v']
       self.sigma_z = dict_sigmas['z']
     else:
-      self.sigma_k = tf.Variable(0.707, shape=(), name='sigma_k')
+      self.sigma_k = tf.Variable(0.5, shape=(), name='sigma_k')
       self.sigma_k.assign(tf.square(self.sigma_k))
-      self.sigma_q = tf.Variable(0.707, shape=(), name='sigma_q')
+      self.sigma_q = tf.Variable(0.5, shape=(), name='sigma_q')
       self.sigma_q.assign(tf.square(self.sigma_q))
-      self.sigma_v = tf.Variable(0.707, shape=(), name='sigma_v')
+      self.sigma_v = tf.Variable(0.5, shape=(), name='sigma_v')
       self.sigma_v.assign(tf.square(self.sigma_v))
-      self.sigma_z = tf.Variable(0.707, shape=(), name='sigma_z')
+      self.sigma_z = tf.Variable(0.5, shape=(), name='sigma_z')
       self.sigma_z.assign(tf.square(self.sigma_z))
       print('learning internal sigmas...')
     self.noise = True
@@ -41,7 +41,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     '''
     assert len(tf.shape(sigma)) == 0
     gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-    noise = sigma * gaussian_noise
+    noise = (sigma)**(1/2) * gaussian_noise
     return params + noise
 
   def call(self, inputs, timestep, K, V):
@@ -94,7 +94,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
       self.noise_z = z - z_
     else:
       z = z_
-
     return (z, K, V), attention_weights
 
 
@@ -104,7 +103,6 @@ if __name__ == "__main__":
   d_model = 512
   P = 10
   dec_timestep = 3
-
   x = tf.ones(shape=(B, P, 1, d_model))
   K = tf.zeros(shape=(B, P, S, d_model))
   V = tf.zeros(shape=(B, P, S, d_model))

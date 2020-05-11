@@ -28,13 +28,12 @@ class SMC_Transformer(tf.keras.Model):
   def compute_SMC_loss(self, targets, predictions):
     assert self.cell.noise == self.cell.attention_smc.noise == True
     d = self.d_model
-    list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
+    list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
                                          self.cell.attention_smc.sigma_z] # (D,D) or scalar.
     loss_parts, loss_parts_no_log = [], []
-    for noise, sigma in zip(self.internal_noises, list_sigmas):
-      var = sigma**2
-      loss_part_no_log = 1/2 * (1/var) * tf.einsum('bijk,bijk->bij', noise, noise)
-      loss_part = 1/2 * ((1/var) * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(var))
+    for noise, Sigma in zip(self.internal_noises, list_Sigmas):
+      loss_part_no_log = 1/2 * (1/Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
+      loss_part = 1/2 * ((1/Sigma) * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(Sigma))
       loss_parts.append(loss_part)
       loss_parts_no_log.append(loss_part_no_log)
 
