@@ -1,0 +1,128 @@
+INFO:training log:hparams...
+INFO:training log:d_model: 2 - batch size 128 - full model? False - dff: 0
+INFO:training log:SMC Transformer for 10 particles
+INFO:training log:Sigma_obs init: 0.809999942779541
+INFO:training log:predictions shape: (128, 10, 24, 1)
+INFO:training log:Epoch 1/20
+INFO:training log:train loss: -0.127 - val loss: -0.224
+INFO:training log:train loss - without the log part: 5.545 - val loss - without the log part: 5.490
+INFO:training log:train mse metric from avg particule: 1.831 - val mse metric from avg particule: 1.730
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.813936> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.49584764> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.49584576> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.4958532> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.49584895>
+INFO:training log:Time taken for 1 epoch: 144.38487195968628 secs
+INFO:training log:Epoch 2/20
+INFO:training log:train loss: -0.351 - val loss: -0.559
+INFO:training log:train loss - without the log part: 5.447 - val loss - without the log part: 5.348
+INFO:training log:train mse metric from avg particule: 1.730 - val mse metric from avg particule: 1.591
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.82553005> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.4836368> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.48362675> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.48364827> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.4837025>
+INFO:training log:Time taken for 1 epoch: 145.85745525360107 secs
+INFO:training log:Epoch 3/20
+INFO:training log:train loss: -0.757 - val loss: -1.027
+INFO:training log:train loss - without the log part: 5.302 - val loss - without the log part: 5.216
+INFO:training log:train mse metric from avg particule: 1.570 - val mse metric from avg particule: 1.465
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.84380347> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.4630738> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.4630243> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.46306625> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.46337253>
+INFO:training log:Time taken for 1 epoch: 147.23574113845825 secs
+INFO:training log:Epoch 4/20
+INFO:training log:train loss: -1.309 - val loss: -1.669
+INFO:training log:train loss - without the log part: 5.166 - val loss - without the log part: 5.078
+INFO:training log:train mse metric from avg particule: 1.466 - val mse metric from avg particule: 1.395
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.8680617> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.43388376> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.43377694> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.43385664> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.43482167>
+INFO:training log:Time taken for 1 epoch: 147.89408946037292 secs
+INFO:training log:Epoch 5/20
+INFO:training log:train loss: -2.038 - val loss: -2.477
+INFO:training log:train loss - without the log part: 5.039 - val loss - without the log part: 4.982
+INFO:training log:train mse metric from avg particule: 1.408 - val mse metric from avg particule: 1.357
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.8979939> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.39572194> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.39555436> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.39589083> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.3977988>
+INFO:training log:Time taken for 1 epoch: 149.07951879501343 secs
+INFO:training log:Epoch 6/20
+INFO:training log:train loss: -2.993 - val loss: -3.606
+INFO:training log:train loss - without the log part: 4.926 - val loss - without the log part: 4.847
+INFO:training log:train mse metric from avg particule: 1.369 - val mse metric from avg particule: 1.324
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.9332703> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.34814852> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.34790534> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.34859794> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.35190043>
+INFO:training log:Time taken for 1 epoch: 150.9662458896637 secs
+INFO:training log:Epoch 7/20
+INFO:training log:train loss: -4.268 - val loss: -5.111
+INFO:training log:train loss - without the log part: 4.833 - val loss - without the log part: 4.749
+INFO:training log:train mse metric from avg particule: 1.340 - val mse metric from avg particule: 1.281
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=0.9728309> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.29047748> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.29020554> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.29123268> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.296405>
+INFO:training log:Time taken for 1 epoch: 151.81439352035522 secs
+INFO:training log:Epoch 8/20
+INFO:training log:train loss: -6.094 - val loss: -7.304
+INFO:training log:train loss - without the log part: 4.721 - val loss - without the log part: 4.661
+INFO:training log:train mse metric from avg particule: 1.300 - val mse metric from avg particule: 1.245
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.0138581> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.22164436> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.22134225> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.22278695> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.2300165>
+INFO:training log:Time taken for 1 epoch: 153.3019313812256 secs
+INFO:training log:Epoch 9/20
+INFO:training log:train loss: -8.900 - val loss: -10.986
+INFO:training log:train loss - without the log part: 4.643 - val loss - without the log part: 4.593
+INFO:training log:train mse metric from avg particule: 1.267 - val mse metric from avg particule: 1.214
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.0557647> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.13923898> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.13888395> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.14069314> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.1501799>
+INFO:training log:Time taken for 1 epoch: 154.32412552833557 secs
+INFO:training log:Epoch 10/20
+INFO:training log:train loss: -14.745 - val loss: -21.456
+INFO:training log:train loss - without the log part: 4.587 - val loss - without the log part: 4.544
+INFO:training log:train mse metric from avg particule: 1.244 - val mse metric from avg particule: 1.194
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.0952638> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=0.03498424> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=0.03452847> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=0.036933843> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=0.049545847>
+INFO:training log:Time taken for 1 epoch: 156.0465989112854 secs
+INFO:training log:Epoch 11/20
+INFO:training log:train loss: -82.087 - val loss: -105.938
+INFO:training log:train loss - without the log part: 4.554 - val loss - without the log part: 4.523
+INFO:training log:train mse metric from avg particule: 1.231 - val mse metric from avg particule: 1.189
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.1336297> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 157.27488374710083 secs
+INFO:training log:Epoch 12/20
+INFO:training log:train loss: -105.915 - val loss: -105.941
+INFO:training log:train loss - without the log part: 4.538 - val loss - without the log part: 4.504
+INFO:training log:train mse metric from avg particule: 1.229 - val mse metric from avg particule: 1.185
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.1716831> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 158.62345623970032 secs
+INFO:training log:Epoch 13/20
+INFO:training log:train loss: -105.919 - val loss: -105.933
+INFO:training log:train loss - without the log part: 4.519 - val loss - without the log part: 4.500
+INFO:training log:train mse metric from avg particule: 1.223 - val mse metric from avg particule: 1.184
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.201197> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 160.49218034744263 secs
+INFO:training log:Epoch 14/20
+INFO:training log:train loss: -105.913 - val loss: -105.930
+INFO:training log:train loss - without the log part: 4.515 - val loss - without the log part: 4.496
+INFO:training log:train mse metric from avg particule: 1.225 - val mse metric from avg particule: 1.182
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2155818> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 161.34166264533997 secs
+INFO:training log:Epoch 15/20
+INFO:training log:train loss: -105.911 - val loss: -105.920
+INFO:training log:train loss - without the log part: 4.514 - val loss - without the log part: 4.504
+INFO:training log:train mse metric from avg particule: 1.221 - val mse metric from avg particule: 1.184
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2210468> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 162.39606046676636 secs
+INFO:training log:Epoch 16/20
+INFO:training log:train loss: -105.909 - val loss: -105.933
+INFO:training log:train loss - without the log part: 4.515 - val loss - without the log part: 4.493
+INFO:training log:train mse metric from avg particule: 1.221 - val mse metric from avg particule: 1.179
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2167> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 163.61728858947754 secs
+INFO:training log:Epoch 17/20
+INFO:training log:train loss: -105.914 - val loss: -105.932
+INFO:training log:train loss - without the log part: 4.511 - val loss - without the log part: 4.495
+INFO:training log:train mse metric from avg particule: 1.218 - val mse metric from avg particule: 1.180
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2153205> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 165.46371150016785 secs
+INFO:training log:Epoch 18/20
+INFO:training log:train loss: -105.914 - val loss: -105.929
+INFO:training log:train loss - without the log part: 4.511 - val loss - without the log part: 4.497
+INFO:training log:train mse metric from avg particule: 1.220 - val mse metric from avg particule: 1.179
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2164559> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 166.94127011299133 secs
+INFO:training log:Epoch 19/20
+INFO:training log:train loss: -105.909 - val loss: -105.941
+INFO:training log:train loss - without the log part: 4.515 - val loss - without the log part: 4.484
+INFO:training log:train mse metric from avg particule: 1.221 - val mse metric from avg particule: 1.179
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2186438> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 168.07759261131287 secs
+INFO:training log:Epoch 20/20
+INFO:training log:train loss: -105.911 - val loss: -105.927
+INFO:training log:train loss - without the log part: 4.514 - val loss - without the log part: 4.498
+INFO:training log:train mse metric from avg particule: 1.222 - val mse metric from avg particule: 1.179
+INFO:training log:sigma_obs:<tf.Variable 'Sigma_obs:0' shape=() dtype=float32, numpy=1.2204775> - sigma_k:<tf.Variable 'sigma_k:0' shape=() dtype=float32, numpy=1e-06> - sigma_q: <tf.Variable 'sigma_q:0' shape=() dtype=float32, numpy=1e-06> - sigma_v: <tf.Variable 'sigma_v:0' shape=() dtype=float32, numpy=1e-06> - sigma_z: <tf.Variable 'sigma_z:0' shape=() dtype=float32, numpy=1e-06>
+INFO:training log:Time taken for 1 epoch: 169.73759627342224 secs
+INFO:training log:total training time for 20 epochs:     169.7
+INFO:training log:computing test mse metric at the end of training...
+INFO:training log:test mse metric from avg particle: 1.1869854927062988
