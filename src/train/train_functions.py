@@ -158,31 +158,29 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
     logger.info('Epoch {}/{}'.format(epoch+1, EPOCHS))
 
     if smc_transformer.cell.noise:
-      train_loss, val_loss = [0. for _ in range(3)], [0. for _ in range(3)]
+      train_loss, val_loss = [0. for _ in range(2)], [0. for _ in range(2)]
     else:
       train_loss, val_loss = [0.], [0.]
 
     for batch, (inp, tar) in enumerate(train_dataset):
-      train_loss_batch, train_loss_no_log, train_metric_avg_pred = train_step_SMC_T(inputs=inp,
+      train_loss_batch, train_metric_avg_pred = train_step_SMC_T(inputs=inp,
                                           targets=tar,
                                           smc_transformer=smc_transformer,
                                           optimizer=optimizer)
       train_loss[0] += train_loss_batch
 
       if smc_transformer.cell.noise:
-        train_loss[1] += train_loss_no_log
-        train_loss[2] += train_metric_avg_pred
+        train_loss[1] += train_metric_avg_pred
 
     for batch_val, (inp, tar) in enumerate(val_dataset):
       (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar) # shape (B,1,S,F_y)
       if smc_transformer.cell.noise:
         tar_tiled = tf.tile(tar, multiples=[1,smc_transformer.cell.num_particles,1,1])
-        val_loss_batch, val_loss_no_log = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
+        val_loss_batch = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
         val_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_val, axis=1, keepdims=True))
         val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)
         val_loss[0] += val_loss_batch
-        val_loss[1] += val_loss_no_log
-        val_loss[2] += val_metric_avg_pred
+        val_loss[1] += val_metric_avg_pred
       else:
         val_loss_batch = tf.keras.losses.MSE(tar, preds_val_resampl)  # (B,1,S)
         val_loss_batch = tf.reduce_mean(val_loss_batch)  # mean over all dims.
@@ -191,9 +189,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
     train_loss, val_loss = [i / (batch + 1) for i in train_loss],  [i /(batch_val + 1) for i in val_loss]
     logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
     if smc_transformer.cell.noise:
-      logger.info('train loss - without the log part: {:5.3f} - val loss - without the log part: {:5.3f}'.format(
-        train_loss[1].numpy(), val_loss[1].numpy()))
-      logger.info('train mse metric from avg particule: {:5.3f} - val mse metric from avg particule: {:5.3f}'.format(train_loss[2].numpy(), val_loss[2].numpy()))
+      logger.info('train mse metric from avg particule: {:5.3f} - val mse metric from avg particule: {:5.3f}'.format(train_loss[1].numpy(), val_loss[1].numpy()))
       logger.info('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(smc_transformer.cell.Sigma_obs,
                                                                                                smc_transformer.cell.attention_smc.sigma_k,
                                                                                                smc_transformer.cell.attention_smc.sigma_q,

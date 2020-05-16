@@ -26,7 +26,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if self.full_model:
       self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
       self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
-      self.ffn = point_wise_feed_forward_network(d_model, dff)
+      self.ffn = point_wise_feed_forward_network(d_model, dff) #TODO: remove this one.
 
     # initializing smc parameters for training
     self.num_particles = 1
@@ -34,7 +34,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # output layer for computing the weights
     self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
-
     # internal states: K,V,R. size without batch_dim.
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
@@ -48,12 +47,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.noise = True
     self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
     self.num_particles = num_particles
-    if sigma_obs is not None:
-      self.Sigma_obs = sigma_obs
-    else:
-      self.Sigma_obs = tf.Variable(0.5, shape=(), name='Sigma_obs')
-      self.Sigma_obs.assign(tf.square(self.Sigma_obs))
-      print('learning sigma_obs...')
+    self.Sigma_obs = sigma_obs
     self.list_weights, self.list_indices = [], []
 
   def compute_w_regression(self, predictions, y):
@@ -72,7 +66,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
     log_w = (-1 / (2 * self.Sigma_obs)) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
-    log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
+    #log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
     #log_w_scaled = log_w - log_w_max
     #w = tf.math.exp(log_w)
     #w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
@@ -80,18 +74,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # check if w contains a nan number
     bool_tens = tf.math.is_nan(w)
     has_nan = tf.math.reduce_any(bool_tens).numpy()
-    # if has_nan:
-    #   log_w_min = tf.reduce_min(log_w, axis=1, keepdims=True)
-    #   log_w_scaled = log_w - log_w_min
-    #   w = tf.math.exp(log_w_scaled)
-    #   w = w / tf.reduce_sum(w, axis=1, keepdims=True)  # normalization.
-    #   # recheck if w contains a nan number
-    #   bool_tens = tf.math.is_nan(w)
-    #   has_nan = tf.math.reduce_any(bool_tens).numpy()
     assert has_nan == False
-
     assert len(tf.shape(w)) == 2
-
     return w
 
   def call(self, inputs, states):
@@ -169,6 +153,9 @@ if __name__ == "__main__":
   # SMC_Transf_Cell.sigma_obs = tf.matmul(diag, diag, transpose_b=True)
   # temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
   # print('w', temp_w.shape)
+
+
+
 
   # ------------------------------------- code draft -------------------------------------------------------------------------------------
   # def compute_w_regression(self, predictions, y):

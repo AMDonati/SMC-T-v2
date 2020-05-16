@@ -45,7 +45,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
     classic_loss = tf.reduce_mean(classic_loss) # mean over all dimensions.
 
     if smc_transformer.cell.noise:
-      smc_loss, smc_loss_no_log = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets_tiled)
+      smc_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets_tiled)
       loss = smc_loss
       mse_metric_avg_pred = tf.keras.losses.MSE(targets, tf.reduce_mean(preds, axis=1, keepdims=True)) # (B,1,S)
       mse_metric_avg_pred = tf.reduce_mean(mse_metric_avg_pred)
@@ -61,20 +61,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer):
     #print('dict of variables and associated gradients', var_and_grad_dict)
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
-  if smc_transformer.cell.noise:
-    smc_transformer.cell.Sigma_obs.assign(tf.math.maximum(1e-6, smc_transformer.cell.Sigma_obs))
-    smc_transformer.cell.attention_smc.sigma_k.assign(tf.math.maximum(1e-6, smc_transformer.cell.attention_smc.sigma_k))
-    smc_transformer.cell.attention_smc.sigma_q.assign(tf.math.maximum(1e-6, smc_transformer.cell.attention_smc.sigma_q))
-    smc_transformer.cell.attention_smc.sigma_v.assign(tf.math.maximum(1e-6, smc_transformer.cell.attention_smc.sigma_v))
-    smc_transformer.cell.attention_smc.sigma_z.assign(tf.math.maximum(1e-6, smc_transformer.cell.attention_smc.sigma_z))
-    assert smc_transformer.cell.Sigma_obs > 0
-    assert smc_transformer.cell.attention_smc.sigma_k > 0
-    assert smc_transformer.cell.attention_smc.sigma_q > 0
-    assert smc_transformer.cell.attention_smc.sigma_v > 0
-    assert smc_transformer.cell.attention_smc.sigma_z > 0
 
   if smc_transformer.cell.noise:
-    return loss, smc_loss_no_log, mse_metric_avg_pred
+    return loss, mse_metric_avg_pred
   else:
     return loss, None, None
 

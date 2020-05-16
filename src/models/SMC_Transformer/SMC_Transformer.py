@@ -27,35 +27,24 @@ class SMC_Transformer(tf.keras.Model):
 
   def compute_SMC_loss(self, targets, predictions):
     assert self.cell.noise == self.cell.attention_smc.noise == True
-    d = self.d_model
     list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
                                          self.cell.attention_smc.sigma_z] # (D,D) or scalar.
     loss_parts, loss_parts_no_log = [], []
-    for noise, Sigma in zip(self.internal_noises, list_Sigmas):
-      loss_part_no_log = 1/2 * (1/Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
-      loss_part = 1/2 * ((1/Sigma) * tf.einsum('bijk,bijk->bij', noise, noise) + d * tf.math.log(Sigma))
-      loss_parts.append(loss_part)
-      loss_parts_no_log.append(loss_part_no_log)
 
+    for noise, Sigma in zip(self.internal_noises, list_Sigmas):
+      loss_part = 1/2 * (1/Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
+      loss_parts.append(loss_part)
     smc_loss = tf.stack(loss_parts, axis=0) # (4,B,P,S)
     smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
     smc_loss = tf.reduce_mean(smc_loss) # mean over all other dims.
-    smc_loss_no_log = tf.stack(loss_parts_no_log, axis=0)  # (4,B,P,S)
-    smc_loss_no_log = tf.reduce_sum(smc_loss_no_log, axis=0)  # sum of loss parts. # (B,P,S)
-    smc_loss_no_log = tf.reduce_mean(smc_loss_no_log)  # mean over all other dims.
 
     # "classic loss" part:
-    F_y = tf.shape(targets)[-1].numpy()
     diff = targets - predictions # shape (B,P,S,F_y)
-    classic_loss = 1/2 * ((1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff) + F_y * tf.math.log(self.cell.Sigma_obs))
+    classic_loss = 1/2 * (1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
     classic_loss = tf.reduce_mean(classic_loss)
-    classic_loss_no_log = 1/2 * (1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
-    classic_loss_no_log = tf.reduce_mean(classic_loss_no_log)
 
     total_loss = smc_loss + classic_loss
-    total_loss_no_log = smc_loss_no_log + classic_loss_no_log
-
-    return total_loss, total_loss_no_log
+    return total_loss
 
 
   def call(self, inputs, targets):

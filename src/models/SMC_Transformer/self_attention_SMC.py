@@ -6,7 +6,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
   def __init__(self, d_model):
     super(Self_Attention_SMC, self).__init__()
-
     self.d_model = d_model
     self.wq = tf.keras.layers.Dense(d_model, name='dense_projection_q')
     self.wk = tf.keras.layers.Dense(d_model, name='dense_projection_k')
@@ -16,21 +15,10 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
   def add_SMC_parameters(self, dict_sigmas):
     # noise parameters.
-    if dict_sigmas is not None:
-      self.sigma_k = dict_sigmas['k']
-      self.sigma_q = dict_sigmas['q']
-      self.sigma_v = dict_sigmas['v']
-      self.sigma_z = dict_sigmas['z']
-    else:
-      self.sigma_k = tf.Variable(0.5, shape=(), name='sigma_k')
-      self.sigma_k.assign(tf.square(self.sigma_k))
-      self.sigma_q = tf.Variable(0.5, shape=(), name='sigma_q')
-      self.sigma_q.assign(tf.square(self.sigma_q))
-      self.sigma_v = tf.Variable(0.5, shape=(), name='sigma_v')
-      self.sigma_v.assign(tf.square(self.sigma_v))
-      self.sigma_z = tf.Variable(0.5, shape=(), name='sigma_z')
-      self.sigma_z.assign(tf.square(self.sigma_z))
-      print('learning internal sigmas...')
+    self.sigma_k = dict_sigmas['k']
+    self.sigma_q = dict_sigmas['q']
+    self.sigma_v = dict_sigmas['v']
+    self.sigma_z = dict_sigmas['z']
     self.noise = True
 
   def add_noise(self, params, sigma):
@@ -75,6 +63,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
     V_past = V[:, :, :timestep, :]
     V_future = V[:, :, timestep + 1:, :]
     V = tf.concat([V_past, v, V_future], axis=2) # (B,P,S,D)
+    #TODO: add a time-window.
 
     # Computation of z from K,V,q.
     matmul_qk = tf.matmul(q, K, transpose_b=True)  # (B, P, 1, S)
