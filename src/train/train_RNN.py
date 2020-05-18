@@ -2,6 +2,7 @@ import tensorflow as tf
 import os, argparse
 import numpy as np
 from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, split_input_target
+from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
 from utils.utils_train import create_logger
 from models.Baselines.RNNs import build_LSTM_for_regression
 from train.train_functions import train_LSTM
@@ -22,30 +23,54 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-rnn_units", type=int, required=True, help="number of rnn units")
-  parser.add_argument("-bs", type=int, default=128, help="batch size")
-  parser.add_argument("-ep", type=int, default=20, help="number of epochs")
+  parser.add_argument("-bs", type=int, default=256, help="batch size")
+  parser.add_argument("-ep", type=int, default=30, help="number of epochs")
   parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
   parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
   parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
+  parser.add_argument("-dataset", type=str, default='weather', help='dataset selection')
 
   args = parser.parse_args()
 
   # ------------------- Upload synthetic dataset ----------------------------------------------------------------------------------
-  BUFFER_SIZE = 500
+
   BATCH_SIZE = args.bs
   TRAIN_SPLIT = 0.7
+  if args.dataset == 'synthetic':
+      BUFFER_SIZE = 500
+      data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
+      input_data = np.load(data_path)
+      train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data, TRAIN_SPLIT=TRAIN_SPLIT, cv=False)
 
-  data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
-  input_data = np.load(data_path)
-  train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data, TRAIN_SPLIT=TRAIN_SPLIT, cv=False)
+      val_data_path = os.path.join(args.data_path, 'val_data_synthetic_1_feat.npy')
+      train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
+      test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
 
-  val_data_path = os.path.join(args.data_path, 'val_data_synthetic_1_feat.npy')
-  train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
-  test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
+      np.save(val_data_path, val_data)
+      np.save(train_data_path, train_data)
+      np.save(test_data_path, test_data)
 
-  np.save(val_data_path, val_data)
-  np.save(train_data_path, train_data)
-  np.save(test_data_path, test_data)
+  elif args.dataset == 'weather':
+
+      BUFFER_SIZE = 5000
+      file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
+      fname = 'jena_climate_2009_2016.csv.zip'
+      col_name = ['p (mbar)', 'T (degC)', 'rh (%)', 'rho (g/m**3)']
+      index_name = 'Date Time'
+      # temperature recorded every 10 minutes.
+      history = 6 * 24 * 4 + 6 * 4  # history of 4 days + one more 4 hours interval for splitting target / input.
+      step = 6 * 4  # sample a temperature every 4 hours.
+
+      (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
+                                                                                    fname=fname,
+                                                                                    col_name=col_name,
+                                                                                    index_name=index_name,
+                                                                                    TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                                    history=history,
+                                                                                    step=step,
+                                                                                    cv=False,
+                                                                                    max_samples=20000)
+
 
   train_dataset, val_dataset, test_dataset = data_to_dataset_3D(train_data=train_data,
                                                                 val_data=val_data,
@@ -55,6 +80,10 @@ if __name__ == '__main__':
                                                                 BATCH_SIZE=BATCH_SIZE,
                                                                 target_feature=None,
                                                                 cv=False)
+
+  for (inp, tar) in train_dataset.take(1):
+      print('input example', inp[0])
+      print('target example', tar[0])
 
   # -------------------- define hyperparameters -----------------------------------------------------------------------------------
   rnn_units = args.rnn_units

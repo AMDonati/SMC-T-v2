@@ -32,6 +32,8 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
   print('length of original continuous dataset: {}'.format(len(uni_data_df)))
 
   uni_data = uni_data_df.values
+  if max_samples is not None:
+    uni_data = uni_data[:max_samples, :]
 
   # normalization
   data_mean = uni_data.mean(axis=0)
@@ -41,8 +43,7 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
   stats = (data_mean, data_std)
 
   data_in_seq = split_dataset_into_seq(uni_data, 0, None, history, step)
-  if max_samples is not None:
-      data_in_seq = data_in_seq[:max_samples, :, :]
+
   if not cv:
     # split between validation dataset and test set:
     train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
@@ -94,7 +95,7 @@ if __name__ == '__main__':
                                                                                   history=history,
                                                                                   step=step,
                                                                                   cv=cv,
-                                                                                  max_samples=70000)
+                                                                                  max_samples=20000)
 
     print(train_data[:5])
 
