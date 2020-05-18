@@ -86,7 +86,7 @@ if __name__ == '__main__':
                                                                                       history=history,
                                                                                       step=step,
                                                                                       cv=cv,
-                                                                                      max_samples=70000)
+                                                                                      max_samples=20000)
 
     train_dataset, val_dataset, test_dataset = data_to_dataset_4D(train_data=train_data,
                                                                   val_data=val_data,
