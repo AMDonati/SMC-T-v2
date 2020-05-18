@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os, argparse
 import numpy as np
-from preprocessing.time_series.df_to_dataset import split_synthetic_dataset, data_to_dataset_3D, split_input_target
+from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, split_input_target
 from utils.utils_train import create_logger
 from models.Baselines.RNNs import build_LSTM_for_regression
 from train.train_functions import train_LSTM

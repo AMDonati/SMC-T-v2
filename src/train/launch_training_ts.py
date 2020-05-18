@@ -38,10 +38,10 @@ import json
 import argparse
 import warnings
 
-from preprocessing.time_series.df_to_dataset import df_to_data_regression
-from preprocessing.time_series.df_to_dataset import data_to_dataset_4D
-from preprocessing.time_series.df_to_dataset import split_input_target
-from preprocessing.time_series.df_to_dataset import split_synthetic_dataset
+from preprocessing.time_series.df_to_dataset_synthetic import df_to_data_regression
+from preprocessing.time_series.df_to_dataset_synthetic import data_to_dataset_4D
+from preprocessing.time_series.df_to_dataset_synthetic import split_input_target
+from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger

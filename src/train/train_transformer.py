@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os, argparse
-from preprocessing.time_series.df_to_dataset import split_synthetic_dataset, data_to_dataset_3D, \
+from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, \
   split_input_target
 from models.Baselines.Transformer_without_enc import Transformer
 from models.Baselines.SMC_on_classic_transformer import SMC_on_Transformer

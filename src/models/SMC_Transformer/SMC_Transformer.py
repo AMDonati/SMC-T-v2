@@ -39,7 +39,7 @@ class SMC_Transformer(tf.keras.Model):
     smc_loss = tf.reduce_mean(smc_loss) # mean over all other dims.
 
     # "classic loss" part:
-    diff = targets - predictions # shape (B,P,S,F_y)
+    diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32) # shape (B,P,S,F_y)
     classic_loss = 1/2 * (1/self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
     classic_loss = tf.reduce_mean(classic_loss)
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
   mult3_2 = tf.einsum('bijk,bijk->bij', temp_mu_3, temp_mu_3)
 
 
-  smc_loss, smc_loss_no_log = transformer.compute_SMC_loss(targets=targets, predictions=pred)
+  smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
   print('smc loss', smc_loss.numpy())
   print('smc loss no log', smc_loss_no_log.numpy())
 
