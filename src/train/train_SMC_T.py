@@ -149,7 +149,7 @@ if __name__ == '__main__':
     if args.smc:
         logger.info("SMC Transformer for {} particles".format(args.particles))
         if args.sigmas is not None:
-            dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [args.sigmas for _ in range(4)])
+            dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [args.sigmas for _ in range(4)]))
         else:
             dict_sigmas = None
         smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs,
