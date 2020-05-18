@@ -32,7 +32,7 @@ if __name__ == '__main__':
                         help="simple transformer or one with ffn and layer norm")
     parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
-    parser.add_argument("-sigmas", type=list, default=[0.1 for _ in range(4)], help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+    parser.add_argument("-sigmas", type=float, default=0.1, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-sigma_obs", type=float, default=0.1, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, required=True, help="Recurrent Transformer with or without smc algo")
     parser.add_argument("-dataset", type=str, default='weather', help='dataset selection')
@@ -122,10 +122,8 @@ if __name__ == '__main__':
     if args.sigma_obs is not None:
         out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
     if args.sigmas is not None:
-        out_file = out_file + '_sigmas_{}_{}_{}_{}'.format(args.sigmas[0],
-                                                           args.sigmas[1],
-                                                           args.sigmas[2],
-                                                           args.sigmas[3])
+        out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+
     output_path = os.path.join(output_path, out_file)
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
@@ -151,7 +149,7 @@ if __name__ == '__main__':
     if args.smc:
         logger.info("SMC Transformer for {} particles".format(args.particles))
         if args.sigmas is not None:
-            dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], args.sigmas))
+            dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [args.sigmas for _ in range(4)])
         else:
             dict_sigmas = None
         smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs,
