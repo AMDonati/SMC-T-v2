@@ -1,21 +1,5 @@
 import tensorflow as tf
 
-### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
-
-def loss_function_classic_T_classif(real, pred, data_type):
-  # squeezing 'real' to have a shape of (B,S):
-  real=tf.squeeze(real, axis=-1)
-  if data_type=='nlp':
-    mask = tf.math.logical_not(tf.math.equal(real, 0))
-  loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-  loss_ = loss_object(real, pred) # shape (B,S)
-  if data_type=='nlp':
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
-  # averaging over the sequences dimension:
-  loss_=tf.reduce_mean(loss_, axis=-1) # (B,)
-  return tf.reduce_mean(loss_)
-
 
 def categorical_ce_with_particules(real, pred, sampling_weights, data_type):
   '''
@@ -240,59 +224,6 @@ if __name__ == "__main__":
   acc_variance=compute_accuracy_variance(predictions_val, tar, accuracy_metric)
   print('variance', acc_variance)
 
-
-
-  # ------ old loss functions ------------
-
-  # def mse_with_particles(real, pred, sampling_weights):
-  #   '''
-  #   :param real: shape (B,S,F)
-  #   :param pred: shape (B,P,S,F)
-  #   :param sampling_weights: shape (B,P)
-  #   :return:
-  #   the average mse scalar loss (with a weighted average over the dim number of particles)
-  #   '''
-  #   # tiling real over the particles dimension to have a tensor of shape (B,P,S,1)
-  #
-  #   num_particles = tf.shape(pred)[1]
-  #   real = tf.expand_dims(real, axis=1)
-  #   real = tf.tile(real, multiples=[1, num_particles, 1, 1])
-  #   mse = tf.keras.losses.MSE
-  #   loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
-  #
-  #   # loss=tf.keras.metrics.Mean(loss)
-  #
-  #   # # mean over the sequence dimension.
-  #   # loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P,S)
-  #   # # squeezing sampling_weights to have a shape (B,P)
-  #   # if len(tf.shape(sampling_weights))==3:
-  #   #   sampling_weights=tf.squeeze(sampling_weights, axis=-1)
-  #   # # weighted average over the particle dimension.
-  #   # loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
-  #   # # mean over the batch elements.
-  #   # loss = tf.reduce_mean(loss)
-  #   return loss
-
-# #------ old function not working------
-# def categorical_crossentropy(real, logits, sampling_weights):
-#     '''formula: mean(over batch)[sum(w(m)*-sum(real*log pred))
-#     -args:
-#       -real: tensor of dim (B,P,S) or dim (B,S)
-#       -pred (logits):tensor of dim (B,P,S,V) with V the vocabulary size.
-#       -sampling_weights: tensor of dim (B,P)'''
-#     num_particles = tf.shape(sampling_weights)[-1]
-#     #if len(tf.shape(real)) < 3:
-#       #real = tf.tile(real[:, tf.newaxis, :], multiples=[1, num_particles, 1])  # add particles dimension > dim (B,P,S)
-#     pred = tf.reduce_max(logits, axis=-1)  # dim (B, P, S)
-#     pred = tf.cast(pred, dtype=tf.float32)
-#     real = tf.cast(real, dtype=tf.float32)
-#     loss = -tf.reduce_sum(real * tf.math.log(pred), axis=-1)  # dim (B,P)
-#     # weighted sum using sampling_weights.
-#     loss = tf.reduce_sum(sampling_weights * loss, axis=-1)  # dim (B,)
-#     # averaging over the batch
-#     loss = tf.reduce_mean(loss, axis=0)
-#     print(loss.shape)
-#     return loss
 
 
 

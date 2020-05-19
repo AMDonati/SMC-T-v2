@@ -1,5 +1,5 @@
-python src/train/train_SMC_T.py -bs 256 -d_model 32 -ep 50 -smc True -particles 10 -data_path "data" -output_path "output"
+python src/train/train_SMC_T.py -bs 256 -d_model 12 -ep  -smc True -particles 10 -data_path "data" -output_path "output"
 
 python src/train/train_transformer.py -bs 64 -d_model 12 -ep 20 -data_path "data" -output_path "output" -pe 50 -dff 48 -launch_smc False
 
-python src/train/train_RNN.py -bs 64 -rnn_units 20 -ep 20 -data_path "data" -output_path "output"
+python src/train/train_RNN.py -bs 256 -rnn_units 32 -ep 50 -p_drop 0.1 -cv True -data_path "data" -output_path "output/RNN_exp_weather"
