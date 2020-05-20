@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("-full_model", type=str2bool, default=False,
                         help="simple transformer or one with ffn and layer norm")
     parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
+    parser.add_argument("-attn_w", type=int, default=None, help="attn window")
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
@@ -116,12 +117,10 @@ if __name__ == '__main__':
                                          beta_2=0.98,
                                          epsilon=1e-9)
     output_path = args.output_path
-    out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}'.format(d_model, BATCH_SIZE, args.full_model)
-    if args.particles is not None:
+    out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(d_model, BATCH_SIZE, args.full_model, args.dff, args.attn_w)
+    if args.smc:
         out_file = out_file + '__p_{}'.format(args.particles)
-    if args.sigma_obs is not None:
         out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
-    if args.sigmas is not None:
         out_file = out_file + '_sigmas_{}'.format(args.sigmas)
 
     output_path = os.path.join(output_path, out_file)
@@ -140,13 +139,15 @@ if __name__ == '__main__':
     # ------ Training of the recurrent Transformer ---------------------------------------------------------------------------------------------------
     logger.info('hparams...')
     logger.info(
-        'd_model: {} - batch size {} - full model? {} - dff: {}'.format(d_model, BATCH_SIZE, args.full_model, args.dff))
+        'd_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(d_model, BATCH_SIZE, args.full_model, args.dff, args.attn_w))
     logger.info('num samples in training dataset:{}'.format(train_data.shape[0]))
 
-    smc_transformer = SMC_Transformer(d_model=d_model, output_size=output_size, seq_len=seq_len,
-                                      full_model=args.full_model, dff=args.dff)
-
-
+    smc_transformer = SMC_Transformer(d_model=d_model,
+                                      output_size=output_size,
+                                      seq_len=seq_len,
+                                      full_model=args.full_model,
+                                      dff=args.dff,
+                                      attn_window=args.attn_w) #TODO: add the attn_window here.
 
     if args.smc:
         logger.info("SMC Transformer for {} particles".format(args.particles))

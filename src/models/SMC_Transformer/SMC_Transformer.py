@@ -11,10 +11,11 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transformer(tf.keras.Model):
 
-  def __init__(self, d_model, output_size, seq_len, full_model, dff):
+  def __init__(self, d_model, output_size, seq_len, full_model, dff, attn_window=None):
     super(SMC_Transformer, self).__init__()
 
-    self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model, dff=dff)
+    self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
+                                dff=dff, attn_window=attn_window)
 
     # for pre_processing words in the one_layer case.
     self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts') # for regression case.
@@ -109,7 +110,7 @@ if __name__ == "__main__":
   seq_len = 5
   F = 1
   d_model = 6
-  full_model = False
+  full_model = True
   dff = 24
 
   inputs = tf.constant([[[1],[2],[3],[4],[5]]], shape=(1, seq_len, F), dtype=tf.float32) # ok works with len(tf.shape(inputs)==3.
@@ -122,7 +123,7 @@ if __name__ == "__main__":
   targets = tf.expand_dims(targets, axis=1)
   print('targets', targets.shape)
 
-  transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff)
+  transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff, attn_window=4)
   (predictions, _), (K,V,R), attn_weights = transformer(inputs=inputs, targets=targets)
 
   print('predictions', predictions.shape)
@@ -135,8 +136,8 @@ if __name__ == "__main__":
   sigma_obs = 0.5
   dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
-  transformer.cell.add_SMC_parameters(dict_sigmas=None,
-                                      sigma_obs=None,
+  transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                      sigma_obs=sigma_obs,
                                       num_particles=num_particles)
   (pred, pred_resampl), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
   print('predictions', pred.shape)
@@ -167,7 +168,6 @@ if __name__ == "__main__":
 
   smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
   print('smc loss', smc_loss.numpy())
-  print('smc loss no log', smc_loss_no_log.numpy())
 
 
   # --------------------------------------------- code draft -------------------------------------------------------------------------------------

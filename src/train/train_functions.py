@@ -172,14 +172,14 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                                                                        optimizer=optimizer,
                                                                        it=it)
             train_loss[0] += train_loss_batch
-            print('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                smc_transformer.cell.Sigma_obs,
-                smc_transformer.cell.attention_smc.sigma_k,
-                smc_transformer.cell.attention_smc.sigma_q,
-                smc_transformer.cell.attention_smc.sigma_v,
-                smc_transformer.cell.attention_smc.sigma_z))
 
             if smc_transformer.cell.noise:
+                print('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
+                    smc_transformer.cell.Sigma_obs,
+                    smc_transformer.cell.attention_smc.sigma_k,
+                    smc_transformer.cell.attention_smc.sigma_q,
+                    smc_transformer.cell.attention_smc.sigma_v,
+                    smc_transformer.cell.attention_smc.sigma_z))
                 train_loss[1] += train_metric_avg_pred
 
         for batch_val, (inp, tar) in enumerate(val_dataset):

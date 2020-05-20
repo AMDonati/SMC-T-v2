@@ -9,15 +9,16 @@ NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-  def __init__(self, d_model, output_size, seq_len, full_model, dff, **kwargs):
+  def __init__(self, d_model, output_size, seq_len, full_model, dff, attn_window=None, **kwargs):
     '''
+    :param attn_window:
     :param full_model:
     :param dff:
     '''
     # store the decoding timestep
     self.dec_timestep = 0
     self.cell_count = 0
-    self.attention_smc = Self_Attention_SMC(d_model=d_model)
+    self.attention_smc = Self_Attention_SMC(d_model=d_model, attn_window=attn_window)
     self.d_model = d_model
     self.output_size = output_size
     self.seq_len = seq_len
