@@ -51,33 +51,33 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
         if smc_transformer.cell.noise:
             # EM estimation of the noise parameters
             err_k = smc_transformer.noise_K_resampled * smc_transformer.noise_K_resampled
-            err_k = tf.reduce_mean(err_k)
+            err_k = tf.reduce_mean(err_k, axis=[1,2,3])
             err_q = smc_transformer.noise_q * smc_transformer.noise_q
-            err_q = tf.reduce_mean(err_q)
+            err_q = tf.reduce_mean(err_q, axis=[1,2,3])
             err_v = smc_transformer.noise_V_resampled * smc_transformer.noise_V_resampled
-            err_v = tf.reduce_mean(err_v)
+            err_v = tf.reduce_mean(err_v, axis=[1,2,3])
             err_z = smc_transformer.noise_z * smc_transformer.noise_z
-            err_z = tf.reduce_mean(err_z)
+            err_z = tf.reduce_mean(err_z, axis=[1,2,3])
 
-            smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v
-            smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k
-            smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q
-            smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z
+            # smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v
+            # smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k
+            # smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q
+            # smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z
 
             if it > sigma_obs_update:
                 it_obs = it - sigma_obs_update
                 # EM estimation of Sigma_obs:
                 err_obs = tf.cast(targets_tiled, tf.float32) - tf.cast(preds_resampl, tf.float32)
                 new_sigma_obs = err_obs * err_obs
-                new_sigma_obs = tf.reduce_mean(new_sigma_obs)
-                smc_transformer.cell.Sigma_obs = (1 - it_obs ** (-0.6)) * smc_transformer.cell.Sigma_obs + it_obs ** (-0.6) * new_sigma_obs
+                new_sigma_obs = tf.reduce_mean(new_sigma_obs, axis=[1,2,3])
 
-            # for j in range(err_v.shape[0]):
-            #     smc_transformer.cell.Sigma_obs = (1 - it ** (-0.6)) * smc_transformer.cell.Sigma_obs + it ** (-0.6) * new_sigma_obs[j]
-            #     smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
-            #     smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
-            #     smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
-            #     smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
+            for j in range(err_v.shape[0]):
+                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
+                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
+                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
+                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
+                if it > sigma_obs_update:
+                    smc_transformer.cell.Sigma_obs = (1 - it_obs ** (-0.6)) * smc_transformer.cell.Sigma_obs + it_obs ** (-0.6) * new_sigma_obs[j]
 
             smc_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets_tiled)
             loss = smc_loss
