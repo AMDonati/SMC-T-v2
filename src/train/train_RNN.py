@@ -59,7 +59,6 @@ if __name__ == '__main__':
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        BUFFER_SIZE = 50
         data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
         train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
 
