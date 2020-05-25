@@ -197,10 +197,10 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                 val_loss[0] += val_loss_batch
 
         train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]
-        logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
+        logger.info('train loss: {} - val loss: {}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
         if smc_transformer.cell.noise:
             logger.info(
-                'train mse metric from avg particule: {:5.3f} - val mse metric from avg particule: {:5.3f}'.format(
+                'train mse metric from avg particule: {} - val mse metric from avg particule: {}'.format(
                     train_loss[1].numpy(), val_loss[1].numpy()))
             logger.info('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
                 smc_transformer.cell.Sigma_obs,
@@ -212,4 +212,4 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 
-    logger.info('total training time for {} epochs:{:10.1f}'.format(EPOCHS, time.time() - start))
+    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start))

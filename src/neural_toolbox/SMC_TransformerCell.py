@@ -67,10 +67,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     mu_t = tf.squeeze(mu_t, axis=-2) # removing sequence dim. # (B,P,F_y).
     log_w = (-1 / (2 * self.Sigma_obs)) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
-    #log_w_max = tf.reduce_max(log_w, axis=1, keepdims=True)
-    #log_w_scaled = log_w - log_w_max
-    #w = tf.math.exp(log_w)
-    #w = w / tf.reduce_sum(w, axis=1, keepdims=True) # normalization.
     w = tf.nn.softmax(log_w)
     # check if w contains a nan number
     bool_tens = tf.math.is_nan(w)
@@ -78,6 +74,22 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     assert has_nan == False
     assert len(tf.shape(w)) == 2
     return w
+
+  def call_inference(self, inputs, states, timestep):
+    K, V = states
+    # self attention:
+    (z, K, V), attn_weights = self.attention_smc(inputs=inputs, timestep=timestep, K=K, V=V)
+
+    if self.full_model:
+      out = self.layernorm1(z + inputs)
+      r = self.ffn(out)
+      r = self.layernorm2(r + out)
+    else:
+      r = z
+    predictions = self.output_layer(r)  # (B,P,1,F_y)
+
+    return predictions, (K,V)
+
 
   def call(self, inputs, states):
     '''

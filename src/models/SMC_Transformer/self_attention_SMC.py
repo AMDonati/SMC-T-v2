@@ -65,7 +65,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         V_past = V[:, :, :timestep, :]
         V_future = V[:, :, timestep + 1:, :]
         V = tf.concat([V_past, v, V_future], axis=2)  # (B,P,S,D)
-        # TODO: add a time-window.
 
         # Computation of z from K,V,q.
         matmul_qk = tf.matmul(q, K, transpose_b=True)  # (B, P, 1, S)
