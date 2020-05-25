@@ -55,10 +55,48 @@ def inference_onestep(smc_transformer, test_sample, N, save_path, past_len=40, f
 
     return preds_NP, mean_preds
 
+def inference_multistep(smc_transformer, test_sample, N, save_path=None, past_len=40, future_len=20):
+    P = smc_transformer.cell.num_particles
+    d_model = smc_transformer.d_model
+    sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
+
+    # forward pass on test_sample_past
+    inp, tar = split_input_target(test_sample[:, :, :past_len + 1, :])
+    smc_transformer.seq_len = past_len
+    (preds, _), (K, V, _), _ = smc_transformer(inp, tar)  # K,V shape (1, P, 40, D)
+    new_K = expand_and_tile_attn_params(K, N=N, P=P, d_model=d_model)
+    new_V = expand_and_tile_attn_params(V, N=N, P=P, d_model=d_model)
+
+    # inference for the future
+    smc_transformer.seq_len = past_len + future_len
+    inf_inp = tf.expand_dims(test_sample[:,:,past_len,:], axis=-2)
+    inf_inp = tf.tile(inf_inp, multiples=[1, N * P, 1, 1])
+      # pre_processing of inf_inp.
+    means_NP = []
+    pred_NP = inf_inp
+    for i in range(future_len):
+        t = i + past_len
+        pred_NP = smc_transformer.input_dense_projection(pred_NP)
+        mean_NP, (new_K, new_V) = smc_transformer.cell.call_inference(inputs=pred_NP, states=(new_K, new_V), timestep=t)
+        pred_NP = mean_NP + tf.random.normal(shape=mean_NP.shape, stddev=sigma_obs)
+        means_NP.append(mean_NP)
+    means_NP = tf.stack(means_NP, axis=-2)
+    means_NP = tf.squeeze(means_NP)
+
+    mean_preds_future = tf.reduce_mean(means_NP, axis=0) # (shape 20)
+    preds = tf.squeeze(preds)
+    mean_preds_past = tf.reduce_mean(preds, axis=0) # (shape 60)
+    mean_preds = tf.concat([mean_preds_past, mean_preds_future], axis=0)
+    mean_preds = mean_preds.numpy()
+    if save_path is not None:
+        np.save(save_path, mean_preds)
+
+    return means_NP, mean_preds
+
 
 def get_empirical_distrib(mean_NP, sigma_obs, N_est, N, P):
     emp_distrib = np.zeros(shape=N_est)
-    mean_NP = tf.reshape(mean_NP, shape=(N, P))  # TODO: transform this into a function with a for loop.
+    mean_NP = tf.reshape(mean_NP, shape=(N, P))
     for i in range(N_est):
         ind_n = np.random.randint(0, N)
         ind_p = np.random.randint(0, P)
@@ -165,8 +203,19 @@ if __name__ == '__main__':
 
     # ------------------------------------- check test loss ----------------------------------------------------------------------------------
 
+    # computing loss on test_dataset:
+    inputs, targets = split_input_target(test_data[:,np.newaxis,:,:])
+    (preds_test, preds_test_resampl), _, _ = smc_transformer(inputs=inputs,
+                                                            targets=targets)  # predictions test are the ones not resampled.
+    test_metric_avg_pred = tf.keras.losses.MSE(targets, tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
+    test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred, axis=[1,2])
+    top_k, top_i = tf.math.top_k(test_metric_avg_pred, k=15)
+    print('indices with lowest loss', top_i)
+    test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
+    print('test loss', test_metric_avg_pred)
+
     # ------ sigmas estimation post-training --------------------------------------------------------------------------------------------------
-    index = 33
+    index = 88
     test_sample = test_data[index]
     print('test_sample', test_sample)
     test_sample = tf.convert_to_tensor(test_sample)
@@ -180,12 +229,21 @@ if __name__ == '__main__':
     Sigma_obs, sigmas = EM_after_training(smc_transformer=smc_transformer, inputs=inputs, targets=targets, save_path=save_path_EM)
 
     # ---------------------------- launching inference ----------------------------------------------------------------------------------------
-    save_path = os.path.join(out_path, 'mean_preds_sample_{}.npy'.format(index))
-    preds_NP, mean_preds = inference_onestep(smc_transformer=smc_transformer, test_sample=test_sample, N=N, save_path=save_path)
+    save_path_means = os.path.join(out_path, 'mean_preds_sample_{}_N_{}.npy'.format(index, N))
+    save_path_means_multi = os.path.join(out_path, 'mean_preds_sample_{}_N_{}_multi.npy'.format(index, N))
+    preds_NP, mean_preds = inference_onestep(smc_transformer=smc_transformer,
+                                             test_sample=test_sample,
+                                             N=N,
+                                             save_path=save_path_means)
+    means_NP_multi, mean_preds_multi = inference_multistep(smc_transformer=smc_transformer,
+                                                           test_sample=test_sample,
+                                                           N=N,
+                                                           save_path=save_path_means_multi)
 
     sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
     P = smc_transformer.cell.num_particles
 
+    save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_sample_{}_N_{}.npy'.format(index, N))
     distrib_future_timesteps = []
     for t in range(20):
         mean_NP = preds_NP[:, t]
@@ -193,7 +251,16 @@ if __name__ == '__main__':
         distrib_future_timesteps.append(emp_distrib)
     distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0)
     print('distrib future timesteps', distrib_future_timesteps.shape)
-    save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_sample_{}.npy'.format(index))
     np.save(save_path_distrib, distrib_future_timesteps)
+
+    save_path_distrib_multi = os.path.join(out_path, 'distrib_future_timesteps_sample_{}_N_{}_multi.npy'.format(index, N))
+    distrib_future_timesteps = []
+    for t in range(20):
+        mean_NP = means_NP_multi[:, t]
+        emp_distrib = get_empirical_distrib(mean_NP, sigma_obs=sigma_obs, N_est=1000, N=N, P=P)
+        distrib_future_timesteps.append(emp_distrib)
+    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0)
+    print('distrib future timesteps', distrib_future_timesteps.shape)
+    np.save(save_path_distrib_multi, distrib_future_timesteps)
 
 
