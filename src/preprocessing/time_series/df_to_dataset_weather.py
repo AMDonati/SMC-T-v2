@@ -33,6 +33,7 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
 
   uni_data = uni_data_df.values
   if max_samples is not None:
+    #index = list(np.random.randint(0, len(uni_data_df), size=max_samples))
     uni_data = uni_data[:max_samples, :]
 
   # normalization
@@ -109,4 +110,3 @@ if __name__ == '__main__':
                                                                    BUFFER_SIZE=BUFFER_SIZE,
                                                                    BATCH_SIZE=BATCH_SIZE,
                                                                    cv=cv)
-    print('train dataset', len(train_dataset))

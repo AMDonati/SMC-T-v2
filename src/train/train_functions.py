@@ -195,9 +195,8 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                 val_loss_batch = tf.keras.losses.MSE(tar, preds_val_resampl)  # (B,1,S)
                 val_loss_batch = tf.reduce_mean(val_loss_batch)  # mean over all dims.
                 val_loss[0] += val_loss_batch
-            batch_val+=1
 
-        train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val+1) for i in val_loss]
+        train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]
         logger.info('train loss: {:5.3f} - val loss: {:5.3f}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
         if smc_transformer.cell.noise:
             logger.info(

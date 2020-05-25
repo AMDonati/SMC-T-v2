@@ -4,6 +4,7 @@ import os, argparse
 from preprocessing.time_series.df_to_dataset_synthetic import split_input_target, data_to_dataset_4D, \
     split_synthetic_dataset
 from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
+from preprocessing.time_series.df_to_dataset_covid import split_covid_data
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from train.train_functions import train_SMC_transformer
 from utils.utils_train import create_logger
@@ -26,9 +27,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-d_model", type=int, required=True, help="depth of attention parameters")
-    parser.add_argument("-bs", type=int, default=1000, help="batch size")
+    parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=3, help="number of epochs")
-    parser.add_argument("-full_model", type=str2bool, default=False,
+    parser.add_argument("-full_model", type=str2bool, default=True,
                         help="simple transformer or one with ffn and layer norm")
     parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
     parser.add_argument("-attn_w", type=int, default=None, help="attn window")
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, required=True, help="Recurrent Transformer with or without smc algo")
-    parser.add_argument("-dataset", type=str, default='weather', help='dataset selection')
+    parser.add_argument("-dataset", type=str, default='covid', help='dataset selection')
     parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
 
@@ -48,24 +49,26 @@ if __name__ == '__main__':
     # -------------------------------- Upload synthetic dataset ----------------------------------------------------------------------------------
 
     BATCH_SIZE = args.bs
-    TRAIN_SPLIT = 0.7
+    TRAIN_SPLIT = 0.8
 
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
         data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
         input_data = np.load(data_path)
-
         train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data,
                                                                   TRAIN_SPLIT=TRAIN_SPLIT,
                                                                   cv=False)
-
         val_data_path = os.path.join(args.data_path, 'val_data_synthetic_1_feat.npy')
         train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
         test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
-
         np.save(val_data_path, val_data)
         np.save(train_data_path, train_data)
         np.save(test_data_path, test_data)
+
+    elif args.dataset == 'covid':
+        BUFFER_SIZE = 50
+        data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
+        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
 
     elif args.dataset == 'weather':
 
@@ -117,7 +120,7 @@ if __name__ == '__main__':
                                          beta_2=0.98,
                                          epsilon=1e-9)
     output_path = args.output_path
-    out_file = 'Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(d_model, BATCH_SIZE, args.full_model, args.dff, args.attn_w)
+    out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, d_model, BATCH_SIZE, args.full_model, args.dff, args.attn_w)
     if args.smc:
         out_file = out_file + '__p_{}'.format(args.particles)
         out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
@@ -147,7 +150,7 @@ if __name__ == '__main__':
                                       seq_len=seq_len,
                                       full_model=args.full_model,
                                       dff=args.dff,
-                                      attn_window=args.attn_w) #TODO: add the attn_window here.
+                                      attn_window=args.attn_w)
 
     if args.smc:
         logger.info("SMC Transformer for {} particles".format(args.particles))

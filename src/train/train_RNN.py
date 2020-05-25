@@ -4,6 +4,7 @@ import numpy as np
 from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, \
     split_input_target
 from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
+from preprocessing.time_series.df_to_dataset_covid import split_covid_data
 from utils.utils_train import create_logger
 from models.Baselines.RNNs import build_LSTM_for_regression
 from train.train_functions import train_LSTM
@@ -25,14 +26,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-rnn_units", type=int, required=True, help="number of rnn units")
-    parser.add_argument("-bs", type=int, default=256, help="batch size")
+    parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=30, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     parser.add_argument("-p_drop", type=float, required=True, help="learning rate")
     parser.add_argument("-cv", type=str2bool, default=False, help="running 5 cross-validation")
     parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
-    parser.add_argument("-dataset", type=str, default='weather', help='dataset selection')
+    parser.add_argument("-dataset", type=str, default='covid', help='dataset selection')
 
     args = parser.parse_args()
 
@@ -54,6 +55,12 @@ if __name__ == '__main__':
         np.save(val_data_path, val_data)
         np.save(train_data_path, train_data)
         np.save(test_data_path, test_data)
+
+    elif args.dataset == 'covid':
+        BUFFER_SIZE = 50
+        BUFFER_SIZE = 50
+        data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
+        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
 
     elif args.dataset == 'weather':
 
@@ -113,7 +120,7 @@ if __name__ == '__main__':
                                          beta_2=0.98,
                                          epsilon=1e-9)
     output_path = args.output_path
-    out_file = 'LSTM_units_{}_pdrop_{}_lr_{}_bs_{}_cv_{}'.format(rnn_units, args.p_drop, learning_rate, BATCH_SIZE, args.cv)
+    out_file = '{}_LSTM_units_{}_pdrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, rnn_units, args.p_drop, learning_rate, BATCH_SIZE, args.cv)
     output_path = os.path.join(output_path, out_file)
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
@@ -157,6 +164,12 @@ if __name__ == '__main__':
     else:
         for t, (train_dataset, val_dataset) in enumerate(zip(list_train_dataset, list_val_dataset)):
             logger.info("starting training of train/val split number {}".format(t+1))
+            model = build_LSTM_for_regression(shape_input_1=seq_len,
+                                              shape_input_2=num_features,
+                                              shape_output=output_size,
+                                              rnn_units=rnn_units,
+                                              dropout_rate=args.p_drop,
+                                              training=True)
             train_LSTM(model=model,
                        optimizer=optimizer,
                        EPOCHS=EPOCHS,
