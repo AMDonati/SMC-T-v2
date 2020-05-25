@@ -12,9 +12,9 @@ def build_GRU_for_classification(vocab_size, embedding_dim, rnn_units, batch_siz
     tf.keras.layers.Dense(vocab_size)])
   return model
 
-def build_LSTM_for_regression(shape_input_1, shape_input_2, shape_output, rnn_units, dropout_rate, training=True):
+def build_LSTM_for_regression(shape_input_1, shape_input_2, shape_output, rnn_units, dropout_rate, rnn_drop_rate=0.0, training=True):
   inputs = tf.keras.Input(shape=(shape_input_1, shape_input_2))
-  h = tf.keras.layers.LSTM(rnn_units, return_sequences=True)(inputs)
+  h = tf.keras.layers.LSTM(rnn_units, recurrent_dropout=rnn_drop_rate, return_sequences=True)(inputs, training=training)
   outputs = tf.keras.layers.Dropout(rate=dropout_rate)(h, training=training)
   outputs = tf.keras.layers.Dense(shape_output)(outputs)
   lstm_model = tf.keras.Model(outputs=outputs, inputs=inputs, name='lstm_for_regression')
@@ -39,12 +39,14 @@ if __name__ == '__main__':
     shape_output = 3
     rnn_units = 20
     dropout_rate = 0.1
+    rnn_drop_rate = 0.1
 
     model = build_LSTM_for_regression(shape_input_1=shape_input_1,
                                       shape_input_2=shape_input_2,
                                       shape_output=shape_output,
                                       rnn_units=rnn_units,
                                       dropout_rate=dropout_rate,
+                                      rnn_drop_rate=rnn_drop_rate,
                                       training=True)
 
     optimizer = tf.keras.optimizers.Adam()

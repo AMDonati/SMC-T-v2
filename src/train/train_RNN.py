@@ -29,7 +29,8 @@ if __name__ == '__main__':
     parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=30, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
-    parser.add_argument("-p_drop", type=float, required=True, help="learning rate")
+    parser.add_argument("-p_drop", type=float, required=True, help="dropout on output layer")
+    parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
     parser.add_argument("-cv", type=str2bool, default=False, help="running 5 cross-validation")
     parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
@@ -120,7 +121,7 @@ if __name__ == '__main__':
                                          beta_2=0.98,
                                          epsilon=1e-9)
     output_path = args.output_path
-    out_file = '{}_LSTM_units_{}_pdrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, rnn_units, args.p_drop, learning_rate, BATCH_SIZE, args.cv)
+    out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, rnn_units, args.p_drop, args.rnn_drop, learning_rate, BATCH_SIZE, args.cv)
     output_path = os.path.join(output_path, out_file)
     if not os.path.isdir(output_path):
         os.makedirs(output_path)
@@ -150,6 +151,7 @@ if __name__ == '__main__':
                                       shape_output=output_size,
                                       rnn_units=rnn_units,
                                       dropout_rate=args.p_drop,
+                                      rnn_drop_rate=args.rnn_drop,
                                       training=True)
     if not args.cv:
         train_LSTM(model=model,
