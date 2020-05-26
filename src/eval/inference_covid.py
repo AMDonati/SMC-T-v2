@@ -168,12 +168,22 @@ if __name__ == '__main__':
     test_data = np.load(data_path)
 
     # ---------- Load SMC Transformer with learned params ------------------------------------------------------------------------------------
-    out_path = "../../output/covid_SMC_T/covid_Recurrent_T_depth_8_bs_32_fullmodel_True_dff_16_attn_w_None__p_10_SigmaObs_0.5_sigmas_0.5"
-    checkpoint_path = os.path.join(out_path, "checkpoints")
+    # out_path = "../../output/covid_SMC_T/covid_smc_t_10_p"
+    # list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879]
+    # dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
+    # Sigma_obs = 0.0368
+    # num_particles = 10
+
+    out_path = "../../output/covid_SMC_T/covid_smc_t_60_p"
+    list_sigmas = [0.51636, 0.49633, 0.46728, 0.48299]
+    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
+    Sigma_obs = 0.03406
+    num_particles = 60
 
     d_model = 8
     dff = 16
-    N = 10
+    N = 100
+
     smc_transformer = SMC_Transformer(d_model=d_model,
                                       output_size=1,
                                       seq_len=60,
@@ -181,25 +191,20 @@ if __name__ == '__main__':
                                       dff=dff)
 
     # get checkpoint path for SMC_Transformer
-    # define optimizer
     learning_rate = CustomSchedule(d_model)
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
                                          beta_2=0.98,
                                          epsilon=1e-9)
+    checkpoint_path = os.path.join(out_path, "checkpoints")
     smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
-    # create checkpoint manager
     smc_T_ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                      optimizer=optimizer)
-
     smc_T_ckpt_manager = tf.train.CheckpointManager(smc_T_ckpt, smc_T_ckpt_path, max_to_keep=50)
-    # restore latest checkpoint from out folder
     num_epochs_smc_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt,
                                             args_load_ckpt=True, logger=None)
-    list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879]
-    dict_sigmas = dict(zip(['k','q','v','z'], list_sigmas))
-    Sigma_obs = 0.0368
-    smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=Sigma_obs, num_particles=10)
+
+    smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=Sigma_obs, num_particles=num_particles)
 
     # ------------------------------------- check test loss ----------------------------------------------------------------------------------
 
@@ -215,7 +220,7 @@ if __name__ == '__main__':
     print('test loss', test_metric_avg_pred)
 
     # ------ sigmas estimation post-training --------------------------------------------------------------------------------------------------
-    index = 88
+    index = 76
     test_sample = test_data[index]
     print('test_sample', test_sample)
     test_sample = tf.convert_to_tensor(test_sample)

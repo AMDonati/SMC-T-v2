@@ -67,10 +67,10 @@ if __name__ == '__main__':
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        #data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
-        #train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
-        data_path = os.path.join(args.data_path, 'covid_preprocess_rescaled_862_samples.npy')
-        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False, split=0.6)
+        data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
+        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False)
+        #data_path = os.path.join(args.data_path, 'covid_preprocess_rescaled_862_samples.npy')
+        #train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False, split=0.6)
 
     elif args.dataset == 'weather':
 

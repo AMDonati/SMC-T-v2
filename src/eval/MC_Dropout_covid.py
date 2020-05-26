@@ -39,14 +39,25 @@ if __name__ == '__main__':
     inputs, targets = split_input_target(test_sample)
 
     # ---------- Load LSTM with learned params ------------------------------------------------------------------------------------
-    out_path = "../../output/covid_rnn/covid_LSTM_units_16_pdrop_0.1_rnndrop_0.0_lr_0.001_bs_32_cv_False"
-    checkpoint_path = os.path.join(out_path, "checkpoints")
+    # out_path = "../../output/covid_rnn/covid_LSTM_64_pdrop_0.1_rnndrop_0.0"
+    # p_drop = 0.1
+    # rnn_drop = 0.0
 
-    save_path = os.path.join(out_path, 'mc_dropout_samples_sample_{}'.format(index))
+    # out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.2_rnndrop_0.2'
+    # p_drop = 0.2
+    # rnn_drop = 0.2
+
+    out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.5_rnndrop_0.0'
+    p_drop = 0.5
+    rnn_drop = 0.5
+
+
     learning_rate = 0.001
-    rnn_units = 16
-    p_drop = 0.1
+    rnn_units = 64
     N_est = 1000
+
+    checkpoint_path = os.path.join(out_path, "checkpoints")
+    save_path = os.path.join(out_path, 'mc_dropout_samples_sample_{}.npy'.format(index))
 
     optimizer = tf.keras.optimizers.Adam(learning_rate,
                                          beta_1=0.9,
@@ -55,7 +66,9 @@ if __name__ == '__main__':
 
     lstm = build_LSTM_for_regression(shape_input_1=60, shape_input_2=1,
                                      shape_output=1,
-                                     rnn_units=rnn_units, dropout_rate=p_drop)
+                                     rnn_units=rnn_units,
+                                     dropout_rate=p_drop,
+                                     rnn_drop_rate=rnn_drop)
 
     # restore 2 LSTM
     LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_baseline_1")

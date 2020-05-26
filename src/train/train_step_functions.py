@@ -38,7 +38,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
     '''
 
     assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
-    sigma_obs_update = int(517/32) * 5
+    sigma_obs_update = int(709/32) * 8
 
     with tf.GradientTape() as tape:
         (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,
