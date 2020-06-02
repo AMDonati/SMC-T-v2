@@ -21,6 +21,28 @@ def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
     print('done')
     return tf.squeeze(predictions_test_MC_Dropout)
 
+def MC_Dropout_LSTM_multistep(lstm_model, inp_model, mc_samples, len_future=20):
+    '''
+        :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+        :param inp_model: array of shape (B,S,F)
+        :param mc_samples:
+        :return:
+        '''
+    inp = inp_model
+    mc_preds = []
+    for t in range(len_future+1):
+        list_predictions = []
+        for i in range(mc_samples):
+            preds_test = lstm_model(inputs=inp)  # (B,S,1)
+            last_pred = preds_test[:,-1,:]
+            list_predictions.append(last_pred)
+        all_preds = tf.stack(list_predictions, axis=1)  # shape (B, N, 1)
+        mc_preds.append(all_preds)
+        mean_pred = tf.reduce_mean(all_preds, axis=1, keepdims=True) # (B,1,1)
+        inp = tf.concat([inp, mean_pred], axis=1)
+    mc_preds = tf.stack(mc_preds, axis=2)[:,:,1:,:]
+    print('mc dropout LSTM multistep done')
+    return tf.squeeze(mc_preds)
 
 
 if __name__ == '__main__':
@@ -30,7 +52,7 @@ if __name__ == '__main__':
     data_path = '../../data/covid_test_data.npy'
     test_data = np.load(data_path)
 
-    index = 88
+    index = 33
     test_sample = test_data[index]
     print('test_sample', test_sample)
     test_sample = tf.convert_to_tensor(test_sample)
@@ -43,13 +65,13 @@ if __name__ == '__main__':
     # p_drop = 0.1
     # rnn_drop = 0.0
 
-    # out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.2_rnndrop_0.2'
-    # p_drop = 0.2
-    # rnn_drop = 0.2
+    out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.2_rnndrop_0.2'
+    p_drop = 0.2
+    rnn_drop = 0.2
 
-    out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.5_rnndrop_0.0'
-    p_drop = 0.5
-    rnn_drop = 0.5
+    # out_path = '../../output/covid_rnn/covid_LSTM_64_pdrop_0.5_rnndrop_0.0'
+    # p_drop = 0.5
+    # rnn_drop = 0.5
 
 
     learning_rate = 0.001
@@ -79,5 +101,6 @@ if __name__ == '__main__':
                              args_load_ckpt=True,
                              logger=None)
 
-    mc_samples = MC_Dropout_LSTM(lstm_model=lstm, inp_model=inputs, mc_samples=1000)
-    np.save(save_path, mc_samples)
+    #mc_samples = MC_Dropout_LSTM(lstm_model=lstm, inp_model=inputs, mc_samples=1000)
+    mc_samples_multi = MC_Dropout_LSTM_multistep(lstm_model=lstm, inp_model=inputs[:,:40,:], mc_samples=5)
+    print(mc_samples_multi.shape)

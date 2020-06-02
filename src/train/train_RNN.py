@@ -9,6 +9,62 @@ from utils.utils_train import create_logger
 from models.Baselines.RNNs import build_LSTM_for_regression
 from train.train_functions import train_LSTM
 
+def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
+    '''
+    :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+    :param inp_model: array of shape (B,S,F)
+    :param mc_samples:
+    :return:
+    '''
+    list_predictions = []
+    for i in range(mc_samples):
+        predictions_test = lstm_model(inputs=inp_model)  # (B,S,1)
+        list_predictions.append(predictions_test)
+    predictions_test_MC_Dropout = tf.stack(list_predictions, axis=1)  # shape (B, N, S, 1)
+    print('done')
+    return tf.squeeze(predictions_test_MC_Dropout)
+
+# def MC_Dropout_LSTM_multistep(lstm_model, inp_model, mc_samples, len_future=20):
+#     '''
+#         :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+#         :param inp_model: array of shape (B,S,F)
+#         :param mc_samples:
+#         :return:
+#     '''
+#     inp = inp_model
+#     mc_preds = []
+#     for t in range(len_future+1):
+#         list_predictions = []
+#         for i in range(mc_samples):
+#             preds_test = lstm_model(inputs=inp)  # (B,S,1)
+#             list_predictions.append(preds_test)
+#         all_preds = tf.stack(list_predictions, axis=1)  # shape (B, N, S, 1)
+#         last_pred = all_preds[:,:,-1,:]
+#         mean_pred = tf.reduce_mean(last_pred, axis=1, keepdims=True) # (B,1,1)
+#         inp = tf.concat([inp, mean_pred], axis=1)
+#     print('mc dropout LSTM multistep done')
+#     return tf.squeeze(all_preds)
+
+def MC_Dropout_LSTM_multistep(lstm_model, inp_model, mc_samples, len_future=20):
+    '''
+        :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+        :param inp_model: array of shape (B,S,F)
+        :param mc_samples:
+        :return:
+    '''
+    list_predictions = []
+    for i in range(mc_samples):
+        inp = inp_model
+        for t in range(len_future+1):
+                preds_test = lstm_model(inputs=inp)  # (B,S,1)
+                last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
+                inp = tf.concat([inp, last_pred], axis=1)
+        list_predictions.append(preds_test)
+    preds_test_MC_Dropout = tf.stack(list_predictions, axis=1)
+    print('mc dropout LSTM multistep done')
+    return tf.squeeze(preds_test_MC_Dropout)
+
+
 if __name__ == '__main__':
 
     # trick for boolean parser args.
@@ -27,7 +83,7 @@ if __name__ == '__main__':
 
     parser.add_argument("-rnn_units", type=int, required=True, help="number of rnn units")
     parser.add_argument("-bs", type=int, default=32, help="batch size")
-    parser.add_argument("-ep", type=int, default=30, help="number of epochs")
+    parser.add_argument("-ep", type=int, default=1, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     parser.add_argument("-p_drop", type=float, required=True, help="dropout on output layer")
     parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
@@ -185,3 +241,34 @@ if __name__ == '__main__':
             logger.info("training of a LSTM for train/val split number {} done...".format(t + 1))
             logger.info(
                 "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
+
+    for inp, tar in test_dataset:
+        test_preds = model(inp)
+        test_loss = tf.keras.losses.MSE(test_preds, tar)
+        test_loss = test_loss[:, 40:]
+        test_loss = tf.reduce_mean(test_loss, axis=-1)
+        top_k, top_i = tf.math.top_k(test_loss, k=25)
+    logger.info('test samples with highest loss for last 20 time-steps:{}'.format(list(top_i.numpy())))
+
+    val_data_path = os.path.join(args.data_path, 'covid_val_data.npy')
+    val_data = np.load(val_data_path)
+    inp_val, tar_val = split_input_target(val_data)
+    val_preds = model(inp_val)
+    val_loss = tf.keras.losses.MSE(val_preds, tar_val)
+    val_loss = val_loss[:, 40:]
+    val_loss = tf.reduce_mean(val_loss, axis=-1)
+    top_k_val, top_i_val= tf.math.top_k(val_loss, k=25)
+    logger.info('val samples with highest loss for last 20 time-steps:{}'.format(list(top_i_val.numpy())))
+
+
+ #---------------------------------------
+
+    data_path = os.path.join(args.data_path, 'covid_test_data.npy')
+    test_data = np.load(data_path)
+    test_data = tf.convert_to_tensor(test_data)
+    inputs, targets = split_input_target(test_data)
+    #mc_samples = MC_Dropout_LSTM(lstm_model=model, inp_model=inputs, mc_samples=1000)
+    mc_samples = MC_Dropout_LSTM_multistep(lstm_model=model, inp_model=inputs[:,:40,:], mc_samples=1000)
+    print(mc_samples.shape)
+    save_path = os.path.join(output_path, 'mc_dropout_samples_test_data_multi.npy')
+    np.save(save_path, mc_samples)

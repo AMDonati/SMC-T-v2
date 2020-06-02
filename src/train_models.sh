@@ -11,10 +11,10 @@ python src/train/train_RNN.py -bs 256 -rnn_units 32 -ep 50 -p_drop 0.1 -cv True 
 
 python src/train/train_SMC_T.py -bs 32 -d_model 8 -dff 16 -ep 50 -smc True -full_model True -particles 10 -data_path "data" -output_path "output/covid_rescale_862"
 
-python src/train/train_SMC_T.py -bs 32 -d_model 8 -dff 16 -ep 30 -smc False -full_model True -data_path "data" -output_path "output/covid"
+python src/train/train_SMC_T.py -bs 32 -d_model 8 -dff 16 -ep 50 -smc False -full_model True -data_path "data" -output_path "output/covid_smc_t_unnorm"
 
 python src/train/train_RNN.py -bs 32 -rnn_units 16 -ep 30 -p_drop 0.1 -data_path "data" -output_path "output/temp"
 
-python src/train/train_RNN.py -bs 32 -rnn_units 64 -ep 50 -p_drop 0.1 -data_path "data" -output_path "output/covid_rnn"
+python src/train/train_RNN.py -bs 32 -rnn_units 64 -ep 50 -p_drop 0.2 -rnn_drop 0.2 -data_path "data" -output_path "output/covid_rnn"
 
 python src/train/train_SMC_T.py -bs 32 -d_model 8 -dff 16 -ep 30 -smc False -full_model True -data_path "data" -output_path "output/temp"
