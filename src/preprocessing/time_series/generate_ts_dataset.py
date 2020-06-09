@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def generate_onesample(A, std_matrix, seq_len, num_features):
+def generate_onesample_model_1(A, std_matrix, seq_len, num_features):
   X = tf.random.normal(shape=(1, num_features))
   list_X=[X]
   for s in range(seq_len):
@@ -10,6 +10,19 @@ def generate_onesample(A, std_matrix, seq_len, num_features):
     list_X.append(X)
   X_obs = tf.stack(list_X, axis=1)
   return X_obs
+
+def generate_onesample_model_2(A, std_matrix, seq_len, num_features):
+   X = tf.random.normal(shape=(1, num_features))
+   list_X=[X]
+   for s in range(seq_len):
+     U = np.random.uniform()
+     if U<0.7:
+         X = tf.matmul(X,A) + tf.random.normal(stddev=std_matrix, shape=(1, num_features))
+     else:
+         X = 0.6*tf.matmul(X,A) + tf.random.normal(stddev=std_matrix, shape=(1, num_features))
+     list_X.append(X)
+   X_obs = tf.stack(list_X, axis=1)
+   return X_obs
 
 if __name__ == "__main__":
   seq_len = 24
@@ -21,7 +34,7 @@ if __name__ == "__main__":
   list_samples = []
 
   for N in range(num_samples):
-    X_seq = generate_onesample(A=A, std_matrix=std_matrix, seq_len=seq_len, num_features=num_features)
+    X_seq = generate_onesample_model_1(A=A, std_matrix=std_matrix, seq_len=seq_len, num_features=num_features)
     list_samples.append(X_seq)
 
   X_data = tf.stack(list_samples, axis=0)

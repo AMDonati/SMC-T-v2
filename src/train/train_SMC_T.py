@@ -7,8 +7,7 @@ from preprocessing.time_series.df_to_dataset_weather import df_to_data_regressio
 from preprocessing.time_series.df_to_dataset_covid import split_covid_data
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from train.train_functions import train_SMC_transformer
-from utils.utils_train import create_logger
-from train.loss_functions import CustomSchedule
+from utils.utils_train import create_logger, CustomSchedule
 
 if __name__ == '__main__':
 
@@ -22,7 +21,6 @@ if __name__ == '__main__':
             return False
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
-
 
     parser = argparse.ArgumentParser()
 
@@ -69,8 +67,6 @@ if __name__ == '__main__':
         BUFFER_SIZE = 50
         data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
         train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False)
-        #data_path = os.path.join(args.data_path, 'covid_preprocess_rescaled_862_samples.npy')
-        #train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False, split=0.6)
 
     elif args.dataset == 'weather':
 

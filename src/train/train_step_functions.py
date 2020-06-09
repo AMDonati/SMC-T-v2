@@ -101,14 +101,3 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
     else:
         return loss, None
 
-#
-# @tf.function
-# def train_step_rnn_classif(inp, target, model, optimizer, accuracy_metric):
-#   with tf.GradientTape() as tape:
-#     predictions = model(inp)
-#     loss = tf.reduce_mean(
-#       tf.keras.losses.sparse_categorical_crossentropy(target, predictions, from_logits=True))
-#   grads = tape.gradient(loss, model.trainable_variables)
-#   optimizer.apply_gradients(zip(grads, model.trainable_variables))
-#   train_acc_batch = accuracy_metric(target, predictions)
-#   return loss, train_acc_batch

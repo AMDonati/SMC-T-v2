@@ -2,19 +2,9 @@ import numpy as np
 import tensorflow as tf
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 import os
-from utils.utils_train import restoring_checkpoint
-from train.loss_functions import CustomSchedule
-from eval.inference_functions import split_input_target, EM_after_training, inference_onestep_2, get_empirical_distrib_2, inference_onestep_3, inference_multistep_2, inference_multistep_3
+from utils.utils_train import restoring_checkpoint, CustomSchedule
+from eval.inference_functions import split_input_target, EM_after_training, inference_onestep, inference_multistep, get_distrib_all_timesteps
 
-def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, len_future=20):
-    distrib_future_timesteps = []
-    for t in range(len_future):
-        mean_NP = preds[:, t]
-        emp_distrib = get_empirical_distrib_2(mean_NP, sigma_obs=sigma_obs, N_est=1000, P=P)
-        distrib_future_timesteps.append(emp_distrib)
-    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0)
-    print('distrib future timesteps', distrib_future_timesteps.shape)
-    np.save(save_path_distrib, distrib_future_timesteps)
 
 if __name__ == '__main__':
 
@@ -89,33 +79,26 @@ if __name__ == '__main__':
         Sigma_obs, sigmas = EM_after_training(smc_transformer=smc_transformer, inputs=inputs, targets=targets, save_path=save_path_EM)
 
         # ---------------------------- launching inference ----------------------------------------------------------------------------------------
-        save_path_means = os.path.join(out_path, 'mean_preds_sample_{}_N_{}.npy'.format(index, N))
-        save_path_means_2 = os.path.join(out_path, 'mean_preds_noresampling_sample_{}_N_{}.npy'.format(index, N))
+        save_path_means = os.path.join(out_path, 'mean_preds_noresampling_sample_{}_N_{}.npy'.format(index, N))
         save_path_means_multi = os.path.join(out_path, 'mean_preds_sample_{}_N_{}_multi.npy'.format(index, N))
         save_path_preds_multi = os.path.join(out_path, 'particules_sample_{}_N_{}_multi.npy'.format(index, N))
-        save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_sample_{}_N_{}.npy'.format(index, N))
-        save_path_distrib_2 = os.path.join(out_path, 'distrib_future_timesteps_noresampling_sample_{}_N_{}.npy'.format(index, N))
+        save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_noresampling_sample_{}_N_{}.npy'.format(index, N))
         save_path_distrib_multi = os.path.join(out_path,'distrib_future_timesteps_sample_{}_N_{}_multi.npy'.format(index, N))
 
         smc_transformer.seq_len = 60
-        #preds_NP, mean_preds = inference_onestep_2(smc_transformer=smc_transformer,
-                                                 #test_sample=test_sample,
-                                                 #save_path=save_path_means)
-        #preds_NP_2, mean_preds_2 = inference_onestep_3(smc_transformer=smc_transformer,
-                                                       #test_sample=test_sample,
-                                                        #save_path=save_path_means_2)
+        preds_NP, mean_preds = inference_onestep(smc_transformer=smc_transformer,
+                                                 test_sample=test_sample,
+                                                 save_path=save_path_means)
 
-        #preds_multi, mean_preds_multi = inference_multistep_2(smc_transformer, test_sample, save_path=save_path_means_multi,
-                                                              #save_path_preds=save_path_preds_multi)
 
-        preds_multi, mean_preds_multi = inference_multistep_3(smc_transformer, test_sample,
-                                                              save_path=save_path_means_multi)
+        preds_multi, mean_preds_multi = inference_multistep(smc_transformer, test_sample,
+                                                            save_path=save_path_means_multi)
 
 
         print('preds_multi', preds_multi.shape)
         sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
         P = smc_transformer.cell.num_particles
 
-        #get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib)
-        #get_distrib_all_timesteps(preds_NP_2, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib_2)
+
+        get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib)
         get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib_multi)

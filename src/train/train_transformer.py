@@ -4,12 +4,10 @@ import os, argparse
 from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, \
   split_input_target
 from models.Baselines.Transformer_without_enc import Transformer
-from models.Baselines.SMC_on_classic_transformer import SMC_on_Transformer
-from train.loss_functions import CustomSchedule
+from train.train_utils import CustomSchedule
 from train.train_functions import train_baseline_transformer
-from utils.utils_train import create_logger, restoring_checkpoint
+from utils.utils_train import create_logger
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-
 
 if __name__ == '__main__':
 
@@ -121,96 +119,3 @@ if __name__ == '__main__':
 
   logger.info("test loss at the end of training: {}".format(loss_test))
 
-
-  # # ------------------- SMC algo on pre-trained Transformer -------------------------------------------------------------------------------------------------------------
-  # if args.launch_smc:
-  #   # load checkpoint:
-  #   ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-  #   ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_1")
-  #   ckpt_manager = tf.train.CheckpointManager(ckpt, ckpt_path, max_to_keep=EPOCHS)
-  #   restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, logger=logger)
-  #
-  #   logger.info("<--------------------------------------------------------------------------------------->")
-  #   logger.info('starting SMC algo on trained Transformer...')
-  #
-  #   list_sigma = [0.05, 0.1, 0.5]
-  #   list_params = ['k', 'q', 'v', 'z']
-  #
-  #   list_sigma_obs = [0.5, 0.7, 0.9]
-  #   list_num_particles = [10]
-  #
-  #   for sigma, sigma_obs in zip(list_sigma, list_sigma_obs):
-  #     dict_sigmas = dict(zip(list_params, [sigma for _ in range(4)]))
-  #     logger.info('SMC params: sigma_k_q_v_z: {} - sigma_obs:{}'.format(sigma, sigma_obs))
-  #
-  #     for num_particles in list_num_particles:
-  #       logger.info('SMC for number of particles: {}'.format(num_particles))
-  #       loss_smc_train, loss_smc_val = 0, 0
-  #
-  #       for (batch, (inp, tar)) in enumerate(train_dataset):
-  #         seq_len = tf.shape(inp)[-2]
-  #         # check loss for normal passforward procedure
-  #         if batch == 0:
-  #           predictions, _ = transformer(inputs=inp, training=False, mask=create_look_ahead_mask(seq_len))
-  #           loss_normal = tf.keras.losses.MSE(tar, predictions)
-  #           loss_normal = tf.reduce_mean(loss_normal, axis=-1)
-  #           loss_normal = tf.reduce_mean(loss_normal, axis=-1)
-  #           logger.info('normal loss on first batch...{}'.format(loss_normal.numpy()))
-  #         inp_p = tf.expand_dims(inp, axis=1)
-  #         inp_p = tf.tile(inp_p, multiples=[1, num_particles, 1, 1]) # (B,P,S,D)
-  #         tar_p = tf.expand_dims(tar, axis=1)
-  #         tar_p = tf.tile(tar_p, multiples=[1, num_particles, 1, 1])
-  #         list_inputs = [tf.expand_dims(inp_p[:,:,t,:], axis=-2) for t in range(seq_len)]
-  #         list_targets = [tf.expand_dims(tar_p[:,:,t,:], axis=-2) for t in range(seq_len)]
-  #         predictions_smc, K, V = SMC_on_Transformer(transformer=transformer,
-  #                                                dict_sigmas=dict_sigmas,
-  #                                                sigma_obs=sigma_obs,
-  #                                                list_inputs=list_inputs,
-  #                                                list_targets=list_targets) # (B,P,S,F)
-  #         mean_prediction = tf.reduce_mean(predictions_smc, axis=1) # (B,S,F)
-  #         loss_smc_train_batch = tf.keras.losses.MSE(tar, mean_prediction)
-  #         loss_smc_train_batch = tf.reduce_mean(loss_smc_train_batch, axis=-1)
-  #         loss_smc_train_batch = tf.reduce_mean(loss_smc_train_batch, axis=-1)
-  #         loss_smc_train += loss_smc_train_batch
-  #         # # taking best pred:
-  #         # loss_smc_p = tf.keras.losses.MSE(tar_p, predictions_smc)
-  #         # min_smc_loss = tf.reduce_min(loss_smc_p, axis=1)
-  #         # min_smc_loss = tf.reduce_mean(min_smc_loss, axis=-1)
-  #         # min_smc_loss = tf.reduce_mean(min_smc_loss, axis=-1)
-  #         logger.info('smc train loss at batch {}: {}'.format(batch+1, loss_smc_train_batch))
-  #
-  #
-  #       logger.info('<----------------------------------------------------->')
-  #
-  #       transformer.stop_SMC_algo() # putting self.noise = False in the self_attention mechanism.
-  #
-  #       for (batch, (inp, tar)) in enumerate(val_dataset):
-  #         seq_len = tf.shape(inp)[-2]
-  #         inp_p = tf.expand_dims(inp, axis=1)
-  #         inp_p = tf.tile(inp_p, multiples=[1, num_particles, 1, 1])  # (B,P,S,D)
-  #         tar_p = tf.expand_dims(tar, axis=1)
-  #         tar_p = tf.tile(tar_p, multiples=[1, num_particles, 1, 1])
-  #         list_inputs = [tf.expand_dims(inp_p[:, :, t, :], axis=-2) for t in range(seq_len)]
-  #         list_targets = [tf.expand_dims(tar_p[:, :, t, :], axis=-2) for t in range(seq_len)]
-  #         predictions_smc, K, V = SMC_on_Transformer(transformer=transformer,
-  #                                                    dict_sigmas=dict_sigmas,
-  #                                                    sigma_obs=sigma_obs,
-  #                                                    list_inputs=list_inputs,
-  #                                                    list_targets=list_targets)  # (B,P,S,F)
-  #         mean_prediction = tf.reduce_mean(predictions_smc, axis=1)  # (B,S,F)
-  #         loss_smc_val_batch = tf.keras.losses.MSE(tar, mean_prediction)
-  #         loss_smc_val_batch = tf.reduce_mean(loss_smc_val_batch, axis=-1)
-  #         loss_smc_val_batch = tf.reduce_mean(loss_smc_val_batch, axis=-1)
-  #         loss_smc_val += loss_smc_val_batch
-  #         logger.info('smc val loss at batch {}: {}'.format(batch + 1, loss_smc_val_batch))
-  #         # # taking best pred:
-  #         # loss_smc_p = tf.keras.losses.MSE(tar_p, predictions_smc)
-  #         # min_smc_loss = tf.reduce_min(loss_smc_p, axis=1)
-  #         # min_smc_loss = tf.reduce_mean(min_smc_loss, axis=-1)
-  #         # min_smc_loss = tf.reduce_mean(min_smc_loss, axis=-1)
-  #         logger.info('smc train loss at batch {}: {}'.format(batch + 1, loss_smc_train_batch))
-  #
-  #       transformer.stop_SMC_algo()
-  #
-  #       logger.info("<--------------------------------------------------------------------------->")
-  #     logger.info("<----------------------------------------------------------------------------------------------------->")

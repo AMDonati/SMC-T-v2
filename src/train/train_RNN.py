@@ -24,27 +24,6 @@ def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
     print('done')
     return tf.squeeze(predictions_test_MC_Dropout)
 
-# def MC_Dropout_LSTM_multistep(lstm_model, inp_model, mc_samples, len_future=20):
-#     '''
-#         :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
-#         :param inp_model: array of shape (B,S,F)
-#         :param mc_samples:
-#         :return:
-#     '''
-#     inp = inp_model
-#     mc_preds = []
-#     for t in range(len_future+1):
-#         list_predictions = []
-#         for i in range(mc_samples):
-#             preds_test = lstm_model(inputs=inp)  # (B,S,1)
-#             list_predictions.append(preds_test)
-#         all_preds = tf.stack(list_predictions, axis=1)  # shape (B, N, S, 1)
-#         last_pred = all_preds[:,:,-1,:]
-#         mean_pred = tf.reduce_mean(last_pred, axis=1, keepdims=True) # (B,1,1)
-#         inp = tf.concat([inp, mean_pred], axis=1)
-#     print('mc dropout LSTM multistep done')
-#     return tf.squeeze(all_preds)
-
 def MC_Dropout_LSTM_multistep(lstm_model, inp_model, mc_samples, len_future=20):
     '''
         :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
@@ -117,8 +96,6 @@ if __name__ == '__main__':
         BUFFER_SIZE = 50
         data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
         train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
-        #data_path = os.path.join(args.data_path, 'covid_preprocess_rescaled.npy')
-        #train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False, split=0.6)
 
     elif args.dataset == 'weather':
 

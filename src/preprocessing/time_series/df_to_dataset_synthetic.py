@@ -10,7 +10,6 @@ def split_synthetic_dataset(x_data, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9
     val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
 
     return train_data, val_data, test_data
-
   else:
     train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)
     kf = KFold(n_splits=5)
