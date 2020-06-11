@@ -14,17 +14,17 @@ if __name__ == '__main__':
     test_data = np.load(data_path)
 
     # ---------- Load SMC Transformer with learned params ------------------------------------------------------------------------------------
-    # out_path = "../../output/covid_SMC_T/covid_smc_t_10_p"
-    # list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879]
-    # dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
-    # Sigma_obs = 0.0368
-    # num_particles = 10
-
-    out_path = "../../output/covid_SMC_T/covid_smc_t_60_p"
-    list_sigmas = [0.51636, 0.49633, 0.46728, 0.48299]
+    out_path = "../../output/covid_SMC_T/covid_smc_t_10_p"
+    list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879]
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
-    Sigma_obs = 0.03406
-    num_particles = 60
+    Sigma_obs = 0.0368
+    num_particles = 10
+
+    # out_path = "../../output/covid_SMC_T/covid_smc_t_60_p"
+    # list_sigmas = [0.51636, 0.49633, 0.46728, 0.48299]
+    # dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
+    # Sigma_obs = 0.03406
+    # num_particles = 60
 
     d_model = 8
     dff = 16
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     print('test loss', test_metric_avg_pred)
 
     # ------ sigmas estimation post-training --------------------------------------------------------------------------------------------------
-    indexes = [72,2,76,77]
+    indexes = [72,2,76,77,7,88,82,78,75,74,73,70,67,66,53,41,33,10]
     #indexes = [11]
     for index in indexes:
         test_sample = test_data[index]
@@ -75,30 +75,29 @@ if __name__ == '__main__':
         test_sample = tf.reshape(test_sample, shape=(1, 1, test_sample.shape[-2], test_sample.shape[-1]))
         inputs, targets = split_input_target(test_sample[:, :, :41, :])
         smc_transformer.seq_len = 40
-        save_path_EM = save_path = os.path.join(out_path, 'sigmas_after_EM_{}.npy'.format(index))
+        save_path_EM = os.path.join(out_path, 'sigmas_after_EM_{}.npy'.format(index))
         Sigma_obs, sigmas = EM_after_training(smc_transformer=smc_transformer, inputs=inputs, targets=targets, save_path=save_path_EM)
 
         # ---------------------------- launching inference ----------------------------------------------------------------------------------------
-        save_path_means = os.path.join(out_path, 'mean_preds_noresampling_sample_{}_N_{}.npy'.format(index, N))
+        save_path_means = os.path.join(out_path, 'mean_preds_noresampling_sample_{}_59_timesteps.npy'.format(index, N))
         save_path_means_multi = os.path.join(out_path, 'mean_preds_sample_{}_N_{}_multi.npy'.format(index, N))
         save_path_preds_multi = os.path.join(out_path, 'particules_sample_{}_N_{}_multi.npy'.format(index, N))
-        save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_noresampling_sample_{}_N_{}.npy'.format(index, N))
-        save_path_distrib_multi = os.path.join(out_path,'distrib_future_timesteps_sample_{}_N_{}_multi.npy'.format(index, N))
+        save_path_distrib = os.path.join(out_path, 'distrib_future_timesteps_noresampling_sample_{}_59_timesteps.npy'.format(index, N))
+        save_path_distrib_multi = os.path.join(out_path, 'distrib_future_timesteps_sample_{}_N_{}_multi.npy'.format(index, N))
 
         smc_transformer.seq_len = 60
         preds_NP, mean_preds = inference_onestep(smc_transformer=smc_transformer,
                                                  test_sample=test_sample,
-                                                 save_path=save_path_means)
+                                                 save_path=save_path_means,
+                                                 past_len=1)
 
 
-        preds_multi, mean_preds_multi = inference_multistep(smc_transformer, test_sample,
-                                                            save_path=save_path_means_multi)
+        #preds_multi, mean_preds_multi = inference_multistep(smc_transformer, test_sample,
+                                                            #save_path=save_path_means_multi)
 
-
-        print('preds_multi', preds_multi.shape)
+        #print('preds_multi', preds_multi.shape)
         sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
         P = smc_transformer.cell.num_particles
 
-
-        get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib)
-        get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib_multi)
+        get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib, len_future=59)
+        #get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=P, save_path_distrib=save_path_distrib_multi)

@@ -13,7 +13,7 @@ def inference_onestep(smc_transformer, test_sample, save_path, past_len=40):
     inp, tar = split_input_target(test_sample)
     smc_transformer.cell.add_stop_resampling(past_len)
     (preds, _), (K, V, _), _ = smc_transformer(inp, tar)  # K,V shape (1, P, 60, 1)
-    preds = tf.squeeze(preds) #(P,60)
+    preds = tf.squeeze(preds) # (P,60)
     mean_preds = tf.reduce_mean(preds, axis=0)  # (shape 60)
     preds_future = preds[:, past_len:]
     if save_path is not None:
