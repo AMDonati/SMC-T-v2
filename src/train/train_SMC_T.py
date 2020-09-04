@@ -2,12 +2,13 @@ import tensorflow as tf
 import numpy as np
 import os, argparse
 from preprocessing.time_series.df_to_dataset_synthetic import split_input_target, data_to_dataset_4D, \
-    split_synthetic_dataset
 from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
 from preprocessing.time_series.df_to_dataset_covid import split_covid_data
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from train.train_functions import train_SMC_transformer
 from utils.utils_train import create_logger, CustomSchedule
+
+#TODO: add cross_validation option here.
 
 if __name__ == '__main__':
 
@@ -36,9 +37,10 @@ if __name__ == '__main__':
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, required=True, help="Recurrent Transformer with or without smc algo")
     parser.add_argument("-dataset", type=str, default='covid', help='dataset selection')
-    parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
+    parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
+    parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
-
+    parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
     args = parser.parse_args()
 
     if not args.smc:
@@ -49,26 +51,20 @@ if __name__ == '__main__':
     BATCH_SIZE = args.bs
     TRAIN_SPLIT = 0.8
 
+    train_data_path = os.path.join(args.data_path, "train")  # TODO: refactor this into a Dataset Class.
+    val_data_path = os.path.join(args.data_path, "val")
+    test_data_path = os.path.join(args.data_path, "test")
+    train_data = np.load(train_data_path)
+    val_data = np.load(val_data_path)
+    test_data = np.load(test_data_path)
+
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
-        data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
-        input_data = np.load(data_path)
-        train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data,
-                                                                  TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                  cv=False)
-        val_data_path = os.path.join(args.data_path, 'val_data_synthetic_1_feat.npy')
-        train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
-        test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
-        np.save(val_data_path, val_data)
-        np.save(train_data_path, train_data)
-        np.save(test_data_path, test_data)
 
-    elif args.dataset == 'covid':
+    elif args.dataset == 'covid': #TODO: modify this one.
         BUFFER_SIZE = 50
-        data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
-        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False)
 
-    elif args.dataset == 'weather':
+    elif args.dataset == 'weather': #TODO: modify this one.
         BUFFER_SIZE = 5000
         file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
         fname = 'jena_climate_2009_2016.csv.zip'
