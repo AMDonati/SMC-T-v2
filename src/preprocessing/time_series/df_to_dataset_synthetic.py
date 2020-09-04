@@ -2,13 +2,24 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 import numpy as np
+import argparse
+import os
 
 
-def split_synthetic_dataset(x_data, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
+def split_synthetic_dataset(x_data, save_path, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
   if not cv:
     train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
     val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
-
+    train_data_path = os.path.join(save_path, "train")
+    val_data_path = os.path.join(save_path, "val")
+    test_data_path = os.path.join(save_path, "test")
+    for path in [train_data_path, val_data_path, test_data_path]:
+      if not os.path.isdir(path):
+        os.makedirs(path)
+    np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
+    np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
+    np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)
+    print("saving train, val, and test data into .npy files...")
     return train_data, val_data, test_data
   else:
     train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)
@@ -151,29 +162,34 @@ def data_to_dataset_3D(train_data, val_data, test_data, split_fn, BUFFER_SIZE, B
 
 
 if __name__ == "__main__":
-  cv = False
-  TRAIN_SPLIT = 0.7
-  BUFFER_SIZE = 500
-  BATCH_SIZE = 128
 
-  file_path="../../../data/synthetic_dataset_1_feat.npy"
-  X_data = np.load(file_path)
-  train_data_synt, val_data_synt, test_data_synt = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=0.7, cv=cv)
+  parser = argparse.ArgumentParser()
+  parser.add_argument("-data_path", type=str, default="../../../data/synthetic_model_1/synthetic_dataset_1_feat.npy", help="npy file with input data")
+  parser.add_argument('-model', type=str, default='choice between model 1 and 2.')
+  parser.add_argument("-cv", type=int, default=0, help="split the dataset in Kfold subsets for cross-validation.Default to No.")
+  parser.add_argument("-TRAIN_SPLIT", type=float, default=0.7, help="train split for splitting between train and validation sets.")
+  parser.add_argument("-VAL_SPLIT", type=float, default=0.5, help="split between validation and test sets.")
+  parser.add_argument("-VAL_SPLIT_cv", type=float, default=0.9, help="split between train/val sets and test set when doing cv.")
+  args = parser.parse_args()
 
-  if not cv:
-    print('train data', train_data_synt.shape)
-    print('val_data', val_data_synt.shape)
-    print('test data', test_data_synt.shape)
+  X_data = np.load(args.data_path)
+  folder_path = os.path.dirname(args.data_path)
+  train_data_synt, val_data_synt, test_data_synt = split_synthetic_dataset(x_data=X_data,
+                                                                           save_path=folder_path,
+                                                                           TRAIN_SPLIT=args.TRAIN_SPLIT,
+                                                                           VAL_SPLIT=args.VAL_SPLIT,
+                                                                           VAL_SPLIT_cv=args.VAL_SPLIT_cv,
+                                                                           cv=args.cv)
+
 
   train_dataset_synt, val_dataset_synt, test_dataset_synt = data_to_dataset_4D(train_data=train_data_synt,
                                                                                val_data=val_data_synt,
                                                                                test_data=test_data_synt,
                                                                                split_fn=split_input_target,
-                                                                               BUFFER_SIZE=BUFFER_SIZE,
-                                                                               BATCH_SIZE=BATCH_SIZE,
+                                                                               BUFFER_SIZE=500,
+                                                                               BATCH_SIZE=128,
                                                                                target_feature=None,
-                                                                               cv=cv)
-
+                                                                               cv=args.cv)
   print('train synthetic dataset', train_dataset_synt)
   print('val dataset synthetic', val_dataset_synt)
   print('test dataset synthetic', test_dataset_synt)

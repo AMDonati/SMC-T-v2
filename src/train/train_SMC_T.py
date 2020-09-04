@@ -69,7 +69,6 @@ if __name__ == '__main__':
         train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path, normalize=False)
 
     elif args.dataset == 'weather':
-
         BUFFER_SIZE = 5000
         file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
         fname = 'jena_climate_2009_2016.csv.zip'

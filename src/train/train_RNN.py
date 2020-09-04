@@ -88,7 +88,7 @@ if __name__ == '__main__':
         train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
         test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
 
-        np.save(val_data_path, val_data)
+        np.save(val_data_path, val_data) #TODO: refactor this part: does not need to be done everytime...
         np.save(train_data_path, train_data)
         np.save(test_data_path, test_data)
 
