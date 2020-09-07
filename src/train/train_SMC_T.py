@@ -61,8 +61,8 @@ if __name__ == '__main__':
     algo = algos["smc_t"](dataset=dataset, args=args)
     if args.ep > 0:
         algo.train()
-    else:
-        algo.logger("skipping training...")
+    #else:
+        #algo.logger.info("skipping training...")
     algo.test()
     if args.inference:
         algo.launch_inference(list_samples=list_samples)

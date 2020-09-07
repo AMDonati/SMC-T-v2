@@ -30,6 +30,7 @@ class SMCTAlgo(Algo):
         self.start_epoch = 0
         self.sigmas_after_training = None
         self._load_ckpt(args=args)
+        #TODO: add hparams saving in a json file.
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -56,7 +57,7 @@ class SMCTAlgo(Algo):
             else:
                 dict_sigmas = None
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs,
-                                                         num_particles=args.particles)  # TODO: check if dict_sigmas is saved.
+                                                         num_particles=args.particles)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
             self.logger.info("Sigma_obs init: {}".format(self.smc_transformer.cell.Sigma_obs))
 
@@ -91,7 +92,7 @@ class SMCTAlgo(Algo):
         ckpt = tf.train.Checkpoint(transformer=self.smc_transformer,
                                    optimizer=self.optimizer)
         smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))
-        self.ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=self.EPOCHS)
+        self.ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=50)
         # if a checkpoint exists, restore the latest checkpoint.
         start_epoch = restoring_checkpoint(ckpt_manager=self.ckpt_manager, ckpt=ckpt, args_load_ckpt=True, logger=self.logger)
         if start_epoch is not None:

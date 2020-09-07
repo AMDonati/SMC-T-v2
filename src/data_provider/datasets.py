@@ -1,5 +1,4 @@
 import os
-import glob
 import numpy as np
 import tensorflow as tf
 
@@ -114,7 +113,7 @@ class CovidDataset(Dataset):
         _, _, test_data = self.get_datasets()
         test_sample = test_data[index]
         print('test_sample', test_sample)
-        test_sample = tf.convert_to_tensor(test_sample)
+        test_sample = tf.expand_dims(tf.convert_to_tensor(test_sample), axis=0)
         #test_sample = tf.reshape(test_sample, shape=(1, 1, test_sample.shape[-2], test_sample.shape[-1]))
         inputs, targets = self.split_fn(test_sample[:, :past_len+1, :])
         if num_dim == 4: # adding the particle dimension.
