@@ -7,7 +7,6 @@ def split_input_target(data):
     tar = data[:, :, 1:, :]
     return inp, tar
 
-
 def inference_onestep(smc_transformer, test_sample, save_path, past_len=40):
     # forward pass on test_sample_past
     inp, tar = split_input_target(test_sample)
@@ -48,7 +47,6 @@ def inference_multistep(smc_transformer, test_sample, save_path=None, save_path_
         np.save(save_path, mean_preds)
     if save_path_preds is not None:
         np.save(save_path_preds, preds_future)
-
     return preds_future, mean_preds
 
 def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, len_future=20):

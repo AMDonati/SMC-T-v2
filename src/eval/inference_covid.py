@@ -4,18 +4,20 @@ from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 import os
 from utils.utils_train import restoring_checkpoint, CustomSchedule
 from eval.inference_functions import split_input_target, EM_after_training, inference_onestep, inference_multistep, get_distrib_all_timesteps
-
+import argparse
 
 if __name__ == '__main__':
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-data_path", type=str, default="../../data/test/covid.npy",
+                        help="npy file with input data") #TODO: see here we use a Dataset instead.
+    args = parser.parse_args()
     # ---------- Load Test Data -----------------------------------------------------------------------------------------------------------------
 
-    data_path = '../../data/covid_test_data.npy'
-    test_data = np.load(data_path)
+    test_data = np.load(args.data_path)
 
     # ---------- Load SMC Transformer with learned params ------------------------------------------------------------------------------------
     out_path = "../../output/covid_SMC_T/covid_smc_t_10_p"
-    list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879]
+    list_sigmas = [0.5045, 0.4787, 0.4313, 0.5879] #TODO: take it from a save dict.
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], list_sigmas))
     Sigma_obs = 0.0368
     num_particles = 10
@@ -26,7 +28,7 @@ if __name__ == '__main__':
     # Sigma_obs = 0.03406
     # num_particles = 60
 
-    d_model = 8
+    d_model = 8 #TODO: take this from a config file.
     dff = 16
     N = 1
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     print('test loss', test_metric_avg_pred)
 
     # ------ sigmas estimation post-training --------------------------------------------------------------------------------------------------
-    indexes = [72,2,76,77,7,88,82,78,75,74,73,70,67,66,53,41,33,10]
+    indexes = [72,2,76,77,7,88,82,78,75,74,73,70,67,66,53,41,33,10] #TODO: put this as a parser arg.
     #indexes = [11]
     for index in indexes:
         test_sample = test_data[index]

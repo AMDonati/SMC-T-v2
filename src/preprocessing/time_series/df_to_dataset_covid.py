@@ -9,7 +9,6 @@ def split_covid_data(arr_path, normalize=True, split=0.8):
     num_samples = covid_data.shape[0]
     TRAIN_SPLIT = int(num_samples*split)
     VAL_SPLIT = TRAIN_SPLIT + int(num_samples*(1-split)*0.5) + 1
-
     if normalize:
         data_mean = np.mean(covid_data, axis=1, keepdims=True)
         data_std = np.std(covid_data, axis=1, keepdims=True)

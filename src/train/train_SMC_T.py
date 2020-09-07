@@ -1,14 +1,12 @@
 import tensorflow as tf
 import numpy as np
 import os, argparse
-from preprocessing.time_series.df_to_dataset_synthetic import split_input_target, data_to_dataset_4D, \
-from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
-from preprocessing.time_series.df_to_dataset_covid import split_covid_data
+from preprocessing.time_series.df_to_dataset_synthetic import split_input_target, data_to_dataset_4D
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from train.train_functions import train_SMC_transformer
 from utils.utils_train import create_logger, CustomSchedule
 
-#TODO: add cross_validation option here.
+#TODO: add cross_validation option here. See train / val / test / data needs to be updated.
 
 if __name__ == '__main__':
 
@@ -63,27 +61,6 @@ if __name__ == '__main__':
 
     elif args.dataset == 'covid': #TODO: modify this one.
         BUFFER_SIZE = 50
-
-    elif args.dataset == 'weather': #TODO: modify this one.
-        BUFFER_SIZE = 5000
-        file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
-        fname = 'jena_climate_2009_2016.csv.zip'
-        col_name = ['p (mbar)', 'T (degC)', 'rh (%)', 'rho (g/m**3)']
-        index_name = 'Date Time'
-        # temperature recorded every 10 minutes.
-        history = 6 * 24 * 4 + 6 * 4 # history of 4 days + one more 4 hours interval for splitting target / input.
-        step = 6 * 4  # sample a temperature every 4 hours.
-        cv = False
-
-        (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
-                                                                                      fname=fname,
-                                                                                      col_name=col_name,
-                                                                                      index_name=index_name,
-                                                                                      TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                                      history=history,
-                                                                                      step=step,
-                                                                                      cv=cv,
-                                                                                      max_samples=20000)
 
     train_dataset, val_dataset, test_dataset = data_to_dataset_4D(train_data=train_data,
                                                                   val_data=val_data,

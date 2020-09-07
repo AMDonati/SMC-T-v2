@@ -212,4 +212,4 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 
-    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start))
+    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start)) #TODO: save final sigmas & saved losses.
