@@ -1,15 +1,6 @@
-import tensorflow as tf
-import numpy as np
-import os, argparse
+import argparse
 from data_provider.datasets import Dataset, CovidDataset
 from algos.run_SMC_T import algos
-from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, \
-  split_input_target
-from models.Baselines.Transformer_without_enc import Transformer
-from train.train_utils import CustomSchedule
-from train.train_functions import train_baseline_transformer
-from utils.utils_train import create_logger
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 if __name__ == '__main__':
 
@@ -26,15 +17,16 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-d_model", type=int, required=True, help="depth of attention parameters")
+  parser.add_argument("-d_model", type=int, default=6, help="depth of attention parameters")
   parser.add_argument("-bs", type=int, default=128, help="batch size")
-  parser.add_argument("-ep", type=int, default=20, help="number of epochs")
-  parser.add_argument("-dff", type=int, default=32, help="dimension of feed-forward network")
+  parser.add_argument("-ep", type=int, default=5, help="number of epochs")
+  parser.add_argument("-dff", type=int, default=24, help="dimension of feed-forward network")
   parser.add_argument("-pe", type=int, default=50, help="maximum positional encoding")
   parser.add_argument("-full_model", type=str2bool, default=False, help="full_model = ffn & layernorm")
   parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
   parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
-  parser.add_argument("-launch_smc", type=str2bool, default=False, help="launching SMC algo after training")
+  parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
+  parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
 
   args = parser.parse_args()
 

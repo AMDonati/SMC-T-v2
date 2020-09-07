@@ -50,6 +50,7 @@ class Decoder(tf.keras.layers.Layer):
                full_model):
     super(Decoder, self).__init__()
     self.d_model = d_model
+    self.dff = dff
     self.num_layers = num_layers
     self.maximum_position_encoding = maximum_position_encoding
     self.rate = rate

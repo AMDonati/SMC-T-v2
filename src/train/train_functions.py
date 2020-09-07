@@ -46,19 +46,10 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
         ">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
-def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path,
-                               logger, num_train):
+def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, ckpt_manager,
+                               logger, start_epoch, num_train=1):
     # storing the losses & accuracy in a list for each epoch
     average_losses_baseline, val_losses_baseline = [], []
-    # creating checkpoint manager
-    ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-    baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_{}".format(num_train))
-    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
-    # if a checkpoint exists, restore the latest checkpoint.
-    start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args_load_ckpt=True, ckpt=ckpt, logger=logger)
-    if start_epoch is None:
-        start_epoch = 0
-
     start_training = time.time()
 
     if start_epoch > 0:
@@ -123,18 +114,8 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
         ">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
-def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, checkpoint_path, logger,
-                          num_train):
-    # creating checkpoint manager
-    ckpt = tf.train.Checkpoint(transformer=smc_transformer,
-                               optimizer=optimizer)
-    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_{}".format(num_train))
-    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
-
-    # if a checkpoint exists, restore the latest checkpoint.
-    start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args_load_ckpt=True, logger=logger)
-    if start_epoch is None:
-        start_epoch = 0
+def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, ckpt_manager, logger,
+                          start_epoch):
 
     # check the pass forward.
     for input_example_batch, target_example_batch in train_dataset.take(1):

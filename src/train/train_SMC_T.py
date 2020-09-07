@@ -1,17 +1,12 @@
-import tensorflow as tf
-import numpy as np
-import os, argparse
-from preprocessing.time_series.df_to_dataset_synthetic import split_input_target, data_to_dataset_4D
-from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-from train.train_functions import train_SMC_transformer
-from utils.utils_train import create_logger, CustomSchedule
+import argparse
 from data_provider.datasets import Dataset, CovidDataset
-from algos.run_SMC_T import algos
+from algos.run_rnn import RNNAlgo
+from algos.run_baseline_T import BaselineTAlgo
+from algos.run_SMC_T import SMCTAlgo
 
 # TODO: add cross_validation option here. See train / val / test / data needs to be updated.
 
 if __name__ == '__main__':
-
     #  trick for boolean parser args.
     def str2bool(v):
         if isinstance(v, bool):
@@ -23,12 +18,13 @@ if __name__ == '__main__':
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
+    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo}
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-d_model", type=int, default=6, help="depth of attention parameters")
-    parser.add_argument("-bs", type=int, default=32, help="batch size")
-    parser.add_argument("-ep", type=int, default=5, help="number of epochs")
+    parser.add_argument("-d_model", type=int, default=2, help="depth of attention parameters")
+    parser.add_argument("-bs", type=int, default=128, help="batch size")
+    parser.add_argument("-ep", type=int, default=1, help="number of epochs")
     parser.add_argument("-full_model", type=str2bool, default=True,
                         help="simple transformer or one with ffn and layer norm")
     parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
@@ -41,27 +37,35 @@ if __name__ == '__main__':
     parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
+    parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
+    parser.add_argument("-past_len", type=int, default=40, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
     args = parser.parse_args()
 
     if not args.smc:
         assert args.particles == (1 or None)
 
+    list_samples = [72, 2]
+
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
-    BATCH_SIZE = args.bs
 
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
-        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
+        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
+        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs)
 
     algo = algos["smc_t"](dataset=dataset, args=args)
-
-    algo.train()
+    if args.ep > 0:
+        algo.train()
+    else:
+        algo.logger("skipping training...")
     algo.test()
+    if args.inference:
+        algo.launch_inference(list_samples=list_samples)
 
 
     # for (inp, tar) in train_dataset.take(1):

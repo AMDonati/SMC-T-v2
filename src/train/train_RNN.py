@@ -1,13 +1,5 @@
 import tensorflow as tf
-import os, argparse
-import numpy as np
-from preprocessing.time_series.df_to_dataset_synthetic import split_synthetic_dataset, data_to_dataset_3D, \
-    split_input_target
-from preprocessing.time_series.df_to_dataset_weather import df_to_data_regression
-from preprocessing.time_series.df_to_dataset_covid import split_covid_data
-from utils.utils_train import create_logger
-from models.Baselines.RNNs import build_LSTM_for_regression
-from train.train_functions import train_LSTM
+import argparse
 from data_provider.datasets import Dataset, CovidDataset
 from algos.run_SMC_T import algos
 
@@ -62,16 +54,16 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-rnn_units", type=int, required=True, help="number of rnn units")
+    parser.add_argument("-rnn_units", type=int, default=8, help="number of rnn units")
     parser.add_argument("-bs", type=int, default=32, help="batch size")
-    parser.add_argument("-ep", type=int, default=1, help="number of epochs")
+    parser.add_argument("-ep", type=int, default=3, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     parser.add_argument("-p_drop", type=float, required=True, help="dropout on output layer")
     parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
     parser.add_argument("-cv", type=str2bool, default=False, help="running 5 cross-validation")
     parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
-    parser.add_argument("-dataset", type=str, default='covid', help='dataset selection')
+    parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
 
     args = parser.parse_args()
 

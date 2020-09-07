@@ -41,7 +41,7 @@ def inference_multistep(smc_transformer, test_sample, save_path=None, save_path_
 
     mean_preds = tf.reduce_mean(preds, axis=1)
     mean_preds = tf.squeeze(mean_preds)
-    preds_future = preds[:,:,40:,:]
+    preds_future = preds[:,:,past_len:,:]
     preds_future = tf.squeeze(preds_future)
     if save_path is not None:
         np.save(save_path, mean_preds)

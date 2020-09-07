@@ -26,6 +26,9 @@ class Dataset:
         data = np.load(file_path)
         return data
 
+    def get_data_sample_from_index(self, index):
+        pass
+
     def get_datasets(self):
         train_data = self.get_data_from_folder(self.train_path)
         val_data = self.get_data_from_folder(self.val_path)
@@ -106,6 +109,20 @@ class CovidDataset(Dataset):
         data_sample = std * data_sample + mean
         data_sample = data_sample.astype(np.int32)
         return data_sample
+
+    def get_data_sample_from_index(self, index, past_len, num_dim=4):
+        _, _, test_data = self.get_datasets()
+        test_sample = test_data[index]
+        print('test_sample', test_sample)
+        test_sample = tf.convert_to_tensor(test_sample)
+        #test_sample = tf.reshape(test_sample, shape=(1, 1, test_sample.shape[-2], test_sample.shape[-1]))
+        inputs, targets = self.split_fn(test_sample[:, :past_len+1, :])
+        if num_dim == 4: # adding the particle dimension.
+            inputs = tf.expand_dims(inputs, axis=1)
+            targets = tf.expand_dims(targets, axis=1)
+            test_sample = tf.expand_dims(test_sample, axis=1)
+        return inputs, targets, test_sample
+
 
 
 if __name__ == '__main__':

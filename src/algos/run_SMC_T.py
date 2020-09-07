@@ -1,55 +1,11 @@
-from utils.utils_train import create_logger, CustomSchedule
+from utils.utils_train import CustomSchedule, restoring_checkpoint, write_to_csv
 import tensorflow as tf
 import os
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-from models.Baselines.Transformer_without_enc import Transformer
-from train.train_functions import train_SMC_transformer, train_LSTM, train_baseline_transformer
-from models.Baselines.RNNs import build_LSTM_for_regression
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-
-
-class Algo:
-    def __init__(self, dataset, args):
-        self.dataset = dataset
-        self.bs = args.bs
-        self.EPOCHS = args.ep
-        self.output_path = args.output_path
-        if not os.path.isdir(self.output_path):
-            os.makedirs(self.output_path)
-        self.out_folder = args.output_path
-
-    def train(self):
-        pass
-
-    def test(self):
-        pass
-
-    def create_logger(self):
-        out_file_log = os.path.join(self.out_folder, 'training_log.log')
-        logger = create_logger(out_file_log=out_file_log)
-        return logger
-
-    def create_ckpt_path(self):
-        checkpoint_path = os.path.join(self.out_folder, "checkpoints")
-        if not os.path.isdir(checkpoint_path):
-            os.makedirs(checkpoint_path)
-        return checkpoint_path
-
-    def load_datasets(self, num_dim=4, target_feature=None, cv=False):
-        train_data, val_data, test_data = self.dataset.get_datasets()
-        self.seq_len = train_data.shape[1] - 1
-        self.logger.info('num samples in training dataset:{}'.format(train_data.shape[0]))
-        train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
-                                                                                val_data=val_data,
-                                                                                test_data=test_data,
-                                                                                target_feature=target_feature, cv=cv,
-                                                                                num_dim=num_dim)
-        for (inp, tar) in train_dataset.take(1):
-            self.output_size = tf.shape(tar)[-1].numpy()
-            self.num_features = tf.shape(inp)[-1].numpy()
-
-        return train_dataset, val_dataset, test_dataset
-
+from train.train_functions import train_SMC_transformer
+from eval.inference_functions import inference_onestep, inference_multistep, get_distrib_all_timesteps
+from algos.generic import Algo
+import json
 
 class SMCTAlgo(Algo):
     def __init__(self, dataset, args):
@@ -59,6 +15,7 @@ class SMCTAlgo(Algo):
                                                   beta_1=0.9,
                                                   beta_2=0.98,
                                                   epsilon=1e-9)
+        self.past_len = args.past_len
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
@@ -70,21 +27,26 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                attn_window=args.attn_w)
         self._init_SMC_T(args=args)
+        self.start_epoch = 0
+        self.sigmas_after_training = None
+        self._load_ckpt(args=args)
 
     def _create_out_folder(self, args):
-        # TODO:add date & time.
-        out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
-                                                                                        self.bs, args.full_model,
-                                                                                        args.dff, args.attn_w)
-        if args.smc:
-            out_file = out_file + '__p_{}'.format(args.particles)
-            out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
-            out_file = out_file + '_sigmas_{}'.format(args.sigmas)
-
-        out_folder = os.path.join(self.output_path, out_file)
-        if not os.path.isdir(out_folder):
-            os.makedirs(out_folder)
-        return out_folder
+        if args.save_path is not None:
+            return args.save_path
+        else:
+            # TODO:add date & time.
+            out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
+                                                                                            self.bs, args.full_model,
+                                                                                            args.dff, args.attn_w)
+            if args.smc:
+                out_file = out_file + '__p_{}'.format(args.particles)
+                out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
+                out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+            out_folder = os.path.join(self.output_path, out_file)
+            if not os.path.isdir(out_folder):
+                os.makedirs(out_folder)
+            return out_folder
 
     def _init_SMC_T(self, args):
         if args.smc:
@@ -110,9 +72,129 @@ class SMCTAlgo(Algo):
                               EPOCHS=self.EPOCHS,
                               train_dataset=self.train_dataset,
                               val_dataset=self.val_dataset,
-                              checkpoint_path=self.ckpt_path,
+                              ckpt_manager=self.ckpt_manager,
                               logger=self.logger,
-                              num_train=1)
+                              start_epoch=self.start_epoch)
+        self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
+                               [self.smc_transformer.cell.Sigma_obs,
+                                self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+        dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
+        final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
+        with open(final_sigmas_path, 'w') as fp:
+            json.dump(dict_json, fp) #TODO: add this at each checkpoint saving?
+
+    def _load_ckpt(self, args, num_train=1):
+        # creating checkpoint manager
+        ckpt = tf.train.Checkpoint(transformer=self.smc_transformer,
+                                   optimizer=self.optimizer)
+        smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))
+        self.ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=self.EPOCHS)
+        # if a checkpoint exists, restore the latest checkpoint.
+        start_epoch = restoring_checkpoint(ckpt_manager=self.ckpt_manager, ckpt=ckpt, args_load_ckpt=True, logger=self.logger)
+        if start_epoch is not None:
+            self.start_epoch = start_epoch
+        if args.save_path is not None:
+            with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
+                dict_json = json.load(json_file)
+            self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
+            self._reinit_sigmas()
+
+    def _reinit_sigmas(self):
+        if self.sigmas_after_training is not None:
+            dict_sigmas = {key: self.sigmas_after_training[key] for key in ['k', 'q', 'v', 'z']}
+            sigma_obs = self.sigmas_after_training["sigma_obs"]
+            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=self.smc_transformer.cell.num_particles)
+
+    def EM_after_training(self, inputs, targets, index, iterations=30):
+        targets_tiled = tf.tile(targets, multiples=[1, self.smc_transformer.cell.num_particles, 1, 1])
+        for it in range(1, iterations + 1):
+            (preds, preds_resampl), _, _ = self.smc_transformer(inputs=inputs,
+                                                           targets=targets)
+            # EM estimation of the noise parameters
+            err_k = self.smc_transformer.noise_K_resampled * self.smc_transformer.noise_K_resampled
+            err_k = tf.reduce_mean(err_k)
+            err_q = self.smc_transformer.noise_q * self.smc_transformer.noise_q
+            err_q = tf.reduce_mean(err_q)
+            err_v = self.smc_transformer.noise_V_resampled * self.smc_transformer.noise_V_resampled
+            err_v = tf.reduce_mean(err_v)
+            err_z = self.smc_transformer.noise_z * self.smc_transformer.noise_z
+            err_z = tf.reduce_mean(err_z)
+            # EM estimation of Sigma_obs:
+            err_obs = tf.cast(targets_tiled, tf.float32) - tf.cast(preds_resampl, tf.float32)
+            new_sigma_obs = err_obs * err_obs
+            new_sigma_obs = tf.reduce_mean(new_sigma_obs)
+            # update of the sigmas:
+            self.smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (
+                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_v + it ** (
+                                                             -0.6) * err_v
+            self.smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (
+                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_k + it ** (
+                                                             -0.6) * err_k
+            self.smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (
+                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_q + it ** (
+                                                             -0.6) * err_q
+            self.smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (
+                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_z + it ** (
+                                                             -0.6) * err_z
+            self.smc_transformer.cell.Sigma_obs = (1 - it ** (-0.6)) * self.smc_transformer.cell.Sigma_obs + it ** (
+                -0.6) * new_sigma_obs
+            print('it:', it)
+            print("sigma_obs: {}, sigma_k: {}, sigma_q: {}, sigma_v: {}, sigma_z: {}".format(
+                self.smc_transformer.cell.Sigma_obs,
+                self.smc_transformer.cell.attention_smc.sigma_k,
+                self.smc_transformer.cell.attention_smc.sigma_q,
+                self.smc_transformer.cell.attention_smc.sigma_v,
+                self.smc_transformer.cell.attention_smc.sigma_z
+            ))
+
+        dict_sigmas = dict(zip(['sigma_obs', 'sigma_k', 'sigma_q', 'sigma_v', 'sigma_z'],
+                               [self.smc_transformer.cell.Sigma_obs,
+                                self.smc_transformer.cell.attention_smc.sigma_k,
+                                self.smc_transformer.cell.attention_smc.sigma_q,
+                                self.smc_transformer.cell.attention_smc.sigma_v,
+                                self.smc_transformer.cell.attention_smc.sigma_z]))
+        write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)), dic=dict_sigmas)
+
+    def launch_inference(self, list_samples):
+        # create inference folder
+        self.inference_path = os.path.join(self.out_folder, "inference_results")
+        if not os.path.isdir(self.inference_path):
+            os.makedirs(self.inference_path)
+        for index in list_samples:
+            inputs, targets, test_sample = self.dataset.get_data_sample_from_index(index, past_len=self.past_len)
+            self.smc_transformer.seq_len = self.past_len
+            self.EM_after_training(inputs=inputs, targets=targets, index=index)
+            save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi = self._get_inference_paths(index=index)
+            self.smc_transformer.seq_len = self.seq_len
+            preds_NP, mean_preds = inference_onestep(smc_transformer=self.smc_transformer,
+                                                     test_sample=test_sample,
+                                                     save_path=save_path_means,
+                                                     past_len=1)
+
+            preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
+            save_path=save_path_means_multi, past_len=self.past_len, future_len=self.seq_len-self.past_len)
+
+            # print('preds_multi', preds_multi.shape)
+            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
+
+            get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles, save_path_distrib=save_path_distrib,
+                                      len_future=self.seq_len - 1)
+            get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles, save_path_distrib=save_path_distrib_multi, len_future=self.seq_len - self.past_len)
+            self._reinit_sigmas()
+
+    def _get_inference_paths(self, index):
+        save_path_means = os.path.join(self.inference_path, 'mean_preds_sample_{}.npy'.format(index))
+        save_path_means_multi = os.path.join(self.inference_path, 'mean_preds_sample_{}_multi.npy'.format(index))
+        save_path_preds_multi = os.path.join(self.inference_path, 'particules_sample_{}_multi.npy'.format(index))
+        save_path_distrib = os.path.join(self.inference_path,
+                                         'distrib_future_timesteps_sample_{}.npy'.format(
+                                             index))
+        save_path_distrib_multi = os.path.join(self.inference_path,
+                                               'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
+        return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
     def test(self):
         self.logger.info("computing test mse metric at the end of training...")
@@ -126,114 +208,3 @@ class SMCTAlgo(Algo):
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
 
-
-class RNNAlgo(Algo):
-    def __init__(self, dataset, args):
-        super(RNNAlgo, self).__init__(dataset=dataset, args=args)
-        self.lr = args.lr
-        self.optimizer = tf.keras.optimizers.Adam(self.lr,
-                                                  beta_1=0.9,
-                                                  beta_2=0.98,
-                                                  epsilon=1e-9)
-        self.p_drop = args.p_drop
-        self.rnn_drop = args.rnn_drop
-        self.out_folder = self._create_out_folder(args=args)
-        self.logger = self.create_logger()
-        self.ckpt_path = self.create_ckpt_path()
-        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
-        self.lstm = build_LSTM_for_regression(shape_input_1=self.seq_len,
-                                              shape_input_2=self.num_features,
-                                              shape_output=self.output_size,
-                                              rnn_units=args.rnn_units,
-                                              dropout_rate=args.p_drop,
-                                              rnn_drop_rate=args.rnn_drop,
-                                              training=True)
-        self.cv = args.cv
-
-    def _create_out_folder(self, args):
-        output_path = args.output_path
-        out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
-                                                                                   args.p_drop,
-                                                                                   args.rnn_drop, self.lr,
-                                                                                   self.bs, args.cv)
-        output_folder = os.path.join(output_path, out_file)
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-        return output_folder
-
-    def train(self):
-        if not self.cv:
-            train_LSTM(model=self.lstm,
-                       optimizer=self.optimizer,
-                       EPOCHS=self.EPOCHS,
-                       train_dataset=self.train_dataset,
-                       val_dataset=self.val_dataset,
-                       checkpoint_path=self.checkpoint_path,
-                       output_path=self.output_path,
-                       logger=self.logger,
-                       num_train=1)
-        else:
-            raise NotImplementedError("cross-validation training not Implemented.")
-
-    def test(self):
-        for inp, tar in self.test_dataset:
-            test_preds = self.lstm(inp)
-            test_loss = tf.keras.losses.MSE(test_preds, tar)
-            test_loss = tf.reduce_mean(test_loss)
-        self.logger.info("test loss: {}".format(test_loss))
-
-
-class BaselineTAlgo(Algo):
-    def __init__(self, dataset, args):
-        super(BaselineTAlgo, self).__init__(dataset=dataset, args=args)
-        self.lr = CustomSchedule(args.d_model)
-        self.optimizer = tf.keras.optimizers.Adam(self.lr,
-                                                  beta_1=0.9,
-                                                  beta_2=0.98,
-                                                  epsilon=1e-9)
-        self.out_folder = self._create_out_folder(args=args)
-        self.logger = self.create_logger()
-        self.ckpt_path = self.create_ckpt_path()
-        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
-        self.transformer = Transformer(num_layers=1, d_model=args.d_model, num_heads=1, dff=args.dff,
-                                       target_vocab_size=self.output_size,
-                                       maximum_position_encoding=args.pe, rate=0, full_model=args.full_model)
-
-    def _create_out_folder(self, args):
-        out_file = 'Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}'.format(args.d_model, args.dff, args.pe,
-                                                                               self.bs, args.full_model)
-        output_folder = os.path.join(args.output_path, out_file)
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-        return output_folder
-
-    def train(self):
-        self.logger.info('hparams...')
-        self.logger.info(
-            'd_model:{} - dff:{} - positional encoding: {} - learning rate: {}'.format(self.transformer.d_model,
-                                                                                       self.transformer.dff,
-                                                                                       self.transformer.decoder.maximum_position_encoding,
-        self.lr))
-        self.logger.info('Transformer with one head and one layer')
-        train_baseline_transformer(transformer=self.transformer,
-                                   optimizer=self.optimizer,
-                                   EPOCHS=self.EPOCHS,
-                                   train_dataset=self.train_dataset,
-                                   val_dataset=self.val_dataset,
-                                   output_path=self.output_path,
-                                   checkpoint_path=self.checkpoint_path,
-                                   logger=self.logger,
-                                   num_train=1)
-
-    def test(self):
-        for (inp, tar) in self.test_dataset:
-            seq_len = tf.shape(inp)[-2]
-            predictions_test, _ = self.transformer(inputs=inp,
-                                              training=False,
-                                              mask=create_look_ahead_mask(seq_len))  # (B,S,F)
-            loss_test = tf.keras.losses.MSE(tar, predictions_test)  # (B,S)
-            loss_test = tf.reduce_mean(loss_test)
-        self.logger.info("test loss at the end of training: {}".format(loss_test))
-
-
-algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo}
