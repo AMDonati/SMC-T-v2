@@ -8,6 +8,8 @@ from preprocessing.time_series.df_to_dataset_covid import split_covid_data
 from utils.utils_train import create_logger
 from models.Baselines.RNNs import build_LSTM_for_regression
 from train.train_functions import train_LSTM
+from data_provider.datasets import Dataset, CovidDataset
+from algos.run_SMC_T import algos
 
 def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
     '''
@@ -73,179 +75,29 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # ------------------- Upload synthetic dataset ----------------------------------------------------------------------------------
-
+    # ------------------- Upload dataset ----------------------------------------------------------------------------------
     BATCH_SIZE = args.bs
-    TRAIN_SPLIT = 0.7
+
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
-        data_path = os.path.join(args.data_path, 'synthetic_dataset_1_feat.npy')
-        input_data = np.load(data_path)
-        train_data, val_data, test_data = split_synthetic_dataset(x_data=input_data, TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                  cv=args.cv)
-
-        val_data_path = os.path.join(args.data_path, 'val_data_synthetic_1_feat.npy')
-        train_data_path = os.path.join(args.data_path, 'train_data_synthetic_1_feat.npy')
-        test_data_path = os.path.join(args.data_path, 'test_data_synthetic_1_feat.npy')
-
-        np.save(val_data_path, val_data) #TODO: refactor this part: does not need to be done everytime...
-        np.save(train_data_path, train_data)
-        np.save(test_data_path, test_data)
+        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        data_path = os.path.join(args.data_path, 'covid_preprocess.npy')
-        train_data, val_data, test_data, stats = split_covid_data(arr_path=data_path)
+        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
 
-    elif args.dataset == 'weather':
+    algo = algos["lstm"](dataset=dataset, args=args)
 
-        BUFFER_SIZE = 5000
-        file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
-        fname = 'jena_climate_2009_2016.csv.zip'
-        col_name = ['p (mbar)', 'T (degC)', 'rh (%)', 'rho (g/m**3)']
-        index_name = 'Date Time'
-        # temperature recorded every 10 minutes.
-        history = 6 * 24 * 4 + 6 * 4  # history of 4 days + one more 4 hours interval for splitting target / input.
-        step = 6 * 4  # sample a temperature every 4 hours.
-
-        (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
-                                                                                      fname=fname,
-                                                                                      col_name=col_name,
-                                                                                      index_name=index_name,
-                                                                                      TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                                      history=history,
-                                                                                      step=step,
-                                                                                      cv=args.cv,
-                                                                                      max_samples=20000)
-
-    if not args.cv:
-        train_dataset, val_dataset, test_dataset = data_to_dataset_3D(train_data=train_data,
-                                                                      val_data=val_data,
-                                                                      test_data=test_data,
-                                                                      split_fn=split_input_target,
-                                                                      BUFFER_SIZE=BUFFER_SIZE,
-                                                                      BATCH_SIZE=BATCH_SIZE,
-                                                                      target_feature=None,
-                                                                      cv=args.cv)
-        for (inp, tar) in train_dataset.take(1):
-            print('input example', inp[0])
-            print('target example', tar[0])
-
-    else:
-        list_train_dataset, list_val_dataset, test_dataset = data_to_dataset_3D(train_data=train_data,
-                                                                                val_data=val_data,
-                                                                                test_data=test_data,
-                                                                                split_fn=split_input_target,
-                                                                                BUFFER_SIZE=BUFFER_SIZE,
-                                                                                BATCH_SIZE=BATCH_SIZE,
-                                                                                target_feature=None,
-                                                                                cv=args.cv)
-        for (inp, tar) in list_train_dataset[0].take(1):
-            print('input example', inp[0])
-            print('target example', tar[0])
-
-
-    # -------------------- define hyperparameters -----------------------------------------------------------------------------------
-    rnn_units = args.rnn_units
-    learning_rate = args.lr
-    EPOCHS = args.ep
-    # define optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                         beta_1=0.9,
-                                         beta_2=0.98,
-                                         epsilon=1e-9)
-    output_path = args.output_path
-    out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, rnn_units, args.p_drop, args.rnn_drop, learning_rate, BATCH_SIZE, args.cv)
-    output_path = os.path.join(output_path, out_file)
-    if not os.path.isdir(output_path):
-        os.makedirs(output_path)
-    if not args.cv:
-        for inp, tar in train_dataset.take(1):
-            seq_len = tf.shape(inp)[1].numpy()
-            num_features = tf.shape(inp)[-1].numpy()
-            output_size = tf.shape(tar)[-1].numpy()
-    else:
-        for inp, tar in list_train_dataset[0].take(1):
-            seq_len = tf.shape(inp)[1].numpy()
-            num_features = tf.shape(inp)[-1].numpy()
-            output_size = tf.shape(tar)[-1].numpy()
-
-    # -------------------- create logger and checkpoint saver ----------------------------------------------------------------------------------------------------
-
-    out_file_log = output_path + '/' + 'training_log.log'
-    logger = create_logger(out_file_log=out_file_log)
-    #  creating the checkpoint manager:
-    checkpoint_path = os.path.join(output_path, "checkpoints")
-    if not os.path.isdir(checkpoint_path):
-        os.makedirs(checkpoint_path)
-
-    # -------------------- Build the RNN model -----------------------------------------------------------------------------------------
-    model = build_LSTM_for_regression(shape_input_1=seq_len,
-                                      shape_input_2=num_features,
-                                      shape_output=output_size,
-                                      rnn_units=rnn_units,
-                                      dropout_rate=args.p_drop,
-                                      rnn_drop_rate=args.rnn_drop,
-                                      training=True)
-    if not args.cv:
-        train_LSTM(model=model,
-               optimizer=optimizer,
-               EPOCHS=EPOCHS,
-               train_dataset=train_dataset,
-               val_dataset=val_dataset,
-               checkpoint_path=checkpoint_path,
-               output_path=output_path,
-               logger=logger,
-               num_train=1)
-    else:
-        for t, (train_dataset, val_dataset) in enumerate(zip(list_train_dataset, list_val_dataset)):
-            logger.info("starting training of train/val split number {}".format(t+1))
-            model = build_LSTM_for_regression(shape_input_1=seq_len,
-                                              shape_input_2=num_features,
-                                              shape_output=output_size,
-                                              rnn_units=rnn_units,
-                                              dropout_rate=args.p_drop,
-                                              training=True)
-            train_LSTM(model=model,
-                       optimizer=optimizer,
-                       EPOCHS=EPOCHS,
-                       train_dataset=train_dataset,
-                       val_dataset=val_dataset,
-                       checkpoint_path=checkpoint_path,
-                       output_path=output_path,
-                       logger=logger,
-                       num_train=t+1)
-            logger.info("training of a LSTM for train/val split number {} done...".format(t + 1))
-            logger.info(
-                "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
-
-    for inp, tar in test_dataset:
-        test_preds = model(inp)
-        test_loss = tf.keras.losses.MSE(test_preds, tar)
-        test_loss = test_loss[:, 40:]
-        test_loss = tf.reduce_mean(test_loss, axis=-1)
-        top_k, top_i = tf.math.top_k(test_loss, k=25)
-    logger.info('test samples with highest loss for last 20 time-steps:{}'.format(list(top_i.numpy())))
-
-    val_data_path = os.path.join(args.data_path, 'covid_val_data.npy')
-    val_data = np.load(val_data_path)
-    inp_val, tar_val = split_input_target(val_data)
-    val_preds = model(inp_val)
-    val_loss = tf.keras.losses.MSE(val_preds, tar_val)
-    val_loss = val_loss[:, 40:]
-    val_loss = tf.reduce_mean(val_loss, axis=-1)
-    top_k_val, top_i_val= tf.math.top_k(val_loss, k=25)
-    logger.info('val samples with highest loss for last 20 time-steps:{}'.format(list(top_i_val.numpy())))
-
-
+    algo.train()
+    algo.test()
  #---------------------------------------
 
-    data_path = os.path.join(args.data_path, 'covid_test_data.npy')
-    test_data = np.load(data_path)
-    test_data = tf.convert_to_tensor(test_data)
-    inputs, targets = split_input_target(test_data)
-    #mc_samples = MC_Dropout_LSTM(lstm_model=model, inp_model=inputs, mc_samples=1000)
-    mc_samples = MC_Dropout_LSTM_multistep(lstm_model=model, inp_model=inputs[:,:40,:], mc_samples=1000)
-    print(mc_samples.shape)
-    save_path = os.path.join(output_path, 'mc_dropout_samples_test_data_multi.npy')
-    np.save(save_path, mc_samples)
+    # data_path = os.path.join(args.data_path, 'covid_test_data.npy')
+    # test_data = np.load(data_path)
+    # test_data = tf.convert_to_tensor(test_data)
+    # inputs, targets = split_input_target(test_data)
+    # #mc_samples = MC_Dropout_LSTM(lstm_model=model, inp_model=inputs, mc_samples=1000)
+    # mc_samples = MC_Dropout_LSTM_multistep(lstm_model=model, inp_model=inputs[:,:40,:], mc_samples=1000)
+    # print(mc_samples.shape)
+    # save_path = os.path.join(output_path, 'mc_dropout_samples_test_data_multi.npy')
+    # np.save(save_path, mc_samples)
