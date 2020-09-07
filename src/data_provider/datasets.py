@@ -36,9 +36,6 @@ class Dataset:
         '''
         :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
         :param val_data: input data used for validation set > shape (N_val, S+1, F)
-        :param split_fn: used to split between input data and target.
-        :param BUFFER_SIZE: to shuffle the dataset.
-        :param BATCH_SIZE:
         :param: cv: boolean; True if multiple train datasets / val datasets for cross-validation; False otherwise.
         :param target_feature: used to select the target feature to be predicted. Case of multivariate ts as input data > prediction of a univariate ts.
         :return:
