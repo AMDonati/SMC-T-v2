@@ -83,22 +83,22 @@ class RNNAlgo(Algo):
             np.save(save_path, preds_test_MC_Dropout)
         return preds_test_MC_Dropout
 
-    def launch_inference(self, multistep):
-        # create inference folder
-        self.inference_path = os.path.join(self.out_folder, "inference_results")
-        if not os.path.isdir(self.inference_path):
-            os.makedirs(self.inference_path)
+    def launch_inference(self, **kwargs):
         mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
         _, _, test_data = self.dataset.get_datasets()
         test_data = tf.convert_to_tensor(test_data)
         inputs, targets = self.dataset.split_fn(test_data)
         mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inputs, save_path=mc_dropout_unistep_path)
         print("mc dropout samples unistep shape", mc_samples_uni.shape)
-        if multistep:
+        if kwargs["multistep"]:
             mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
             print("mc dropout samples multistep shape", mc_samples_multi.shape)
 
     def _get_inference_paths(self):
+        # create inference folder
+        self.inference_path = os.path.join(self.out_folder, "inference_results")
+        if not os.path.isdir(self.inference_path):
+            os.makedirs(self.inference_path)
         mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
         mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
         return mc_dropout_unistep_path, mc_dropout_multistep_path

@@ -163,12 +163,12 @@ class SMCTAlgo(Algo):
         write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
                      dic=dict_sigmas)
 
-    def launch_inference(self, list_samples, multistep=False):
+    def launch_inference(self, **kwargs):
         # create inference folder
         self.inference_path = os.path.join(self.out_folder, "inference_results")
         if not os.path.isdir(self.inference_path):
             os.makedirs(self.inference_path)
-        for index in list_samples:
+        for index in kwargs["list_samples"]:
             inputs, targets, test_sample = self.dataset.get_data_sample_from_index(index, past_len=self.past_len)
             self.smc_transformer.seq_len = self.past_len
             self._EM_after_training(inputs=inputs, targets=targets, index=index)
@@ -179,7 +179,7 @@ class SMCTAlgo(Algo):
                                                      test_sample=test_sample,
                                                      save_path=save_path_means,
                                                      past_len=1)
-            if multistep:
+            if kwargs["multistep"]:
                 preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
                                                                     save_path=save_path_means_multi,
                                                                     past_len=self.past_len,
@@ -191,7 +191,7 @@ class SMCTAlgo(Algo):
             get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
                                       save_path_distrib=save_path_distrib,
                                       len_future=self.seq_len - 1)
-            if multistep:
+            if kwargs["multistep"]:
                 get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
                                           save_path_distrib=save_path_distrib_multi,
                                           len_future=self.seq_len - self.past_len)

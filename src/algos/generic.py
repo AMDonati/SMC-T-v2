@@ -19,7 +19,7 @@ class Algo:
     def test(self):
         pass
 
-    def launch_inference(self): #TODO: add a kwargs here.
+    def launch_inference(self, **kwargs):
         pass
 
     def create_logger(self):
