@@ -29,8 +29,6 @@ class RNNAlgo(Algo):
                                               rnn_drop_rate=args.rnn_drop,
                                               training=True)
         self.cv = args.cv
-        self.mc_samples = args.mc_samples
-        self.past_len = args.past_len
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
 
     def _create_out_folder(self, args):
@@ -89,22 +87,12 @@ class RNNAlgo(Algo):
         mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
         _, _, test_data = self.dataset.get_datasets()
         test_data = tf.convert_to_tensor(test_data)
-        inputs, targets = self.dataset.split_fn(test_data)
+        inputs, targets = self.dataset.split_fn(test_data) #TODO: replace this by self.test_dataset ?
         mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inputs, save_path=mc_dropout_unistep_path)
         print("mc dropout samples unistep shape", mc_samples_uni.shape)
         if kwargs["multistep"]:
             mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
             print("mc dropout samples multistep shape", mc_samples_multi.shape)
-
-    def _get_inference_paths(self):
-        # create inference folder
-        self.inference_path = os.path.join(self.out_folder, "inference_results")
-        if not os.path.isdir(self.inference_path):
-            os.makedirs(self.inference_path)
-        mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
-        mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
-        return mc_dropout_unistep_path, mc_dropout_multistep_path
-
 
     def train(self):
         if not self.cv:

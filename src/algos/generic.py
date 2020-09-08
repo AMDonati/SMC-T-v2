@@ -13,6 +13,9 @@ class Algo:
         if not os.path.isdir(self.output_path):
             os.makedirs(self.output_path)
         self.out_folder = args.output_path
+        self.start_epoch = 0
+        self.mc_samples = args.mc_samples
+        self.past_len = args.past_len
 
     def train(self):
         pass
@@ -53,5 +56,13 @@ class Algo:
         for (inp, tar) in train_dataset.take(1):
             self.output_size = tf.shape(tar)[-1].numpy()
             self.num_features = tf.shape(inp)[-1].numpy()
-
         return train_dataset, val_dataset, test_dataset
+
+    def _get_inference_paths(self):
+        # create inference folder
+        self.inference_path = os.path.join(self.out_folder, "inference_results")
+        if not os.path.isdir(self.inference_path):
+            os.makedirs(self.inference_path)
+        mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
+        mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
+        return mc_dropout_unistep_path, mc_dropout_multistep_path

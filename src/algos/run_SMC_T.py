@@ -17,7 +17,6 @@ class SMCTAlgo(Algo):
                                                   beta_1=0.9,
                                                   beta_2=0.98,
                                                   epsilon=1e-9)
-        self.past_len = args.past_len
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
@@ -30,7 +29,6 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                attn_window=args.attn_w)
         self._init_SMC_T(args=args)
-        self.start_epoch = 0
         self.sigmas_after_training = None
         self._load_ckpt(args=args)
 
@@ -50,14 +48,6 @@ class SMCTAlgo(Algo):
             if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)
             return out_folder
-
-    # def _save_hparams(self, args):
-    #     #TODO: do a generic method with all args.
-    #     config_path = os.path.join(self.out_folder, "config.json")
-    #     dict_hparams = {"d_model": str(args.d_model), "dff": str(args.dff), "full_model": str(args.full_model), "attn_w": str(args.attn_w)}
-    #     with open(config_path, 'w') as fp:
-    #         json.dump(dict_hparams, fp) #TODO: dump in lines.
-
 
     def _init_SMC_T(self, args):
         if args.smc:

@@ -7,6 +7,7 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from algos.run_rnn import Algo
 from utils.utils_train import restoring_checkpoint
 import datetime
+import numpy as np
 
 class BaselineTAlgo(Algo):
     def __init__(self, dataset, args):
@@ -24,11 +25,65 @@ class BaselineTAlgo(Algo):
         self.transformer = Transformer(num_layers=1, d_model=args.d_model, num_heads=1, dff=args.dff,
                                        target_vocab_size=self.output_size,
                                        maximum_position_encoding=args.pe, rate=0, full_model=args.full_model)
-        self.start_epoch = 0
-        self._load_ckpt(arg=args)
+        self._load_ckpt(args=args)
+
+    def _MC_Dropout(self, inp_model, save_path=None):
+        '''
+        :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+        :param inp_model: array of shape (B,S,F)
+        :param mc_samples:
+        :return:
+        '''
+        list_predictions = []
+        seq_len = tf.shape(inp_model)[-2]
+        for i in range(self.mc_samples):
+            predictions_test, _ = self.transformer(inputs=inp_model,
+                                                training=True,
+                                                mask=create_look_ahead_mask(seq_len))  # (B,S,1)
+            list_predictions.append(predictions_test)
+        predictions_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1))  # shape (B, N, S)
+        print('MC Dropout unistep done')
+        if save_path is not None:
+            np.save(save_path, predictions_test_MC_Dropout)
+        return predictions_test_MC_Dropout
+
+    def _MC_Dropout_multistep(self, inp_model, len_future=None, save_path=None):
+        '''
+            :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+            :param inp_model: array of shape (B,S,F)
+            :param mc_samples:
+            :return:
+        '''
+        if len_future is None:
+            len_future = self.seq_len - self.past_len
+        list_predictions = []
+        for i in range(self.mc_samples):
+            inp = inp_model
+            for t in range(len_future + 1):
+                seq_len = tf.shape(inp)[-2]
+                preds_test, _ = self.transformer(inputs=inp,
+                                                       training=True,
+                                                       mask=create_look_ahead_mask(seq_len))  # (B,S,1)
+                last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
+                inp = tf.concat([inp, last_pred], axis=1)
+            list_predictions.append(preds_test)
+        preds_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1)) # (B,S,N)
+        print('mc dropout multistep done')
+        if save_path is not None:
+            np.save(save_path, preds_test_MC_Dropout)
+        return preds_test_MC_Dropout
+
+    def launch_inference(self, **kwargs):
+        mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
+        for (inp, _) in self.test_dataset:
+            mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=mc_dropout_unistep_path)
+            print("mc dropout samples unistep shape", mc_samples_uni.shape)
+            if kwargs["multistep"]:
+                mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
+                print("mc dropout samples multistep shape", mc_samples_multi.shape)
 
     def _create_out_folder(self, args):
-        out_file = 'Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}'.format(args.d_model, args.dff, args.pe,
+        out_file = '{}_Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}'.format(args.dataset, args.d_model, args.dff, args.pe,
                                                                                self.bs, args.full_model)
         datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         output_folder = os.path.join(args.output_path, out_file, datetime_folder)
