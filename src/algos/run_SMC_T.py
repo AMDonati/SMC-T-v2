@@ -7,6 +7,7 @@ from eval.inference_functions import inference_onestep, inference_multistep, get
 from algos.generic import Algo
 import json
 
+
 class SMCTAlgo(Algo):
     def __init__(self, dataset, args):
         super(SMCTAlgo, self).__init__(dataset=dataset, args=args)
@@ -30,7 +31,7 @@ class SMCTAlgo(Algo):
         self.start_epoch = 0
         self.sigmas_after_training = None
         self._load_ckpt(args=args)
-        #TODO: add hparams saving in a json file.
+        # TODO: add hparams saving in a json file.
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -77,15 +78,15 @@ class SMCTAlgo(Algo):
                               logger=self.logger,
                               start_epoch=self.start_epoch)
         self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                               [self.smc_transformer.cell.Sigma_obs,
-                                self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+                                              [self.smc_transformer.cell.Sigma_obs,
+                                               self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                               self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                               self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                               self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
         dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
         final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
         with open(final_sigmas_path, 'w') as fp:
-            json.dump(dict_json, fp) #TODO: add this at each checkpoint saving?
+            json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
 
     def _load_ckpt(self, args, num_train=1):
         # creating checkpoint manager
@@ -94,7 +95,8 @@ class SMCTAlgo(Algo):
         smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))
         self.ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=50)
         # if a checkpoint exists, restore the latest checkpoint.
-        start_epoch = restoring_checkpoint(ckpt_manager=self.ckpt_manager, ckpt=ckpt, args_load_ckpt=True, logger=self.logger)
+        start_epoch = restoring_checkpoint(ckpt_manager=self.ckpt_manager, ckpt=ckpt, args_load_ckpt=True,
+                                           logger=self.logger)
         if start_epoch is not None:
             self.start_epoch = start_epoch
         if args.save_path is not None:
@@ -107,13 +109,14 @@ class SMCTAlgo(Algo):
         if self.sigmas_after_training is not None:
             dict_sigmas = {key: self.sigmas_after_training[key] for key in ['k', 'q', 'v', 'z']}
             sigma_obs = self.sigmas_after_training["sigma_obs"]
-            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=self.smc_transformer.cell.num_particles)
+            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs,
+                                                         num_particles=self.smc_transformer.cell.num_particles)
 
-    def EM_after_training(self, inputs, targets, index, iterations=30):
+    def _EM_after_training(self, inputs, targets, index, iterations=30):
         targets_tiled = tf.tile(targets, multiples=[1, self.smc_transformer.cell.num_particles, 1, 1])
         for it in range(1, iterations + 1):
             (preds, preds_resampl), _, _ = self.smc_transformer(inputs=inputs,
-                                                           targets=targets)
+                                                                targets=targets)
             # EM estimation of the noise parameters
             err_k = self.smc_transformer.noise_K_resampled * self.smc_transformer.noise_K_resampled
             err_k = tf.reduce_mean(err_k)
@@ -130,16 +133,16 @@ class SMCTAlgo(Algo):
             # update of the sigmas:
             self.smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_v + it ** (
-                                                             -0.6) * err_v
+                                                                  -0.6) * err_v
             self.smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_k + it ** (
-                                                             -0.6) * err_k
+                                                                  -0.6) * err_k
             self.smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_q + it ** (
-                                                             -0.6) * err_q
+                                                                  -0.6) * err_q
             self.smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_z + it ** (
-                                                             -0.6) * err_z
+                                                                  -0.6) * err_z
             self.smc_transformer.cell.Sigma_obs = (1 - it ** (-0.6)) * self.smc_transformer.cell.Sigma_obs + it ** (
                 -0.6) * new_sigma_obs
             print('it:', it)
@@ -157,9 +160,10 @@ class SMCTAlgo(Algo):
                                 self.smc_transformer.cell.attention_smc.sigma_q,
                                 self.smc_transformer.cell.attention_smc.sigma_v,
                                 self.smc_transformer.cell.attention_smc.sigma_z]))
-        write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)), dic=dict_sigmas)
+        write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
+                     dic=dict_sigmas)
 
-    def launch_inference(self, list_samples):
+    def launch_inference(self, list_samples, multistep=False):
         # create inference folder
         self.inference_path = os.path.join(self.out_folder, "inference_results")
         if not os.path.isdir(self.inference_path):
@@ -167,23 +171,30 @@ class SMCTAlgo(Algo):
         for index in list_samples:
             inputs, targets, test_sample = self.dataset.get_data_sample_from_index(index, past_len=self.past_len)
             self.smc_transformer.seq_len = self.past_len
-            self.EM_after_training(inputs=inputs, targets=targets, index=index)
-            save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi = self._get_inference_paths(index=index)
+            self._EM_after_training(inputs=inputs, targets=targets, index=index)
+            save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi = self._get_inference_paths(
+                index=index)
             self.smc_transformer.seq_len = self.seq_len
             preds_NP, mean_preds = inference_onestep(smc_transformer=self.smc_transformer,
                                                      test_sample=test_sample,
                                                      save_path=save_path_means,
                                                      past_len=1)
-
-            preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
-            save_path=save_path_means_multi, past_len=self.past_len, future_len=self.seq_len-self.past_len)
+            if multistep:
+                preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
+                                                                    save_path=save_path_means_multi,
+                                                                    past_len=self.past_len,
+                                                                    future_len=self.seq_len - self.past_len)
 
             # print('preds_multi', preds_multi.shape)
             sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
 
-            get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles, save_path_distrib=save_path_distrib,
+            get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
+                                      save_path_distrib=save_path_distrib,
                                       len_future=self.seq_len - 1)
-            get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles, save_path_distrib=save_path_distrib_multi, len_future=self.seq_len - self.past_len)
+            if multistep:
+                get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
+                                          save_path_distrib=save_path_distrib_multi,
+                                          len_future=self.seq_len - self.past_len)
             self._reinit_sigmas()
 
     def _get_inference_paths(self, index):
@@ -208,4 +219,3 @@ class SMCTAlgo(Algo):
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
-

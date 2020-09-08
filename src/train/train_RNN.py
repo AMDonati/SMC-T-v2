@@ -1,7 +1,11 @@
 import tensorflow as tf
 import argparse
 from data_provider.datasets import Dataset, CovidDataset
-from algos.run_SMC_T import algos
+from algos.run_SMC_T import SMCTAlgo
+from algos.run_rnn import RNNAlgo
+from algos.run_baseline_T import BaselineTAlgo
+
+algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo}
 
 def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
     '''
@@ -64,6 +68,11 @@ if __name__ == '__main__':
     parser.add_argument("-data_path", type=str, required=True, help="path for saving data")
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
+    parser.add_argument("-past_len", type=int, default=40, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
+    parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
+    parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
+    parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
 
     args = parser.parse_args()
 
@@ -79,9 +88,13 @@ if __name__ == '__main__':
         dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
 
     algo = algos["lstm"](dataset=dataset, args=args)
-
-    algo.train()
+    if args.ep > 0:
+        algo.train()
     algo.test()
+    if args.inference:
+        algo.launch_inference(multistep=args.multistep)
+    print('done')
+
  #---------------------------------------
 
     # data_path = os.path.join(args.data_path, 'covid_test_data.npy')

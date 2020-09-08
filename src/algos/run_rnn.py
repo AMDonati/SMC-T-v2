@@ -4,51 +4,7 @@ import os
 from train.train_functions import train_LSTM
 from models.Baselines.RNNs import build_LSTM_for_regression
 from algos.generic import Algo
-
-
-# class Algo:
-#     def __init__(self, dataset, args):
-#         self.dataset = dataset
-#         self.bs = args.bs
-#         self.EPOCHS = args.ep
-#         self.output_path = args.output_path
-#         self.save_path = args.save_path
-#         if not os.path.isdir(self.output_path):
-#             os.makedirs(self.output_path)
-#         self.out_folder = args.output_path
-#
-#     def train(self):
-#         pass
-#
-#     def test(self):
-#         pass
-#
-#     def create_logger(self):
-#         out_file_log = os.path.join(self.out_folder, 'training_log.log')
-#         logger = create_logger(out_file_log=out_file_log)
-#         return logger
-#
-#     def create_ckpt_path(self):
-#         checkpoint_path = os.path.join(self.out_folder, "checkpoints")
-#         if not os.path.isdir(checkpoint_path):
-#             os.makedirs(checkpoint_path)
-#         return checkpoint_path
-#
-#     def load_datasets(self, num_dim=4, target_feature=None, cv=False):
-#         train_data, val_data, test_data = self.dataset.get_datasets()
-#         self.seq_len = train_data.shape[1] - 1
-#         self.logger.info('num samples in training dataset:{}'.format(train_data.shape[0]))
-#         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
-#                                                                                 val_data=val_data,
-#                                                                                 test_data=test_data,
-#                                                                                 target_feature=target_feature, cv=cv,
-#                                                                                 num_dim=num_dim)
-#         for (inp, tar) in train_dataset.take(1):
-#             self.output_size = tf.shape(tar)[-1].numpy()
-#             self.num_features = tf.shape(inp)[-1].numpy()
-#
-#         return train_dataset, val_dataset, test_dataset
-
+import numpy as np
 
 class RNNAlgo(Algo):
     def __init__(self, dataset, args):
@@ -72,6 +28,9 @@ class RNNAlgo(Algo):
                                               rnn_drop_rate=args.rnn_drop,
                                               training=True)
         self.cv = args.cv
+        self.mc_samples = args.mc_samples
+        self.past_len = args.past_len
+        assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
 
     def _create_out_folder(self, args):
         output_path = args.output_path
@@ -83,6 +42,67 @@ class RNNAlgo(Algo):
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
         return output_folder
+
+    def _MC_Dropout_LSTM(self, inp_model, save_path=None):
+        '''
+        :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+        :param inp_model: array of shape (B,S,F)
+        :param mc_samples:
+        :return:
+        '''
+        list_predictions = []
+        for i in range(self.mc_samples):
+            predictions_test = self.lstm(inputs=inp_model)  # (B,S,1)
+            list_predictions.append(predictions_test)
+        predictions_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1))  # shape (B, N, S)
+        print('MC Dropout unistep done')
+        if save_path is not None:
+            np.save(save_path, predictions_test_MC_Dropout)
+        return predictions_test_MC_Dropout
+
+    def _MC_Dropout_LSTM_multistep(self, inp_model, len_future=None, save_path=None):
+        '''
+            :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+            :param inp_model: array of shape (B,S,F)
+            :param mc_samples:
+            :return:
+        '''
+        if len_future is None:
+            len_future = self.seq_len - self.past_len
+        list_predictions = []
+        for i in range(self.mc_samples):
+            inp = inp_model
+            for t in range(len_future + 1):
+                preds_test = self.lstm(inputs=inp)  # (B,S,1)
+                last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
+                inp = tf.concat([inp, last_pred], axis=1)
+            list_predictions.append(preds_test)
+        preds_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1))
+        print('mc dropout LSTM multistep done')
+        if save_path is not None:
+            np.save(save_path, preds_test_MC_Dropout)
+        return preds_test_MC_Dropout
+
+    def launch_inference(self, multistep):
+        # create inference folder
+        self.inference_path = os.path.join(self.out_folder, "inference_results")
+        if not os.path.isdir(self.inference_path):
+            os.makedirs(self.inference_path)
+        mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
+        _, _, test_data = self.dataset.get_datasets()
+        test_data = tf.convert_to_tensor(test_data)
+        inputs, targets = self.dataset.split_fn(test_data)
+        mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inputs, save_path=mc_dropout_unistep_path)
+        print("mc dropout samples unistep shape", mc_samples_uni.shape)
+        if multistep:
+            mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
+            print("mc dropout samples multistep shape", mc_samples_multi.shape)
+
+    def _get_inference_paths(self):
+        mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
+        mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
+        return mc_dropout_unistep_path, mc_dropout_multistep_path
+
 
     def train(self):
         if not self.cv:
@@ -106,4 +126,3 @@ class RNNAlgo(Algo):
         self.logger.info("test loss: {}".format(test_loss))
 
 
-#algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo}

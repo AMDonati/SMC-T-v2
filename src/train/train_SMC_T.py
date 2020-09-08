@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
     parser.add_argument("-past_len", type=int, default=40, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
+    parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     args = parser.parse_args()
 
     if not args.smc:
@@ -65,7 +66,7 @@ if __name__ == '__main__':
         #algo.logger.info("skipping training...")
     algo.test()
     if args.inference:
-        algo.launch_inference(list_samples=list_samples)
+        algo.launch_inference(list_samples=list_samples, multistep=args.multistep)
 
 
     # for (inp, tar) in train_dataset.take(1):
