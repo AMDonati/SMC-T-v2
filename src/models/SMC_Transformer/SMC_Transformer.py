@@ -1,6 +1,6 @@
 # imports
 import tensorflow as tf
-from neural_toolbox.SMC_TransformerCell import SMC_Transf_Cell
+from models.SMC_Transformer.SMC_TransformerCell import SMC_Transf_Cell
 import collections
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable

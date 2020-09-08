@@ -1,6 +1,6 @@
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import positional_encoding
-from neural_toolbox.classic_layers import point_wise_feed_forward_network
+from models.classic_layers import point_wise_feed_forward_network
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from models.Baselines.Attention_Transformer import MultiHeadAttention
 from models.Baselines.Attention_Transformer import OneHeadAttention
