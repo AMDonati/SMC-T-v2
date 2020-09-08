@@ -6,6 +6,7 @@ from train.train_functions import train_SMC_transformer
 from eval.inference_functions import inference_onestep, inference_multistep, get_distrib_all_timesteps
 from algos.generic import Algo
 import json
+import datetime
 
 
 class SMCTAlgo(Algo):
@@ -20,6 +21,7 @@ class SMCTAlgo(Algo):
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
+        self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
                                                output_size=self.output_size,
@@ -31,24 +33,31 @@ class SMCTAlgo(Algo):
         self.start_epoch = 0
         self.sigmas_after_training = None
         self._load_ckpt(args=args)
-        # TODO: add hparams saving in a json file.
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
             return args.save_path
         else:
-            # TODO:add date & time.
             out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
                                                                                             self.bs, args.full_model,
                                                                                             args.dff, args.attn_w)
+            datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             if args.smc:
                 out_file = out_file + '__p_{}'.format(args.particles)
                 out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
                 out_file = out_file + '_sigmas_{}'.format(args.sigmas)
-            out_folder = os.path.join(self.output_path, out_file)
+            out_folder = os.path.join(self.output_path, out_file, datetime_folder)
             if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)
             return out_folder
+
+    # def _save_hparams(self, args):
+    #     #TODO: do a generic method with all args.
+    #     config_path = os.path.join(self.out_folder, "config.json")
+    #     dict_hparams = {"d_model": str(args.d_model), "dff": str(args.dff), "full_model": str(args.full_model), "attn_w": str(args.attn_w)}
+    #     with open(config_path, 'w') as fp:
+    #         json.dump(dict_hparams, fp) #TODO: dump in lines.
+
 
     def _init_SMC_T(self, args):
         if args.smc:
@@ -61,6 +70,15 @@ class SMCTAlgo(Algo):
                                                          num_particles=args.particles)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
             self.logger.info("Sigma_obs init: {}".format(self.smc_transformer.cell.Sigma_obs))
+
+    def _check_consistency_hparams(self, args):
+        if args.save_path is not None:
+            with open(os.path.join(self.save_path, "config.json")) as json_file:
+                dict_hparams = json.load(json_file)
+            assert int(dict_hparams["d_model"]) == args.d_model, "consistency error in d_model parameter"
+            assert int(dict_hparams["dff"]) == args.dff, "consistency error in dff parameter"
+            assert dict_hparams["attn_w"] == str(args.attn_w), "consistency error in attn_w parameter"
+            assert dict_hparams["full_model"] == args.full_model, "consistency error in full_model parameter"
 
     def train(self):
         self.logger.info('hparams...')
@@ -100,6 +118,7 @@ class SMCTAlgo(Algo):
         if start_epoch is not None:
             self.start_epoch = start_epoch
         if args.save_path is not None:
+            self._check_consistency_hparams(args)
             with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}

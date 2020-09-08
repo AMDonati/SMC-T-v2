@@ -6,6 +6,7 @@ from train.train_functions import train_baseline_transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from algos.run_rnn import Algo
 from utils.utils_train import restoring_checkpoint
+import datetime
 
 class BaselineTAlgo(Algo):
     def __init__(self, dataset, args):
@@ -18,6 +19,7 @@ class BaselineTAlgo(Algo):
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
+        self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
         self.transformer = Transformer(num_layers=1, d_model=args.d_model, num_heads=1, dff=args.dff,
                                        target_vocab_size=self.output_size,
@@ -28,7 +30,8 @@ class BaselineTAlgo(Algo):
     def _create_out_folder(self, args):
         out_file = 'Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}'.format(args.d_model, args.dff, args.pe,
                                                                                self.bs, args.full_model)
-        output_folder = os.path.join(args.output_path, out_file)
+        datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        output_folder = os.path.join(args.output_path, out_file, datetime_folder)
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
         return output_folder
@@ -57,7 +60,7 @@ class BaselineTAlgo(Algo):
                                    EPOCHS=self.EPOCHS,
                                    train_dataset=self.train_dataset,
                                    val_dataset=self.val_dataset,
-                                   output_path=self.output_path,
+                                   output_path=self.out_folder,
                                    ckpt_manager=self.ckpt_manager,
                                    logger=self.logger,
                                    start_epoch=self.start_epoch,

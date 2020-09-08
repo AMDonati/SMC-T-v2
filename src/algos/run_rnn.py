@@ -1,10 +1,10 @@
-from utils.utils_train import create_logger, restoring_checkpoint
 import tensorflow as tf
 import os
 from train.train_functions import train_LSTM
 from models.Baselines.RNNs import build_LSTM_for_regression
 from algos.generic import Algo
 import numpy as np
+import datetime
 
 class RNNAlgo(Algo):
     def __init__(self, dataset, args):
@@ -19,6 +19,7 @@ class RNNAlgo(Algo):
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
+        self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
         self.lstm = build_LSTM_for_regression(shape_input_1=self.seq_len,
                                               shape_input_2=self.num_features,
@@ -38,7 +39,8 @@ class RNNAlgo(Algo):
                                                                                    args.p_drop,
                                                                                    args.rnn_drop, self.lr,
                                                                                    self.bs, args.cv)
-        output_folder = os.path.join(output_path, out_file)
+        datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        output_folder = os.path.join(output_path, out_file, datetime_folder)
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
         return output_folder
@@ -112,7 +114,7 @@ class RNNAlgo(Algo):
                        train_dataset=self.train_dataset,
                        val_dataset=self.val_dataset,
                        checkpoint_path=self.ckpt_path,
-                       output_path=self.output_path,
+                       output_path=self.out_folder,
                        logger=self.logger,
                        num_train=1)
         else:

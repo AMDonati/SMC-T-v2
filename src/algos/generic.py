@@ -1,6 +1,7 @@
 from utils.utils_train import create_logger
 import os
 import tensorflow as tf
+import json
 
 class Algo:
     def __init__(self, dataset, args):
@@ -32,6 +33,13 @@ class Algo:
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path)
         return checkpoint_path
+
+    def save_hparams(self, args):
+        dict_hparams = vars(args)
+        dict_hparams = {key: str(value) for key, value in dict_hparams.items()}
+        config_path = os.path.join(self.out_folder, "config.json")
+        with open(config_path, 'w') as fp:
+            json.dump(dict_hparams, fp, sort_keys=True, indent=4)
 
     def load_datasets(self, num_dim=4, target_feature=None, cv=False):
         train_data, val_data, test_data = self.dataset.get_datasets()
