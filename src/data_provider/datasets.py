@@ -34,7 +34,7 @@ class Dataset:
         test_data = self.get_data_from_folder(self.test_path)
         return train_data, val_data, test_data
 
-    def data_to_dataset(self, train_data, val_data, test_data, cv=False, target_feature=None, num_dim=4):
+    def data_to_dataset(self, train_data, val_data, test_data, target_feature=None, num_dim=4, time_major=False, with_lengths=False):
         '''
         :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
         :param val_data: input data used for validation set > shape (N_val, S+1, F)
@@ -45,57 +45,63 @@ class Dataset:
         input data:  batches of train data > shape (B, S+1, F) > S+1 because the data is split in the SMC_Transformer.Py script.
         target data: shape (B,S,1) > univariate ts to be predicted (shifted from one timestep compared to the input data).
         '''
-
-        if not cv:
-            list_train_data = [train_data]
-            list_val_data = [val_data]
-        else:
-            list_train_data = train_data
-            list_val_data = val_data
-
-        list_train_dataset, list_val_dataset = [], []
-
-        for (train_data, val_data) in zip(list_train_data, list_val_data):
-            x_train, y_train = self.split_fn(train_data)
-            x_val, y_val = self.split_fn(val_data)
-
-            if target_feature is not None:
-                y_train = y_train[:, :, target_feature]
-                y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
-                y_val = y_val[:, :, target_feature]
-                y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
-            if num_dim == 4:
-                # adding the particle dim:
-                x_train = x_train[:, np.newaxis, :, :]
-                y_train = y_train[:, np.newaxis, :, :]
-                x_val = x_val[:, np.newaxis, :, :]
-                y_val = y_val[:, np.newaxis, :, :]
-
-            train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-            train_dataset = train_dataset.cache().shuffle(self.BUFFER_SIZE).batch(self.BATCH_SIZE, drop_remainder=True)
-            val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-            val_dataset = val_dataset.batch(self.BATCH_SIZE, drop_remainder=True)
-            list_train_dataset.append(train_dataset)
-            list_val_dataset.append(val_dataset)
-
+        x_train, y_train = self.split_fn(train_data)
+        x_val, y_val = self.split_fn(val_data)
         x_test, y_test = self.split_fn(test_data)
+        if with_lengths:
+            lengths_train = x_train.shape[1] * np.ones(
+                shape=x_train.shape[0])  # tensor with value seq_len of size batch_size.
+            lengths_val = x_val.shape[1] * np.ones(shape=x_val.shape[0])
+            lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
+
+        # if time_major:
+        #     # inverse 2 first dim: (B,S) > (S,B)
+        #     x_train, y_train = np.transpose(x_train, axes=[1,0,2]), np.transpose(y_train, axes=[1,0,2])
+        #     x_val, y_val = np.transpose(x_val, axes=[1, 0, 2]), np.transpose(y_val, axes=[1, 0, 2])
+        #     x_test, y_test = np.transpose(x_test, axes=[1, 0, 2]), np.transpose(y_test, axes=[1, 0, 2])
+
         if target_feature is not None:
+            y_train = y_train[:, :, target_feature]
+            y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
+            y_val = y_val[:, :, target_feature]
+            y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
             y_test = y_test[:, :, target_feature]
             y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
         if num_dim == 4:
-            # adding the particle dim.
+            # adding the particle dim:
+            x_train = x_train[:, np.newaxis, :, :]  # (B,P,S,F)
+            y_train = y_train[:, np.newaxis, :, :]
+            x_val = x_val[:, np.newaxis, :, :]
+            y_val = y_val[:, np.newaxis, :, :]
             x_test = x_test[:, np.newaxis, :, :]
             y_test = y_test[:, np.newaxis, :, :]
 
+        train_tuple = (x_train, y_train) if not with_lengths else (x_train, y_train, lengths_train)
+        val_tuple = (x_val, y_val) if not with_lengths else (x_val, y_val, lengths_val)
+        train_dataset = tf.data.Dataset.from_tensor_slices(train_tuple)
+        train_dataset = train_dataset.cache().shuffle(self.BUFFER_SIZE).batch(self.BATCH_SIZE, drop_remainder=True)
+        val_dataset = tf.data.Dataset.from_tensor_slices(val_tuple)
+        val_dataset = val_dataset.batch(self.BATCH_SIZE, drop_remainder=True)
         BATCH_SIZE_test = test_data.shape[0]
-        test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
+        test_tuple = (x_test, y_test) if not with_lengths else (x_test, y_test, lengths_test)
+        test_dataset = tf.data.Dataset.from_tensor_slices(test_tuple) #TODO: could use from tensor instead.
         test_dataset = test_dataset.batch(BATCH_SIZE_test)
 
-        if not cv:
-            train_dataset, val_dataset = list_train_dataset[0], list_val_dataset[0]
-            return train_dataset, val_dataset, test_dataset
-        else:
-            return list_train_dataset, list_val_dataset, test_dataset
+        return train_dataset, val_dataset, test_dataset
+
+    def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train"):
+        train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=3, with_lengths=True)
+        if split == "train":
+            dataset = train_dataset
+        elif split == "val":
+            dataset = val_dataset
+        elif split == "test":
+            dataset = test_dataset
+        iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
+        inputs, targets, lengths = iterator.next()
+        inputs = tf.transpose(inputs, perm=[1,0,2])
+        targets = tf.transpose(targets, perm=[1,0,2])
+        return inputs, targets, lengths
 
 class CovidDataset(Dataset):
     def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50):
@@ -114,15 +120,12 @@ class CovidDataset(Dataset):
         test_sample = test_data[index]
         print('test_sample', test_sample)
         test_sample = tf.expand_dims(tf.convert_to_tensor(test_sample), axis=0)
-        #test_sample = tf.reshape(test_sample, shape=(1, 1, test_sample.shape[-2], test_sample.shape[-1]))
         inputs, targets = self.split_fn(test_sample[:, :past_len+1, :])
         if num_dim == 4: # adding the particle dimension.
             inputs = tf.expand_dims(inputs, axis=1)
             targets = tf.expand_dims(targets, axis=1)
             test_sample = tf.expand_dims(test_sample, axis=1)
         return inputs, targets, test_sample
-
-
 
 if __name__ == '__main__':
     synthetic_dataset = Dataset(data_path='../../data/synthetic_model_1_old', BUFFER_SIZE=50, BATCH_SIZE=64)
@@ -150,3 +153,9 @@ if __name__ == '__main__':
         print('input example', inp[0])
         print('target example shape', tar.shape)
         print('target example', tar[0])
+
+    # ------------------------------------------------test prepare_dataset_for_FIVO--------------------------------------
+    inputs, targets, lengths = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data)
+    print("inputs shape", inputs.shape)
+    print("targets shape", targets.shape)
+    print("lengths shape", lengths.shape)
