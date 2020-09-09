@@ -101,6 +101,7 @@ class Dataset:
         inputs, targets, lengths = iterator.get_next()
         inputs = tf.transpose(inputs, perm=[1,0,2])
         targets = tf.transpose(targets, perm=[1,0,2])
+        lengths = tf.cast(lengths, dtype=tf.int64)
         return inputs, targets, lengths
 
 class CovidDataset(Dataset):
@@ -159,3 +160,4 @@ if __name__ == '__main__':
     print("inputs shape", inputs.shape)
     print("targets shape", targets.shape)
     print("lengths shape", lengths.shape)
+    print("lenghts", lengths)
