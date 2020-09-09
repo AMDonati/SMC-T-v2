@@ -98,7 +98,7 @@ class Dataset:
         elif split == "test":
             dataset = test_dataset
         iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
-        inputs, targets, lengths = iterator.next()
+        inputs, targets, lengths = iterator.get_next()
         inputs = tf.transpose(inputs, perm=[1,0,2])
         targets = tf.transpose(targets, perm=[1,0,2])
         return inputs, targets, lengths
