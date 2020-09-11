@@ -48,8 +48,7 @@ if __name__ == "__main__":
   parser.add_argument('-num_samples', type=int, default=100, help="number of samples in the generated synthetic dataset.")
   parser.add_argument('-num_features', type=int, default=1,
                       help="number of features in the generated synthetic dataset.")
-  parser.add_argument("-cv", type=int, default=0, help="split the dataset in Kfold subsets for cross-validation.Default to No.")
-  parser.add_argument("-TRAIN_SPLIT", type=float, default=0.7, help="train split for splitting between train and validation sets.")
+  parser.add_argument("-TRAIN_SPLIT", type=float, default=0.8, help="train split for splitting between train and validation sets.")
   parser.add_argument("-VAL_SPLIT", type=float, default=0.5, help="split between validation and test sets.")
   parser.add_argument("-VAL_SPLIT_cv", type=float, default=0.9, help="split between train/val sets and test set when doing cv.")
   args = parser.parse_args()
