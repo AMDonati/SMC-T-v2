@@ -78,13 +78,13 @@ def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, 
   if not cv:
     train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
     val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
-    train_data_path = os.path.join(save_path, "train")
-    val_data_path = os.path.join(save_path, "val")
-    test_data_path = os.path.join(save_path, "test")
-    for path in [train_data_path, val_data_path, test_data_path]:
-      if not os.path.isdir(path):
-        os.makedirs(path)
     if save_path is not None:
+        train_data_path = os.path.join(save_path, "train")
+        val_data_path = os.path.join(save_path, "val")
+        test_data_path = os.path.join(save_path, "test")
+        for path in [train_data_path, val_data_path, test_data_path]:
+          if not os.path.isdir(path):
+            os.makedirs(path)
         np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
         np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
         np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)

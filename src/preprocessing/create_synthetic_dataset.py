@@ -42,7 +42,7 @@ def generate_synthetic_dataset(A, std_matrix, seq_len=24, num_features=1, num_sa
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("-data_path", type=str, default="../../data", help="data folder to save synthetic dataset.")
+  parser.add_argument("-data_path", type=str, default="data", help="data folder to save synthetic dataset.")
   parser.add_argument('-model', type=int, default=1, help='choice between model 1 and 2.')
   parser.add_argument('-seq_len', type=int, default=24, help="number of timesteps in the time-series dataset.")
   parser.add_argument('-num_samples', type=int, default=100, help="number of samples in the generated synthetic dataset.")
@@ -71,7 +71,7 @@ if __name__ == "__main__":
                                                                            TRAIN_SPLIT=args.TRAIN_SPLIT,
                                                                            VAL_SPLIT=args.VAL_SPLIT,
                                                                            VAL_SPLIT_cv=args.VAL_SPLIT_cv,
-                                                                           cv=args.cv)
+                                                                           cv=False)
 
 
 
