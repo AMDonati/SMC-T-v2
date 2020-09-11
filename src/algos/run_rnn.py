@@ -28,7 +28,6 @@ class RNNAlgo(Algo):
                                               dropout_rate=args.p_drop,
                                               rnn_drop_rate=args.rnn_drop,
                                               training=True)
-        self.cv = args.cv
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
 
     def _create_out_folder(self, args):
@@ -106,7 +105,19 @@ class RNNAlgo(Algo):
                        logger=self.logger,
                        num_train=1)
         else:
-            raise NotImplementedError("cross-validation training not Implemented.")
+            for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
+                train_LSTM(model=self.lstm,
+                           optimizer=self.optimizer,
+                           EPOCHS=self.EPOCHS,
+                           train_dataset=train_dataset,
+                           val_dataset=val_dataset,
+                           checkpoint_path=self.ckpt_path,
+                           output_path=self.out_folder,
+                           logger=self.logger,
+                           num_train=num_train + 1)
+                self.logger.info(
+                    "training of a LSTM for train/val split number {} done...".format(num_train + 1))
+                self.logger.info('-' * 60)
 
     def test(self):
         for inp, tar in self.test_dataset:

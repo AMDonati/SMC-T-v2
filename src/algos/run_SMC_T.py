@@ -30,7 +30,7 @@ class SMCTAlgo(Algo):
                                                attn_window=args.attn_w)
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
-        self._load_ckpt(args=args)
+        self.ckpt_manager, _ = self._load_ckpt()
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -77,42 +77,73 @@ class SMCTAlgo(Algo):
                 self.smc_transformer.d_model, self.bs,
                 self.smc_transformer.full_model, self.smc_transformer.dff,
                 self.smc_transformer.cell.attention_smc.attn_window))
-        train_SMC_transformer(smc_transformer=self.smc_transformer,
-                              optimizer=self.optimizer,
-                              EPOCHS=self.EPOCHS,
-                              train_dataset=self.train_dataset,
-                              val_dataset=self.val_dataset,
-                              ckpt_manager=self.ckpt_manager,
-                              logger=self.logger,
-                              start_epoch=self.start_epoch)
-        self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                                              [self.smc_transformer.cell.Sigma_obs,
-                                               self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                               self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                               self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                               self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
-        dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-        final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
-        with open(final_sigmas_path, 'w') as fp:
-            json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+        if not self.cv:
+            train_SMC_transformer(smc_transformer=self.smc_transformer,
+                                  optimizer=self.optimizer,
+                                  EPOCHS=self.EPOCHS,
+                                  train_dataset=self.train_dataset,
+                                  val_dataset=self.val_dataset,
+                                  ckpt_manager=self.ckpt_manager,
+                                  logger=self.logger,
+                                  start_epoch=self.start_epoch)
+            self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
+                                                  [self.smc_transformer.cell.Sigma_obs,
+                                                   self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+            dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
+            final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
+            with open(final_sigmas_path, 'w') as fp:
+                json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+            self.logger.info('-' * 60)
+        else:
+            for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
+                ckpt_manager, start_epoch = self._load_ckpt(num_train=num_train + 1)
+                train_SMC_transformer(smc_transformer=self.smc_transformer,
+                                      optimizer=self.optimizer,
+                                      EPOCHS=self.EPOCHS,
+                                      train_dataset=train_dataset,
+                                      val_dataset=val_dataset,
+                                      ckpt_manager=ckpt_manager,
+                                      logger=self.logger,
+                                      start_epoch=start_epoch) #TODO: add a num_train argument here...
+                sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
+                                                      [self.smc_transformer.cell.Sigma_obs,
+                                                       self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+                dict_json = {key: str(value) for key, value in sigmas_after_training.items()}
+                final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training_{}.json".format(num_train + 1))
+                with open(final_sigmas_path, 'w') as fp:
+                    json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+                if num_train == 0:
+                    self.sigmas_after_training = sigmas_after_training
+                self.logger.info(
+                    "training of a SMC Transformer for train/val split number {} done...".format(num_train + 1))
+                self.logger.info('-' * 60)
 
-    def _load_ckpt(self, args, num_train=1):
+    def _load_ckpt(self, num_train=1):
         # creating checkpoint manager
         ckpt = tf.train.Checkpoint(transformer=self.smc_transformer,
                                    optimizer=self.optimizer)
         smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))
-        self.ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=50)
+        ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=50)
         # if a checkpoint exists, restore the latest checkpoint.
-        start_epoch = restoring_checkpoint(ckpt_manager=self.ckpt_manager, ckpt=ckpt, args_load_ckpt=True,
+        start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args_load_ckpt=True,
                                            logger=self.logger)
         if start_epoch is not None:
             self.start_epoch = start_epoch
-        if args.save_path is not None:
-            self._check_consistency_hparams(args)
+        else:
+            start_epoch = 0
+        if self.save_path is not None:
+            #self._check_consistency_hparams(args)
             with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
             self._reinit_sigmas()
+        return ckpt_manager, start_epoch
 
     def _reinit_sigmas(self):
         if self.sigmas_after_training is not None:

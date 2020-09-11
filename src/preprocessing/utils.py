@@ -74,7 +74,7 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
 
         return (list_train_data, list_val_data, test_data), uni_data_df, stats
 
-def split_synthetic_dataset(x_data, save_path, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
+def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
   if not cv:
     train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
     val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
@@ -84,10 +84,11 @@ def split_synthetic_dataset(x_data, save_path, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_S
     for path in [train_data_path, val_data_path, test_data_path]:
       if not os.path.isdir(path):
         os.makedirs(path)
-    np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
-    np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
-    np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)
-    print("saving train, val, and test data into .npy files...")
+    if save_path is not None:
+        np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
+        np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
+        np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)
+        print("saving train, val, and test data into .npy files...")
     return train_data, val_data, test_data
   else:
     train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)

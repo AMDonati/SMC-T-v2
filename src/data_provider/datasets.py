@@ -1,10 +1,12 @@
 import os
 import numpy as np
 import tensorflow as tf
+from preprocessing.utils import split_synthetic_dataset, split_covid_data
 
 class Dataset:
     def __init__(self, data_path, BUFFER_SIZE, BATCH_SIZE):
         self.data_path = data_path
+        self.data_arr = self.get_data_from_folder(self.data_path)
         self.train_path = os.path.join(data_path, "train")
         self.val_path = os.path.join(data_path, "val")
         self.test_path = os.path.join(data_path, "test")
@@ -34,7 +36,7 @@ class Dataset:
         test_data = self.get_data_from_folder(self.test_path)
         return train_data, val_data, test_data
 
-    def data_to_dataset(self, train_data, val_data, test_data, target_feature=None, num_dim=4, time_major=False, with_lengths=False):
+    def data_to_dataset(self, train_data, val_data, test_data, target_feature=None, num_dim=4, with_lengths=False):
         '''
         :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
         :param val_data: input data used for validation set > shape (N_val, S+1, F)
@@ -53,12 +55,6 @@ class Dataset:
                 shape=x_train.shape[0])  # tensor with value seq_len of size batch_size.
             lengths_val = x_val.shape[1] * np.ones(shape=x_val.shape[0])
             lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
-
-        # if time_major:
-        #     # inverse 2 first dim: (B,S) > (S,B)
-        #     x_train, y_train = np.transpose(x_train, axes=[1,0,2]), np.transpose(y_train, axes=[1,0,2])
-        #     x_val, y_val = np.transpose(x_val, axes=[1, 0, 2]), np.transpose(y_val, axes=[1, 0, 2])
-        #     x_test, y_test = np.transpose(x_test, axes=[1, 0, 2]), np.transpose(y_test, axes=[1, 0, 2])
 
         if target_feature is not None:
             y_train = y_train[:, :, target_feature]
@@ -88,6 +84,17 @@ class Dataset:
         test_dataset = test_dataset.batch(BATCH_SIZE_test)
 
         return train_dataset, val_dataset, test_dataset
+
+    def get_datasets_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9, num_dim=4, target_feature=None):
+        list_train_data, list_val_data, test_data = split_synthetic_dataset(x_data=self.data_arr, TRAIN_SPLIT=TRAIN_SPLIT, VAL_SPLIT_cv=VAL_SPLIT_cv, cv=True)
+        list_test_data = [test_data] * len(list_train_data)
+        train_datasets, val_datasets, test_datasets = [], [], []
+        for train_data, val_data, test_data in zip(list_train_data, list_val_data, list_test_data):
+            train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, target_feature=target_feature, num_dim=num_dim)
+            train_datasets.append(train_dataset)
+            val_datasets.append(val_dataset)
+            test_datasets.append(test_dataset)
+        return train_datasets, val_datasets, test_datasets[0]
 
     def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train"):
         train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=3, with_lengths=True)

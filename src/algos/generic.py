@@ -8,6 +8,7 @@ class Algo:
         self.dataset = dataset
         self.bs = args.bs
         self.EPOCHS = args.ep
+        self.cv = args.cv
         self.output_path = args.output_path
         self.save_path = args.save_path
         if not os.path.isdir(self.output_path):
@@ -16,6 +17,7 @@ class Algo:
         self.start_epoch = 0
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
+        self.logger = self.create_logger()
 
     def train(self):
         pass
@@ -44,18 +46,26 @@ class Algo:
         with open(config_path, 'w') as fp:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
 
-    def load_datasets(self, num_dim=4, target_feature=None, cv=False):
-        train_data, val_data, test_data = self.dataset.get_datasets()
-        self.seq_len = train_data.shape[1] - 1
-        self.logger.info('num samples in training dataset:{}'.format(train_data.shape[0]))
-        train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
-                                                                                val_data=val_data,
-                                                                                test_data=test_data,
-                                                                                target_feature=target_feature, cv=cv,
-                                                                                num_dim=num_dim)
-        for (inp, tar) in train_dataset.take(1):
-            self.output_size = tf.shape(tar)[-1].numpy()
-            self.num_features = tf.shape(inp)[-1].numpy()
+    def load_datasets(self, num_dim=4, target_feature=None):
+        if not self.cv:
+            train_data, val_data, test_data = self.dataset.get_datasets()
+            self.logger.info('num samples in training dataset:{}'.format(train_data.shape[0]))
+            train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
+                                                                                    val_data=val_data,
+                                                                                    test_data=test_data,
+                                                                                    target_feature=target_feature,
+                                                                                    num_dim=num_dim)
+            for (inp, tar) in train_dataset.take(1):
+                self.output_size = tf.shape(tar)[-1].numpy()
+                self.num_features = tf.shape(inp)[-1].numpy()
+                self.seq_len = tf.shape(inp)[-2].numpy()
+        else:
+            self.logger.info("loading datasets for performing cross-validation...")
+            train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim, target_feature=target_feature)
+            for (inp, tar) in train_dataset[0].take(1):
+                self.output_size = tf.shape(tar)[-1].numpy()
+                self.num_features = tf.shape(inp)[-1].numpy()
+                self.seq_len = tf.shape(inp)[-2].numpy()
         return train_dataset, val_dataset, test_dataset
 
     def _get_inference_paths(self):
