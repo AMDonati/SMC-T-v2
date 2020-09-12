@@ -1,9 +1,9 @@
 import tensorflow as tf
-from models.SMC_Transformer.transformer_utils import positional_encoding
-from models.classic_layers import point_wise_feed_forward_network
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from models.Baselines.Attention_Transformer import MultiHeadAttention
-from models.Baselines.Attention_Transformer import OneHeadAttention
+from src.models.SMC_Transformer.transformer_utils import positional_encoding
+from src.models.classic_layers import point_wise_feed_forward_network
+from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
+from src.models.Baselines.Attention_Transformer import MultiHeadAttention
+from src.models.Baselines.Attention_Transformer import OneHeadAttention
 
 
 class DecoderLayer(tf.keras.layers.Layer):

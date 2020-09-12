@@ -1,10 +1,10 @@
-from utils.utils_train import CustomSchedule, restoring_checkpoint, write_to_csv
+from src.utils.utils_train import CustomSchedule, restoring_checkpoint, write_to_csv
 import tensorflow as tf
 import os
-from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-from train.train_functions import train_SMC_transformer
-from eval.inference_functions import inference_onestep, inference_multistep, get_distrib_all_timesteps
-from algos.generic import Algo
+from src.models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+from src.train.train_functions import train_SMC_transformer
+from src.eval.inference_functions import inference_onestep, inference_multistep, get_distrib_all_timesteps
+from src.algos.generic import Algo
 import json
 import datetime
 

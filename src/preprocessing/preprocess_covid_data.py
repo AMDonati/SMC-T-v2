@@ -1,5 +1,5 @@
 import argparse
-from preprocessing.utils import split_covid_data
+from src.preprocessing.utils import split_covid_data
 
 
 if __name__ == '__main__':

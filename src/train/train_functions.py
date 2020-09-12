@@ -1,10 +1,10 @@
 import tensorflow as tf
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from train.train_step_functions import train_step_classic_T
-from train.train_step_functions import train_step_SMC_T
+from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
+from src.train.train_step_functions import train_step_classic_T
+from src.train.train_step_functions import train_step_SMC_T
 import time
 import os
-from utils.utils_train import saving_training_history, write_to_csv, restoring_checkpoint
+from src.utils.utils_train import saving_training_history, write_to_csv, restoring_checkpoint
 
 
 def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):

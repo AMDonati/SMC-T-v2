@@ -1,8 +1,8 @@
 import argparse
-from data_provider.datasets import Dataset, CovidDataset
-from algos.run_rnn import RNNAlgo
-from algos.run_baseline_T import BaselineTAlgo
-from algos.run_SMC_T import SMCTAlgo
+from src.data_provider.datasets import Dataset, CovidDataset
+from src.algos.run_rnn import RNNAlgo
+from src.algos.run_baseline_T import BaselineTAlgo
+from src.algos.run_SMC_T import SMCTAlgo
 
 # TODO: add cross_validation option here. See train / val / test / data needs to be updated.
 

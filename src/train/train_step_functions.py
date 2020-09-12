@@ -1,5 +1,5 @@
 import tensorflow as tf
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
+from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 # -------------------------------- TRAIN STEP FUNCTIONS ---------------------------------------------------------------------
 train_step_signature = [

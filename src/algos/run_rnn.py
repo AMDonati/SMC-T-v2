@@ -1,8 +1,8 @@
 import tensorflow as tf
 import os
-from train.train_functions import train_LSTM
-from models.Baselines.RNNs import build_LSTM_for_regression
-from algos.generic import Algo
+from src.train.train_functions import train_LSTM
+from src.models.Baselines.RNNs import build_LSTM_for_regression
+from src.algos.generic import Algo
 import numpy as np
 import datetime
 

@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from utils.utils_train import write_to_csv
+from src.utils.utils_train import write_to_csv
 
 def split_input_target(data):
     inp = data[:, :, :-1, :]

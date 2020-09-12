@@ -1,5 +1,5 @@
 import tensorflow as tf
-from models.SMC_LSTMCell import SMC_LSTMCell
+from src.models.SMC_LSTMCell import SMC_LSTMCell
 from tensorflow.python.keras import activations
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import constraints

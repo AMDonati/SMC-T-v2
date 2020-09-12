@@ -1,5 +1,5 @@
 import tensorflow as tf
-from models.Baselines.Transformer_without_enc import Transformer
+from src.models.Baselines.Transformer_without_enc import Transformer
 
 def SMC_on_Transformer(transformer, dict_sigmas, sigma_obs, list_inputs, list_targets):
   '''

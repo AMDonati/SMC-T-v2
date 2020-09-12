@@ -1,4 +1,4 @@
-from preprocessing.utils import split_synthetic_dataset
+from src.preprocessing.utils import split_synthetic_dataset
 import argparse
 import numpy as np
 import os

@@ -1,7 +1,9 @@
 import os
 import numpy as np
 import tensorflow as tf
-from preprocessing.utils import split_synthetic_dataset, split_covid_data
+from src.preprocessing.utils import split_synthetic_dataset, split_covid_data
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 class Dataset:
     def __init__(self, data_path, BUFFER_SIZE, BATCH_SIZE):
@@ -168,3 +170,14 @@ if __name__ == '__main__':
     print("targets shape", targets.shape)
     print("lengths shape", lengths.shape)
     print("lenghts", lengths)
+
+    # load data
+    data = np.loadtxt("../../data/UCI_Datasets/{}.txt".format("energy"))
+    x_al = data[:, :-1]
+    y_al = data[:, -1].reshape(-1, 1) # predicting only the last feature.
+
+    x_tr, x_te, y_tr, y_te = train_test_split(
+        x_al, y_al, test_size=0.1)
+    x_tr, x_va, y_tr, y_va = train_test_split(
+        x_tr, y_tr, test_size=0.2)
+
