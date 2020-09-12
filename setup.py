@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/AMDonati/SMC-T-v2",
-    packages=["src", "src.data_provider", "src.preprocessing"],
+    packages=["src", "src.data_provider", "preprocessing"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
