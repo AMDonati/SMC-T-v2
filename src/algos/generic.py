@@ -55,6 +55,9 @@ class Algo:
                                                                                     test_data=test_data,
                                                                                     target_feature=target_feature,
                                                                                     num_dim=num_dim)
+            self.dataset.check_dataset(train_dataset)
+            self.dataset.check_dataset(val_dataset)
+            self.dataset.check_dataset(test_dataset)
             for (inp, tar) in train_dataset.take(1):
                 self.output_size = tf.shape(tar)[-1].numpy()
                 self.num_features = tf.shape(inp)[-1].numpy()
