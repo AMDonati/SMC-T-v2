@@ -17,7 +17,7 @@ class Algo:
         self.start_epoch = 0
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
-        self.logger = self.create_logger()
+        #self.logger = self.create_logger()
 
     def train(self):
         pass

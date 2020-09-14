@@ -114,8 +114,10 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
         ">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
-def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, ckpt_manager, logger,
-                          start_epoch):
+def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, ckpt_manager, logger,
+                          start_epoch, num_train):
+
+    losses_history = {"train_loss":[], "train_mse_metric":[], "val_loss":[], "val_mse_metric": []}
 
     # check the pass forward.
     for input_example_batch, target_example_batch in train_dataset.take(1):
@@ -179,10 +181,14 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
 
         train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]
         logger.info('train loss: {} - val loss: {}'.format(train_loss[0].numpy(), val_loss[0].numpy()))
+        losses_history["train_loss"].append(train_loss[0].numpy())
+        losses_history["val_loss"].append(val_loss[0].numpy())
         if smc_transformer.cell.noise:
             logger.info(
                 'train mse metric from avg particule: {} - val mse metric from avg particule: {}'.format(
                     train_loss[1].numpy(), val_loss[1].numpy()))
+            losses_history["train_mse_metric"].append(train_loss[1].numpy())
+            losses_history["val_mse_metric"].append(val_loss[1].numpy())
             logger.info('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
                 smc_transformer.cell.Sigma_obs,
                 smc_transformer.cell.attention_smc.sigma_k,
@@ -193,4 +199,12 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 
-    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start)) #TODO: save final sigmas & saved losses.
+    csv_fname = 'smc_t_history_{}.csv'.format(num_train)
+
+    saving_training_history(keys=list(losses_history.keys()),
+                            values=list(losses_history.values()),
+                            output_path=output_path,
+                            csv_fname=csv_fname,
+                            logger=logger,
+                            start_epoch=start_epoch)
+    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start))

@@ -179,26 +179,3 @@ if __name__ == "__main__":
 
     smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
     print('smc loss', smc_loss.numpy())
-
-    # --------------------------------------------- code draft -------------------------------------------------------------------------------------
-    # def compute_SMC_loss(self):
-    #
-    #   assert self.cell.noise == self.cell.attention_smc.noise == True
-    #   list_noises = [self.internal_noises[i] for i in range(4)] # (B,P,S,D).
-    #   list_sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q, self.cell.attention_smc.sigma_v, \
-    #                                        self.cell.attention_smc.sigma_z] # (D,D) or scalar.
-    #   loss_parts = []
-    #   for noise, sigma in zip(list_noises, list_sigmas):
-    #     if len(tf.shape(sigma)) == 0: # scalar case.
-    #       temp = tf.scalar_mul((sigma_obs)**-2, noise)
-    #     else:
-    #       Sigma_inv = tf.matmul(tf.linalg.inv(sigma), tf.linalg.inv(sigma), transpose_b=True) # (D,D)
-    #       temp = tf.einsum('bijk,kk->bijk', noise, Sigma_inv)
-    #     loss_part = tf.einsum('bijk,bijk->bij', temp, noise)
-    #     loss_parts.append(loss_part)
-    #
-    #   smc_loss = (1/2) * tf.stack(loss_parts, axis=0) # (4,B,P,S) # multiplication by 1/2 because the smc loss is (-log likelihood).
-    #   smc_loss = tf.reduce_sum(smc_loss, axis=0) # sum of loss parts. # (B,P,S)
-    #   smc_loss = tf.reduce_mean(smc_loss) #mean over all other dims.
-    #
-    #   return smc_loss

@@ -29,6 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                attn_window=args.attn_w)
+        self.smc = args.smc
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
         self.ckpt_manager, _ = self._load_ckpt()
@@ -84,19 +85,22 @@ class SMCTAlgo(Algo):
                                   EPOCHS=self.EPOCHS,
                                   train_dataset=self.train_dataset,
                                   val_dataset=self.val_dataset,
+                                  output_path=self.out_folder,
                                   ckpt_manager=self.ckpt_manager,
                                   logger=self.logger,
-                                  start_epoch=self.start_epoch)
-            self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                                                  [self.smc_transformer.cell.Sigma_obs,
-                                                   self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
-            dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-            final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
-            with open(final_sigmas_path, 'w') as fp:
-                json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+                                  start_epoch=self.start_epoch,
+                                  num_train=1)
+            if self.smc:
+                self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
+                                                      [self.smc_transformer.cell.Sigma_obs,
+                                                       self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                                       self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+                dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
+                final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
+                with open(final_sigmas_path, 'w') as fp:
+                    json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
             self.logger.info('-' * 60)
         else:
             for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
@@ -106,21 +110,25 @@ class SMCTAlgo(Algo):
                                       EPOCHS=self.EPOCHS,
                                       train_dataset=train_dataset,
                                       val_dataset=val_dataset,
+                                      output_path=self.out_folder,
                                       ckpt_manager=ckpt_manager,
                                       logger=self.logger,
-                                      start_epoch=start_epoch) #TODO: add a num_train argument here...
-                sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                                                      [self.smc_transformer.cell.Sigma_obs,
-                                                       self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                                       self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                                       self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                                       self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
-                dict_json = {key: str(value) for key, value in sigmas_after_training.items()}
-                final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training_{}.json".format(num_train + 1))
-                with open(final_sigmas_path, 'w') as fp:
-                    json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
-                if num_train == 0:
-                    self.sigmas_after_training = sigmas_after_training
+                                      start_epoch=start_epoch,
+                                      num_train=num_train)
+                if self.smc:
+                    sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
+                                                     [self.smc_transformer.cell.Sigma_obs,
+                                                      self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                                      self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                                      self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                                      self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+                    dict_json = {key: str(value) for key, value in sigmas_after_training.items()}
+                    final_sigmas_path = os.path.join(self.out_folder,
+                                                     "sigmas_after_training_{}.json".format(num_train + 1))
+                    with open(final_sigmas_path, 'w') as fp:
+                        json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+                    if num_train == 0:
+                        self.sigmas_after_training = sigmas_after_training
                 self.logger.info(
                     "training of a SMC Transformer for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
@@ -139,7 +147,7 @@ class SMCTAlgo(Algo):
         else:
             start_epoch = 0
         if self.save_path is not None:
-            #self._check_consistency_hparams(args)
+            # self._check_consistency_hparams(args)
             with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
@@ -196,7 +204,7 @@ class SMCTAlgo(Algo):
             ))
 
         dict_sigmas = dict(zip(['sigma_obs', 'sigma_k', 'sigma_q', 'sigma_v', 'sigma_z'],
-                               [self.smc_transformer.cell.Sigma_obs,
+                               [self.smc_transformer.cell.Sigma_obs.numpy()[0],
                                 self.smc_transformer.cell.attention_smc.sigma_k,
                                 self.smc_transformer.cell.attention_smc.sigma_q,
                                 self.smc_transformer.cell.attention_smc.sigma_v,
@@ -260,8 +268,9 @@ class SMCTAlgo(Algo):
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
-        np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
-        np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy", preds_test_resampl.numpy()))
-        print('preds particles shape', preds_test.shape)
-        print('preds particles resampled shape', preds_test_resampl.shape)
+        if save_particles:
+            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
+            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
+            print('preds particles shape', preds_test.shape)
+            print('preds particles resampled shape', preds_test_resampl.shape)
         self.logger.info("saving predicted particles on test set...")
