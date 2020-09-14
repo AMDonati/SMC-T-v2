@@ -28,17 +28,17 @@ if __name__ == '__main__':
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True, help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
-    parser.add_argument("-d_model", type=int, default=2, help="depth of attention parameters")
+    parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
     parser.add_argument("-full_model", type=str2bool, default=True,
                         help="simple transformer or one with ffn and layer norm")
-    parser.add_argument("-dff", type=int, default=0, help="dimension of feed-forward network")
+    parser.add_argument("-dff", type=int, default=8, help="dimension of feed-forward network")
     parser.add_argument("-pe", type=int, default=50, help="maximum positional encoding")
     parser.add_argument("-attn_w", type=int, default=None, help="attn window")
     parser.add_argument("-rnn_units", type=int, default=8, help="number of rnn units")
     parser.add_argument("-p_drop", type=float, default=0., help="dropout on output layer")
     parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
     # training params.
-    parser.add_argument("-bs", type=int, default=128, help="batch size")
+    parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     # smc params.
@@ -74,8 +74,8 @@ if __name__ == '__main__':
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:
         algo.train()
-    #else:
-        #algo.logger.info("skipping training...")
+    else:
+        print("skipping training...")
     algo.test()
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep)

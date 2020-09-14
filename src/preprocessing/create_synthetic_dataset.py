@@ -44,6 +44,8 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("-data_path", type=str, default="data", help="data folder to save synthetic dataset.")
   parser.add_argument('-model', type=int, default=1, help='choice between model 1 and 2.')
+  parser.add_argument("-alpha", type=float, default=0.8, help="value of auto-regressive coefficient")
+  parser.add_argument("-variance", type=float, default=0.5, help="value of the variance for the gaussian noise")
   parser.add_argument('-seq_len', type=int, default=24, help="number of timesteps in the time-series dataset.")
   parser.add_argument('-num_samples', type=int, default=100, help="number of samples in the generated synthetic dataset.")
   parser.add_argument('-num_features', type=int, default=1,
@@ -53,8 +55,8 @@ if __name__ == "__main__":
   parser.add_argument("-VAL_SPLIT_cv", type=float, default=0.9, help="split between train/val sets and test set when doing cv.")
   args = parser.parse_args()
 
-  std_matrix = tf.sqrt(tf.constant(0.5, shape=(1, 1), dtype=tf.float32))
-  A = tf.constant([0.8], shape=(1, 1), dtype=tf.float32)
+  std_matrix = tf.sqrt(tf.constant(args.variance, shape=(1, 1), dtype=tf.float32))
+  A = tf.constant([args.alpha], shape=(1, 1), dtype=tf.float32)
 
   X_data = generate_synthetic_dataset(A=A, std_matrix=std_matrix, num_samples=args.num_samples, num_features=args.num_features, model=args.model)
 

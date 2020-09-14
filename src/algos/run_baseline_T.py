@@ -1,11 +1,11 @@
-from utils.utils_train import CustomSchedule
+from src.utils.utils_train import CustomSchedule
 import tensorflow as tf
 import os
 from src.models.Baselines.Transformer_without_enc import Transformer
 from src.train.train_functions import train_baseline_transformer
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from src.algos.run_rnn import Algo
-from utils.utils_train import restoring_checkpoint
+from src.utils.utils_train import restoring_checkpoint
 import datetime
 import numpy as np
 

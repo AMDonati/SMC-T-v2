@@ -171,13 +171,4 @@ if __name__ == '__main__':
     print("lengths shape", lengths.shape)
     print("lenghts", lengths)
 
-    # load data
-    data = np.loadtxt("../../data/UCI_Datasets/{}.txt".format("energy"))
-    x_al = data[:, :-1]
-    y_al = data[:, -1].reshape(-1, 1) # predicting only the last feature.
-
-    x_tr, x_te, y_tr, y_te = train_test_split(
-        x_al, y_al, test_size=0.1)
-    x_tr, x_va, y_tr, y_va = train_test_split(
-        x_tr, y_tr, test_size=0.2)
 

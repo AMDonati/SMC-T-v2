@@ -1,9 +1,9 @@
 import tensorflow as tf
 import collections
 # additional imports
-from models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
-from models.SMC_Transformer.transformer_utils import resample
-from models.classic_layers import point_wise_feed_forward_network
+from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
+from src.models.SMC_Transformer.transformer_utils import resample
+from src.models.classic_layers import point_wise_feed_forward_network
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])

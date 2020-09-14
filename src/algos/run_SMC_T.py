@@ -7,6 +7,7 @@ from src.eval.inference_functions import inference_onestep, inference_multistep,
 from src.algos.generic import Algo
 import json
 import datetime
+import numpy as np
 
 
 class SMCTAlgo(Algo):
@@ -248,7 +249,7 @@ class SMCTAlgo(Algo):
                                                'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
         return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
-    def test(self):
+    def test(self, save_particles=True):
         self.logger.info("computing test mse metric at the end of training...")
         # computing loss on test_dataset:
         for (inp, tar) in self.test_dataset:
@@ -259,3 +260,8 @@ class SMCTAlgo(Algo):
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
+        np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
+        np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy", preds_test_resampl.numpy()))
+        print('preds particles shape', preds_test.shape)
+        print('preds particles resampled shape', preds_test_resampl.shape)
+        self.logger.info("saving predicted particles on test set...")

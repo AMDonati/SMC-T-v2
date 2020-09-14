@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 
 def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
@@ -74,33 +75,34 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
 
         return (list_train_data, list_val_data, test_data), uni_data_df, stats
 
-def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
-  if not cv:
-    train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
-    val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
-    if save_path is not None:
-        train_data_path = os.path.join(save_path, "train")
-        val_data_path = os.path.join(save_path, "val")
-        test_data_path = os.path.join(save_path, "test")
-        for path in [train_data_path, val_data_path, test_data_path]:
-          if not os.path.isdir(path):
-            os.makedirs(path)
-        np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
-        np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
-        np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)
-        print("saving train, val, and test data into .npy files...")
-    return train_data, val_data, test_data
-  else:
-    train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)
-    kf = KFold(n_splits=5)
-    list_train_data, list_val_data = [], []
-    for train_index, val_index in kf.split(train_val_data):
-      train_data = train_val_data[train_index, :, :]
-      val_data = train_val_data[val_index, :, :]
-      list_train_data.append(train_data)
-      list_val_data.append(val_data)
 
-    return list_train_data, list_val_data, test_data
+def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
+    if not cv:
+        train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
+        val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
+        if save_path is not None:
+            train_data_path = os.path.join(save_path, "train")
+            val_data_path = os.path.join(save_path, "val")
+            test_data_path = os.path.join(save_path, "test")
+            for path in [train_data_path, val_data_path, test_data_path]:
+                if not os.path.isdir(path):
+                    os.makedirs(path)
+            np.save(os.path.join(train_data_path, "synthetic.npy"), train_data)
+            np.save(os.path.join(val_data_path, "synthetic.npy"), val_data)
+            np.save(os.path.join(test_data_path, "synthetic.npy"), test_data)
+            print("saving train, val, and test data into .npy files...")
+        return train_data, val_data, test_data
+    else:
+        train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)
+        kf = KFold(n_splits=5)
+        list_train_data, list_val_data = [], []
+        for train_index, val_index in kf.split(train_val_data):
+            train_data = train_val_data[train_index, :, :]
+            val_data = train_val_data[val_index, :, :]
+            list_train_data.append(train_data)
+            list_val_data.append(val_data)
+
+        return list_train_data, list_val_data, test_data
 
 
 def split_covid_data(arr_path, normalize=True, split=0.8):
@@ -141,6 +143,28 @@ def split_covid_data(arr_path, normalize=True, split=0.8):
     np.save(os.path.join(test_data_path, "covid.npy"), test_data)
     print("saving train, val and test sets in npy files...")
     return train_data, val_data, test_data, stats
+
+
+def preprocess_UCI_datasets(name):
+    data = np.loadtxt("../../data/UCI_Datasets/{}.txt".format(name))
+    x_all = data[:, :-1]
+    y_all = data[:, -1].reshape(-1, 1)  # predicting only the last feature.
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        x_all, y_all, test_size=0.1)
+    x_train, x_val, y_train, y_val = train_test_split(
+        x_train, y_train, test_size=0.2)
+
+    s_tr_x = StandardScaler().fit(x_train)
+    s_tr_y = StandardScaler().fit(y_train)
+    x_train = s_tr_x.transform(x_train)
+    x_val = s_tr_x.transform(x_val)
+    x_test = s_tr_x.transform(y_test)
+    y_train = s_tr_y.transform(y_train)
+    y_val = s_tr_y.transform(y_val)
+    y_test = s_tr_y.transform(y_test)
+
+    return (x_train, x_val, x_test), (y_train, y_val, y_test)
 
 
 if __name__ == '__main__':
