@@ -80,7 +80,7 @@ class Dataset:
         train_dataset = train_dataset.cache().shuffle(self.BUFFER_SIZE).batch(self.BATCH_SIZE, drop_remainder=True)
         val_dataset = tf.data.Dataset.from_tensor_slices(val_tuple)
         val_dataset = val_dataset.batch(self.BATCH_SIZE, drop_remainder=True)
-        BATCH_SIZE_test = test_data.shape[0]
+        BATCH_SIZE_test = test_data.shape[0] if not with_lengths else self.BATCH_SIZE
         test_tuple = (x_test, y_test) if not with_lengths else (x_test, y_test, lengths_test)
         test_dataset = tf.data.Dataset.from_tensor_slices(test_tuple) #TODO: could use from tensor instead.
         test_dataset = test_dataset.batch(BATCH_SIZE_test)

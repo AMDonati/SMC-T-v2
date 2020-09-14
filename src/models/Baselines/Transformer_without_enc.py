@@ -111,7 +111,6 @@ class Transformer(tf.keras.Model):
 
     dec_output, attention_weights = self.decoder(inputs=inputs, training=training, look_ahead_mask=mask) # (B,S,D)
     final_output = self.final_layer(dec_output)  # (B, S, F_y)
-
     return final_output, attention_weights
 
 if __name__ == "__main__":

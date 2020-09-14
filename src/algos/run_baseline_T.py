@@ -25,7 +25,7 @@ class BaselineTAlgo(Algo):
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
         self.transformer = Transformer(num_layers=1, d_model=args.d_model, num_heads=1, dff=args.dff,
                                        target_vocab_size=self.output_size,
-                                       maximum_position_encoding=args.pe, rate=0, full_model=args.full_model)
+                                       maximum_position_encoding=args.pe, rate=args.p_drop, full_model=args.full_model)
         self.ckpt_manager, _ = self._load_ckpt()
 
     def _MC_Dropout(self, inp_model, save_path=None):
