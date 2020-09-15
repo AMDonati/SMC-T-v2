@@ -106,6 +106,9 @@ class Dataset:
         return train_datasets, val_datasets, test_datasets[0]
 
     def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train"):
+        #TODO: add mean here.
+        train_mean = np.mean(train_data)
+        train_mean = tf.constant([train_mean], dtype=tf.float32)
         train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=3, with_lengths=True)
         if split == "train":
             dataset = train_dataset
@@ -118,7 +121,7 @@ class Dataset:
         inputs = tf.transpose(inputs, perm=[1,0,2])
         targets = tf.transpose(targets, perm=[1,0,2])
         lengths = tf.cast(lengths, dtype=tf.int32)
-        return inputs, targets, lengths
+        return inputs, targets, lengths, train_mean
 
 class CovidDataset(Dataset):
     def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50):
@@ -145,7 +148,7 @@ class CovidDataset(Dataset):
         return inputs, targets, test_sample
 
 if __name__ == '__main__':
-    synthetic_dataset = Dataset(data_path='../../data/synthetic_model_1_old', BUFFER_SIZE=50, BATCH_SIZE=64)
+    synthetic_dataset = Dataset(data_path='../../data/synthetic_model_1', BUFFER_SIZE=50, BATCH_SIZE=64)
     train_data, val_data, test_data = synthetic_dataset.get_datasets()
     print('train data shape', train_data.shape)
     print('val data shape', val_data.shape)
@@ -172,10 +175,11 @@ if __name__ == '__main__':
         print('target example', tar[0])
 
     # ------------------------------------------------test prepare_dataset_for_FIVO--------------------------------------
-    inputs, targets, lengths = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data)
+    inputs, targets, lengths, train_mean = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data)
     print("inputs shape", inputs.shape)
     print("targets shape", targets.shape)
     print("lengths shape", lengths.shape)
     print("lenghts", lengths)
+    print("train_mean", train_mean)
 
 
