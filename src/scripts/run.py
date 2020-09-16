@@ -3,6 +3,7 @@ from src.data_provider.datasets import Dataset, CovidDataset
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
+from src.algos.run_fivo import FIVOAlgo
 
 # TODO: add cross_validation option here. See train / val / test / data needs to be updated.
 
@@ -18,7 +19,7 @@ if __name__ == '__main__':
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
-    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo}
+    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo}
 
     parser = argparse.ArgumentParser()
     # data parameters:
