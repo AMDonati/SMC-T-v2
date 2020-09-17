@@ -105,23 +105,26 @@ class Dataset:
             test_datasets.append(test_dataset)
         return train_datasets, val_datasets, test_datasets[0]
 
-    def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train"):
+    def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train", standardize=False):
         train_mean = np.mean(train_data)
         train_mean = tf.constant([train_mean], dtype=tf.float32)
-        #val_mean = np.mean(val_data)
-        #val_mean = tf.constant([val_mean], dtype=tf.float32)
-        #test_mean = np.mean(test_data)
-        #test_mean = tf.constant([test_mean], dtype=tf.float32)
+        if standardize:
+            print("train data before standardization", train_data[0])
+            str_data = StandardScaler().fit(np.squeeze(train_data))
+            train_data = str_data.transform(np.squeeze(train_data))
+            print("train data after standardization", train_data[0])
+            val_data = str_data.transform(np.squeeze(val_data))
+            test_data = str_data.transform(np.squeeze(test_data))
+            train_data = train_data[:,:,np.newaxis]
+            val_data = val_data[:,:,np.newaxis]
+            test_data = test_data[:,:,np.newaxis]
         train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=3, with_lengths=True)
         if split == "train":
             dataset = train_dataset
-            #mean = train_mean
         elif split == "val":
             dataset = val_dataset
-            #mean = val_mean
         elif split == "test":
             dataset = test_dataset
-            #mean = test_mean
         iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
         inputs, targets, lengths = iterator.get_next()
         inputs = tf.transpose(inputs, perm=[1,0,2])
@@ -181,7 +184,7 @@ if __name__ == '__main__':
         print('target example', tar[0])
 
     # ------------------------------------------------test prepare_dataset_for_FIVO--------------------------------------
-    inputs, targets, lengths, train_mean = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data)
+    inputs, targets, lengths, train_mean = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data, standardize=True)
     print("inputs shape", inputs.shape)
     print("targets shape", targets.shape)
     print("lengths shape", lengths.shape)
