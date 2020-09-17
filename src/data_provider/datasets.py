@@ -108,26 +108,26 @@ class Dataset:
     def prepare_dataset_for_FIVO(self, train_data, val_data, test_data, split="train"):
         train_mean = np.mean(train_data)
         train_mean = tf.constant([train_mean], dtype=tf.float32)
-        val_mean = np.mean(val_data)
-        val_mean = tf.constant([val_mean], dtype=tf.float32)
-        test_mean = np.mean(test_data)
-        test_mean = tf.constant([test_mean], dtype=tf.float32)
+        #val_mean = np.mean(val_data)
+        #val_mean = tf.constant([val_mean], dtype=tf.float32)
+        #test_mean = np.mean(test_data)
+        #test_mean = tf.constant([test_mean], dtype=tf.float32)
         train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=3, with_lengths=True)
         if split == "train":
             dataset = train_dataset
-            mean = train_mean
+            #mean = train_mean
         elif split == "val":
             dataset = val_dataset
-            mean = val_mean
+            #mean = val_mean
         elif split == "test":
             dataset = test_dataset
-            mean = test_mean
+            #mean = test_mean
         iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
         inputs, targets, lengths = iterator.get_next()
         inputs = tf.transpose(inputs, perm=[1,0,2])
         targets = tf.transpose(targets, perm=[1,0,2])
         lengths = tf.cast(lengths, dtype=tf.int32)
-        return inputs, targets, lengths, mean
+        return inputs, targets, lengths, train_mean
 
 class CovidDataset(Dataset):
     def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50):
