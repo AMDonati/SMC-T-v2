@@ -184,7 +184,7 @@ if __name__ == '__main__':
         print('target example', tar[0])
 
     # ------------------------------------------------test prepare_dataset_for_FIVO--------------------------------------
-    inputs, targets, lengths, train_mean = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data, standardize=True)
+    inputs, targets, lengths, train_mean = synthetic_dataset.prepare_dataset_for_FIVO(train_data=train_data, val_data=val_data, test_data=test_data, standardize=False)
     print("inputs shape", inputs.shape)
     print("targets shape", targets.shape)
     print("lengths shape", lengths.shape)

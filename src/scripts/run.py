@@ -27,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
+    parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True, help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
