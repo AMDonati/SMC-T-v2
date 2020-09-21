@@ -12,16 +12,17 @@ def inference_onestep(smc_transformer, test_sample, save_path, past_len=40):
     inp, tar = split_input_target(test_sample)
     smc_transformer.cell.add_stop_resampling(past_len)
     (preds, _), (K, V, _), _ = smc_transformer(inp, tar)  # K,V shape (1, P, 60, 1)
-    preds = tf.squeeze(preds) # (P,60)
-    mean_preds = tf.reduce_mean(preds, axis=0)  # (shape 60)
-    preds_future = preds[:, past_len:]
+    #preds = tf.squeeze(preds) # (P,60)
+    mean_preds = tf.reduce_mean(preds, axis=1)  # (shape 60)
+    preds_future = preds[:, :, past_len:, :]
+    #mean_preds = tf.squeeze(mean_preds) # shape (B,S)
+    #preds_future = tf.squeeze(preds_future) # shape (B, P,len_future)
     if save_path is not None:
         np.save(save_path, mean_preds)
     return preds_future, mean_preds
 
 def inference_multistep(smc_transformer, test_sample, save_path=None, save_path_preds=None, past_len=40, future_len=20):
     P = smc_transformer.cell.num_particles
-    d_model = smc_transformer.d_model
     sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
     # forward pass on test_sample_past
     inp, tar = split_input_target(test_sample[:, :, :past_len + 1, :])
@@ -40,33 +41,39 @@ def inference_multistep(smc_transformer, test_sample, save_path=None, save_path_
         smc_transformer.seq_len += 1
 
     mean_preds = tf.reduce_mean(preds, axis=1)
-    mean_preds = tf.squeeze(mean_preds)
+    #mean_preds = tf.squeeze(mean_preds) #TODO: remove squeeze here.
     preds_future = preds[:,:,past_len:,:]
-    preds_future = tf.squeeze(preds_future)
+    #preds_future = tf.squeeze(preds_future) #TODO: remove squeeze here.
     if save_path is not None:
         np.save(save_path, mean_preds)
     if save_path_preds is not None:
         np.save(save_path_preds, preds_future)
     return preds_future, mean_preds
 
-def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, len_future=20):
+def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, N_est=10, len_future=20):
+    #TODO: refactor this with a dim equal to 4.
     distrib_future_timesteps = []
     for t in range(len_future):
-        mean_NP = preds[:, t]
-        emp_distrib = get_empirical_distrib(mean_NP, sigma_obs=sigma_obs, N_est=1000, P=P)
+        mean_NP = preds[:,:,t,:]
+        emp_distrib = get_empirical_distrib(mean_NP, sigma_obs=sigma_obs, N_est=N_est, P=P)
         distrib_future_timesteps.append(emp_distrib)
-    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0)
+    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0) # shape (S,N_est,B,F)
+    distrib_future_timesteps = np.transpose(distrib_future_timesteps, axes=[2,1,0,3]) # shape (B,N_est,S,F)
     print('distrib future timesteps', distrib_future_timesteps.shape)
-    np.save(save_path_distrib, distrib_future_timesteps)
-
+    if save_path_distrib is not None:
+        np.save(save_path_distrib, distrib_future_timesteps)
+    return distrib_future_timesteps
 
 def get_empirical_distrib(mean_NP, sigma_obs, N_est, P):
-    emp_distrib = np.zeros(shape=N_est)
+    #TODO: refactor this with a dim of 4.
+    #emp_distrib = np.zeros(shape=N_est)
+    emp_distrib = []
     for i in range(N_est):
         ind_p = np.random.randint(0, P)
-        sampled_mean = mean_NP[ind_p]
+        sampled_mean = mean_NP[:, ind_p,:]
         sample = sampled_mean + tf.random.normal(shape=sampled_mean.shape, stddev=sigma_obs)
-        emp_distrib[i] = sample.numpy()
+        emp_distrib.append(sample)
+    emp_distrib = np.stack(emp_distrib, axis=0)
     return emp_distrib
 
 

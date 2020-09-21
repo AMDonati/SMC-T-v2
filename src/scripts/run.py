@@ -27,7 +27,9 @@ if __name__ == '__main__':
     parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
+    parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic model.")
     parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
+    parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True, help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
@@ -67,18 +69,19 @@ if __name__ == '__main__':
 
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
-        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs)
+        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs)
+        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset)
 
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:
         algo.train()
     else:
         print("skipping training...")
-    algo.test()
+    algo.test(alpha=args.alpha)
+    #algo.compute_mse_predictive_distribution(alpha=args.alpha)
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep)
 

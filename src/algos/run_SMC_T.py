@@ -30,6 +30,7 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                attn_window=args.attn_w)
         self.smc = args.smc
+        self.particles = args.particles
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
         self.ckpt_manager, _ = self._load_ckpt()
@@ -150,7 +151,8 @@ class SMCTAlgo(Algo):
             # self._check_consistency_hparams(args)
             with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
                 dict_json = json.load(json_file)
-            self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
+            self.sigmas_after_training = {key: float(value) for key, value in dict_json.items() if key != "sigma_obs"}
+            self.sigmas_after_training["sigma_obs"] = 0.3367
             self._reinit_sigmas()
         return ckpt_manager, start_epoch
 
@@ -204,7 +206,7 @@ class SMCTAlgo(Algo):
             ))
 
         dict_sigmas = dict(zip(['sigma_obs', 'sigma_k', 'sigma_q', 'sigma_v', 'sigma_z'],
-                               [self.smc_transformer.cell.Sigma_obs.numpy()[0],
+                               [self.smc_transformer.cell.Sigma_obs,
                                 self.smc_transformer.cell.attention_smc.sigma_k,
                                 self.smc_transformer.cell.attention_smc.sigma_q,
                                 self.smc_transformer.cell.attention_smc.sigma_v,
@@ -227,24 +229,43 @@ class SMCTAlgo(Algo):
             preds_NP, mean_preds = inference_onestep(smc_transformer=self.smc_transformer,
                                                      test_sample=test_sample,
                                                      save_path=save_path_means,
-                                                     past_len=1)
+                                                     past_len=1)  # TODO: check here.
             if kwargs["multistep"]:
                 preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
                                                                     save_path=save_path_means_multi,
                                                                     past_len=self.past_len,
                                                                     future_len=self.seq_len - self.past_len)
 
-            # print('preds_multi', preds_multi.shape)
+            # preds multi shape: (B,mc_samples, len_future, F)
+            # mean_preds_multi shape (B,seq_len, F)
             sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
 
-            get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
-                                      save_path_distrib=save_path_distrib,
-                                      len_future=self.seq_len - 1)
+            _ = get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
+                                          save_path_distrib=save_path_distrib,
+                                          len_future=self.seq_len - 1)
             if kwargs["multistep"]:
-                get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
-                                          save_path_distrib=save_path_distrib_multi,
-                                          len_future=self.seq_len - self.past_len)
+                distrib_multi = get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs,
+                                              P=self.smc_transformer.cell.num_particles,
+                                              save_path_distrib=save_path_distrib_multi,
+                                              len_future=self.seq_len - self.past_len) # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
+
+    def compute_mse_predictive_distribution(self, alpha):
+        _, _, test_data = self.dataset.get_datasets()
+        test_data = tf.constant(test_data[:, np.newaxis, :, :], dtype=tf.float32)
+        particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, test_sample=test_data,
+                                                  save_path=None, past_len=0)
+        sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
+        distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
+                                                         P=self.smc_transformer.cell.num_particles,
+                                                         save_path_distrib=None,
+                                                         N_est=self.mc_samples,
+                                                         len_future=self.seq_len)
+        distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+        mean_distrib = tf.reduce_mean(distrib_per_timestep, axis=1, keepdims=True)
+        mse = tf.keras.losses.MSE(mean_distrib, alpha * test_data[:, :, :-1, :])
+        mse = tf.reduce_mean(mse)
+        return mse
 
     def _get_inference_paths(self, index):
         save_path_means = os.path.join(self.inference_path, 'mean_preds_sample_{}.npy'.format(index))
@@ -257,7 +278,7 @@ class SMCTAlgo(Algo):
                                                'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
         return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
-    def test(self, save_particles=True):
+    def test(self, alpha, save_particles=True):
         self.logger.info("computing test mse metric at the end of training...")
         # computing loss on test_dataset:
         for (inp, tar) in self.test_dataset:
@@ -268,6 +289,10 @@ class SMCTAlgo(Algo):
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
+        if self.dataset.name == "synthetic" and self.smc:
+            self.logger.info("computing mean square error of predictive distribution...")
+            mse = self.compute_mse_predictive_distribution(alpha=alpha)
+            self.logger.info("mse predictive distribution: {}".format(mse))
         if save_particles:
             np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
             np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
