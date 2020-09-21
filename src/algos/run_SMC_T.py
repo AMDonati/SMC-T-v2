@@ -93,7 +93,7 @@ class SMCTAlgo(Algo):
                                   num_train=1)
             if self.smc:
                 self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                                                      [self.smc_transformer.cell.Sigma_obs,
+                                                      [self.smc_transformer.cell.Sigma_obs.numpy(),
                                                        self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
                                                        self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
                                                        self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
@@ -118,7 +118,7 @@ class SMCTAlgo(Algo):
                                       num_train=num_train)
                 if self.smc:
                     sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
-                                                     [self.smc_transformer.cell.Sigma_obs,
+                                                     [self.smc_transformer.cell.Sigma_obs.numpy(),
                                                       self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
                                                       self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
                                                       self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
@@ -206,11 +206,11 @@ class SMCTAlgo(Algo):
             ))
 
         dict_sigmas = dict(zip(['sigma_obs', 'sigma_k', 'sigma_q', 'sigma_v', 'sigma_z'],
-                               [self.smc_transformer.cell.Sigma_obs,
-                                self.smc_transformer.cell.attention_smc.sigma_k,
-                                self.smc_transformer.cell.attention_smc.sigma_q,
-                                self.smc_transformer.cell.attention_smc.sigma_v,
-                                self.smc_transformer.cell.attention_smc.sigma_z]))
+                               [self.smc_transformer.cell.Sigma_obs.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
+                                self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
         write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
                      dic=dict_sigmas)
 
