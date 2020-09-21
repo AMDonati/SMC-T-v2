@@ -42,7 +42,7 @@ class BaselineTAlgo(Algo):
                                                    training=True,
                                                    mask=create_look_ahead_mask(seq_len))  # (B,S,1)
             list_predictions.append(predictions_test)
-        predictions_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1))  # shape (B, N, S)
+        predictions_test_MC_Dropout = tf.stack(list_predictions, axis=1) # shape (B, N, S)
         print('MC Dropout unistep done')
         if save_path is not None:
             np.save(save_path, predictions_test_MC_Dropout)
@@ -68,17 +68,27 @@ class BaselineTAlgo(Algo):
                 last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
                 inp = tf.concat([inp, last_pred], axis=1)
             list_predictions.append(preds_test)
-        preds_test_MC_Dropout = tf.squeeze(tf.stack(list_predictions, axis=1))  # (B,S,N)
+        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # (B,S,N)
         print('mc dropout multistep done')
         if save_path is not None:
             np.save(save_path, preds_test_MC_Dropout)
         return preds_test_MC_Dropout
+
+    def compute_mse_predictive_distribution(self, mc_samples, inputs, alpha):
+        mean_distrib = tf.reduce_mean(mc_samples, axis=1)
+        mse = tf.keras.losses.MSE(mean_distrib, alpha * inputs)
+        mse = tf.reduce_mean(mse)
+        return mse
 
     def launch_inference(self, **kwargs):
         mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
         for (inp, _) in self.test_dataset:
             mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=mc_dropout_unistep_path)
             print("mc dropout samples unistep shape", mc_samples_uni.shape)
+            #if self.dataset.name == "synthetic":
+            mse = self.compute_mse_predictive_distribution(mc_samples=mc_samples_uni, inputs=inp,
+                                                               alpha=kwargs["alpha"])
+            self.logger.info("mean square error of predictive distribution: {}".format(mse))
             if kwargs["multistep"]:
                 mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],
                                                               save_path=mc_dropout_multistep_path)
@@ -148,7 +158,7 @@ class BaselineTAlgo(Algo):
                     "training of a Baseline Transformer for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
 
-    def test(self):
+    def test(self, alpha):
         for (inp, tar) in self.test_dataset:
             seq_len = tf.shape(inp)[-2]
             predictions_test, _ = self.transformer(inputs=inp,

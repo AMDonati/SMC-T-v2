@@ -83,7 +83,7 @@ if __name__ == '__main__':
     algo.test(alpha=args.alpha)
     #algo.compute_mse_predictive_distribution(alpha=args.alpha)
     if args.inference:
-        algo.launch_inference(list_samples=list_samples, multistep=args.multistep)
+        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha)
 
 
     # for (inp, tar) in train_dataset.take(1):
