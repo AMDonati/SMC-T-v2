@@ -5,8 +5,6 @@ from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 
-# TODO: add cross_validation option here. See train / val / test / data needs to be updated.
-
 if __name__ == '__main__':
     #  trick for boolean parser args.
     def str2bool(v):
@@ -81,13 +79,6 @@ if __name__ == '__main__':
     else:
         print("skipping training...")
     algo.test(alpha=args.alpha)
-    #algo.compute_mse_predictive_distribution(alpha=args.alpha)
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha)
-
-
-    # for (inp, tar) in train_dataset.take(1):
-    #     print('input example', inp[0])
-    #     print('target example', tar[0])
-    #     #TODO: add an assert here checking that the 2 are the same shifted from one...
 
