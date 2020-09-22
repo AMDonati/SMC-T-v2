@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 class Dataset:
-    def __init__(self, data_path, BUFFER_SIZE, BATCH_SIZE, name, model=None):
+    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500):
         self.data_path = data_path
         self.data_arr = self.get_data_from_folder(self.data_path)
         self.train_path = os.path.join(data_path, "train")
