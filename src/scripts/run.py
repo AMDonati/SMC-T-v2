@@ -25,7 +25,9 @@ if __name__ == '__main__':
     parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
-    parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic model.")
+    parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic models 1 & 2.")
+    parser.add_argument("-beta", type=float, default=0.54, help="beta value for synthetic model 2")
+    parser.add_argument('-p', type=float, default=0.7, help="p value for synthetic model 2.")
     parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
     parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
     # model parameters:
@@ -67,18 +69,18 @@ if __name__ == '__main__':
 
     if args.dataset == 'synthetic':
         BUFFER_SIZE = 500
-        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset)
+        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset, model=args.dataset_model)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset)
+        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset, model=None)
 
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:
         algo.train()
     else:
         print("skipping training...")
-    algo.test(alpha=args.alpha)
+    algo.test(alpha=args.alpha, beta=args.beta, p=args.p)
     if args.inference:
-        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha)
+        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta, p=args.p)
 

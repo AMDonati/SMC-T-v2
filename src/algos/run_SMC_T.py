@@ -278,7 +278,7 @@ class SMCTAlgo(Algo):
                                                'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
         return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
-    def test(self, alpha, save_particles=True):
+    def test(self, **kwargs):
         self.logger.info("computing test mse metric at the end of training...")
         # computing loss on test_dataset:
         for (inp, tar) in self.test_dataset:
@@ -291,9 +291,12 @@ class SMCTAlgo(Algo):
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
         if self.dataset.name == "synthetic" and self.smc:
             self.logger.info("computing mean square error of predictive distribution...")
-            mse = self.compute_mse_predictive_distribution(alpha=alpha)
+            mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
+            if self.dataset.model == 2:
+                mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
+                mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
             self.logger.info("mse predictive distribution: {}".format(mse))
-        if save_particles:
+        if kwargs["save_particles"]:
             np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
             np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
             print('preds particles shape', preds_test.shape)

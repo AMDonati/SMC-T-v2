@@ -85,9 +85,12 @@ class BaselineTAlgo(Algo):
         for (inp, _) in self.test_dataset:
             mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=mc_dropout_unistep_path)
             print("mc dropout samples unistep shape", mc_samples_uni.shape)
-            #if self.dataset.name == "synthetic":
-            mse = self.compute_mse_predictive_distribution(mc_samples=mc_samples_uni, inputs=inp,
-                                                               alpha=kwargs["alpha"])
+            if self.dataset.name == "synthetic":
+                mse = self.compute_mse_predictive_distribution(mc_samples=mc_samples_uni, inputs=inp,
+                                                                   alpha=kwargs["alpha"])
+                if self.dataset.model == 2:
+                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
+                    mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
             self.logger.info("mean square error of predictive distribution: {}".format(mse))
             if kwargs["multistep"]:
                 mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],

@@ -144,27 +144,18 @@ def split_covid_data(arr_path, normalize=True, split=0.8):
     print("saving train, val and test sets in npy files...")
     return train_data, val_data, test_data, stats
 
-
-def preprocess_UCI_datasets(name):
-    data = np.loadtxt("../../data/UCI_Datasets/{}.txt".format(name))
-    x_all = data[:, :-1]
-    y_all = data[:, -1].reshape(-1, 1)  # predicting only the last feature.
-
-    x_train, x_test, y_train, y_test = train_test_split(
-        x_all, y_all, test_size=0.1)
-    x_train, x_val, y_train, y_val = train_test_split(
-        x_train, y_train, test_size=0.2)
-
-    s_tr_x = StandardScaler().fit(x_train)
-    s_tr_y = StandardScaler().fit(y_train)
-    x_train = s_tr_x.transform(x_train)
-    x_val = s_tr_x.transform(x_val)
-    x_test = s_tr_x.transform(y_test)
-    y_train = s_tr_y.transform(y_train)
-    y_val = s_tr_y.transform(y_val)
-    y_test = s_tr_y.transform(y_test)
-
-    return (x_train, x_val, x_test), (y_train, y_val, y_test)
+def preprocess_m5_dataset(csv_path):
+    df = pd.read_csv(csv_path)
+    df = df.set_index(keys='id')
+    df = df.sort_values(by='item_id')
+    df = df.drop(labels=['dept_id', 'cat_id', 'store_id', 'state_id'], axis=1)
+    num_samples = len(df['item_id'].unique())
+    array = np.zeros(shape=(num_samples, 10, len(df.columns) - 1))
+    for i, item in enumerate(list(df['item_id'].unique())):
+        df_item = df[df["item_id"] == item]
+        array[i] = df_item.iloc[:, 1:].values # shape (num_samples, 10, 1941)
+    array = np.transpose(array, axes=[0,2,1])
+    return array
 
 
 if __name__ == '__main__':

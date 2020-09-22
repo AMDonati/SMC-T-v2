@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
 import numpy as np
-from src.algos.run_rnn import Algo
+from src.algos.generic import Algo
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -56,8 +56,9 @@ class FIVOAlgo(Algo):
         x = np.linspace(1,24,24)
         plt.plot(x, mean_sample, 'red', lw=2, label='predictions for sample: {}'.format(index))
         plt.plot(x, target, 'blue', lw=2, label='predictions for sample: {}'.format(index))
-        for i in range(sample.shape[0]):
-            plt.scatter(x, sample[i], c='orange')
+        if sample.shape[0] > 1:
+            for i in range(sample.shape[0]):
+                plt.scatter(x, sample[i], c='orange')
         plt.show()
 
 

@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 class Dataset:
-    def __init__(self, data_path, BUFFER_SIZE, BATCH_SIZE, name):
+    def __init__(self, data_path, BUFFER_SIZE, BATCH_SIZE, name, model=None):
         self.data_path = data_path
         self.data_arr = self.get_data_from_folder(self.data_path)
         self.train_path = os.path.join(data_path, "train")
@@ -15,6 +15,7 @@ class Dataset:
         self.BUFFER_SIZE = BUFFER_SIZE
         self.BATCH_SIZE = BATCH_SIZE
         self.name = name
+        self.model = model
 
     def split_fn(self, chunk):
         input_text = chunk[:, :-1, :]
@@ -134,8 +135,8 @@ class Dataset:
         return inputs, targets, lengths, train_mean
 
 class CovidDataset(Dataset):
-    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid"):
-        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name)
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None):
+        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model)
         #TODO: have a stats npy file as well.
 
     def rescale_covid_data(self, data_sample, stats, index):
