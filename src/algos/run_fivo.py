@@ -1,6 +1,5 @@
 import tensorflow as tf
 import os
-import numpy as np
 from src.algos.generic import Algo
 import numpy as np
 import matplotlib.pyplot as plt
@@ -62,7 +61,7 @@ class FIVOAlgo(Algo):
         plt.show()
 
 
-    def test(self, split="test"):
+    def test(self, alpha, beta, p, split="test"):
         loss = self._compute_mse_from_samples_mean(split=self.split)
         for _ in range(5):
             self.plot_preds_targets(split=split)

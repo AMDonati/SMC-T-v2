@@ -33,7 +33,6 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
 
     uni_data = uni_data_df.values
     if max_samples is not None:
-        # index = list(np.random.randint(0, len(uni_data_df), size=max_samples))
         uni_data = uni_data[:max_samples, :]
 
     # normalization
@@ -168,6 +167,7 @@ if __name__ == '__main__':
     history = 6 * 24 * 4 + 6 * 4
     step = 6 * 4  # sample a temperature every 4 hours.
     cv = False
+    #TODO: put this as parser args.
 
     (train_data, val_data, test_data), original_df, stats = split_weather_dataset(file_path=file_path,
                                                                                   fname=fname,
