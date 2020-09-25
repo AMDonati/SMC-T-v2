@@ -24,7 +24,6 @@ def preprocess_dataframe(csv_path):
 
     # remove incomplete half-days.
     df_process = df_process.iloc[6:-3, :]  # remove bouts of days.
-    print("number of data samples", len(df_process) / 12)
 
     df_process['DateTime'] = df_process['Date'] + '-' + df_process['Time']
     df_process = df_process.set_index(keys='DateTime')

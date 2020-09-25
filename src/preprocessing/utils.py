@@ -57,6 +57,7 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
     for i in range(start_index, end_index):
         indices = range(i - history_size, i, step)
         data.append(dataset[indices])
+    print("final i", i)
     return np.array(data)
 
 
