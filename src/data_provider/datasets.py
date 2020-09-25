@@ -16,6 +16,7 @@ class Dataset:
         self.BATCH_SIZE = BATCH_SIZE
         self.name = name
         self.model = model
+        self.target_features = list(range(self.data_arr.shape[-1]))
 
     def split_fn(self, chunk):
         input_text = chunk[:, :-1, :]
@@ -61,12 +62,10 @@ class Dataset:
             lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
 
         if target_feature is not None:
+            self.target_features = target_feature
             y_train = y_train[:, :, target_feature]
-            y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
             y_val = y_val[:, :, target_feature]
-            y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
             y_test = y_test[:, :, target_feature]
-            y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
         if num_dim == 4:
             # adding the particle dim:
             x_train = x_train[:, np.newaxis, :, :]  # (B,P,S,F)
@@ -92,9 +91,9 @@ class Dataset:
     def check_dataset(self, dataset):
         for (inp, tar) in dataset.take(1):
             if inp.shape == 4:
-                assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
+                assert inp[:,:,1:,self.target_features] == tar[:,:,:-1,self.target_features], "error in inputs/targets of dataset"
             elif inp.shape == 3:
-                assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
+                assert inp[:, 1:, self.target_features] == tar[:, :-1, self.target_features], "error in inputs/targets of dataset"
 
     def get_datasets_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9, num_dim=4, target_feature=None):
         list_train_data, list_val_data, test_data = split_synthetic_dataset(x_data=self.data_arr, TRAIN_SPLIT=TRAIN_SPLIT, VAL_SPLIT_cv=VAL_SPLIT_cv, cv=True)
@@ -158,6 +157,16 @@ class CovidDataset(Dataset):
             test_sample = tf.expand_dims(test_sample, axis=1)
         return inputs, targets, test_sample
 
+class StandardizedDataset(Dataset):
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="weather", model=None):
+        super(StandardizedDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model)
+        self.means = np.load(os.path.join(data_path, "means.npy"))
+        self.stds = np.load(os.path.join(data_path, "stds.npy"))
+
+    def rescale_data(self):
+        pass
+
+
 if __name__ == '__main__':
     synthetic_dataset = Dataset(data_path='../../data/synthetic_model_1', BUFFER_SIZE=50, BATCH_SIZE=64)
     train_data, val_data, test_data = synthetic_dataset.get_datasets()
@@ -179,6 +188,8 @@ if __name__ == '__main__':
     train_dataset, val_dataset, test_dataset = synthetic_dataset.data_to_dataset(train_data=train_data,
                                                                                  val_data=val_data, test_data=test_data,
                                                                                  num_dim=3)
+    print(synthetic_dataset.target_features)
+    synthetic_dataset.check_dataset(train_dataset)
     for (inp, tar) in train_dataset.take(1):
         print('input example shape', inp.shape)
         print('input example', inp[0])
@@ -192,5 +203,16 @@ if __name__ == '__main__':
     print("lengths shape", lengths.shape)
     print("lenghts", lengths)
     print("train_mean", train_mean)
+
+    # ---------------------------------------------------- test standardized dataset --------------------------------------
+    air_quality_dataset = StandardizedDataset(data_path="../../data/air_quality", BATCH_SIZE=32, BUFFER_SIZE=500, name="air_quality")
+    train_data, val_data, test_data = air_quality_dataset.get_datasets()
+    target_features = list(range(5))
+    train_dataset, val_dataset, test_dataset = air_quality_dataset.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=4, target_feature=target_features)
+    for (inp, tar) in train_dataset.take(1):
+        print('input example shape', inp.shape)
+        print('input example', inp[0,:,:,0])
+        print('target example shape', tar.shape)
+        print('target example', tar[0,:,:,0])
 
 
