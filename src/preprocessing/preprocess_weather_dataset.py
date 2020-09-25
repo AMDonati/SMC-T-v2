@@ -7,6 +7,8 @@ import numpy as np
 from src.preprocessing.utils import split_dataset_into_seq
 import argparse
 
+#TODO: finalize CV here. 
+
 def split_weather_dataset(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT, VAL_SPLIT=0.5,
                           VAL_SPLIT_cv=0.9, cv=False, max_samples=None, save_path=None):
 

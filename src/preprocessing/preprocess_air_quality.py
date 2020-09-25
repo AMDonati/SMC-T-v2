@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 import argparse
 
 
-def preprocess_dataframe(csv_path):
+def preprocess_dataframe(csv_path, save_path=None):
     df = pd.read_csv(csv_path, sep=';')
     df = df.iloc[:, :-2]
     list_cols = ['CO(GT)', 'C6H6(GT)', 'T', 'RH', 'AH']
@@ -39,7 +39,11 @@ def preprocess_dataframe(csv_path):
                              'T',
                              'RH',
                              'AH']]
-
+    if save_path is not None:
+        path = os.path.join(save_path, "air_quality")
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        np.save(os.path.join(path, "raw_data.npy"), df_process.values)
     return df_process, df_process.values
 
 
@@ -91,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument("-history", type=int, default=13, help="history of past observations.")
     args = parser.parse_args()
 
-    df, array = preprocess_dataframe(args.csv_path)
+    df, array = preprocess_dataframe(args.csv_path, args.data_path)
     (train_data, val_data, test_data), data_in_seq, (mean, std) = split_air_quality_dataset(data=array, TRAIN_SPLIT=args.TRAIN_SPLIT, save_path=args.data_path)
     print("train data shape", train_data.shape)
     print("val data shape", val_data.shape)
