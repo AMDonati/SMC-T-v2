@@ -81,13 +81,6 @@ def split_air_quality_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
     return (train_data, val_data, test_data), data_in_seq, stats
 
 
-def split_array_per_sequences(array, history=12):
-    new_array = np.zeros(shape=(int(array.shape[0] / history), history, array.shape[-1]))
-    for i, j in enumerate(list(range(0, array.shape[0], history))):
-        new_array[i] = array[j:j + history, :]
-        print(j)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-csv_path", type=str, default="data/air_quality/AirQualityUCI.csv")
