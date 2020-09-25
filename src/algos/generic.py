@@ -55,7 +55,6 @@ class Algo:
             train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                     val_data=val_data,
                                                                                     test_data=test_data,
-                                                                                    target_feature=target_feature,
                                                                                     num_dim=num_dim)
             self.dataset.check_dataset(train_dataset)
             self.dataset.check_dataset(val_dataset)

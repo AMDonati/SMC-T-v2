@@ -77,9 +77,9 @@ if __name__ == '__main__':
         BUFFER_SIZE = 50
         dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
                                model=None)
-    elif args.dataset == 'air_quality' or 'weather':
+    elif args.dataset == 'air_quality':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset)
+                                      name=args.dataset, target_features=list(range(5)))
 
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:

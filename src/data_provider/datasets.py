@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 class Dataset:
-    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500):
+    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None):
         self.data_path = data_path
         self.data_arr = self.get_data_from_folder(self.data_path)
         self.train_path = os.path.join(data_path, "train")
@@ -16,7 +16,7 @@ class Dataset:
         self.BATCH_SIZE = BATCH_SIZE
         self.name = name
         self.model = model
-        self.target_features = list(range(self.data_arr.shape[-1]))
+        self.target_features = list(range(self.data_arr.shape[-1])) if target_features is None else target_features
 
     def split_fn(self, chunk):
         input_text = chunk[:, :-1, :]
@@ -41,7 +41,7 @@ class Dataset:
         test_data = self.get_data_from_folder(self.test_path)
         return train_data, val_data, test_data
 
-    def data_to_dataset(self, train_data, val_data, test_data, target_feature=None, num_dim=4, with_lengths=False):
+    def data_to_dataset(self, train_data, val_data, test_data, num_dim=4, with_lengths=False):
         '''
         :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
         :param val_data: input data used for validation set > shape (N_val, S+1, F)
@@ -61,11 +61,11 @@ class Dataset:
             lengths_val = x_val.shape[1] * np.ones(shape=x_val.shape[0])
             lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
 
-        if target_feature is not None:
-            self.target_features = target_feature
-            y_train = y_train[:, :, target_feature]
-            y_val = y_val[:, :, target_feature]
-            y_test = y_test[:, :, target_feature]
+        #if self.target_features is not None:
+            #self.target_features = target_feature
+        y_train = y_train[:, :, self.target_features]
+        y_val = y_val[:, :, self.target_features]
+        y_test = y_test[:, :, self.target_features]
         if num_dim == 4:
             # adding the particle dim:
             x_train = x_train[:, np.newaxis, :, :]  # (B,P,S,F)
@@ -134,8 +134,8 @@ class Dataset:
         return inputs, targets, lengths, train_mean
 
 class CovidDataset(Dataset):
-    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None):
-        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model)
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None, target_features=None):
+        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features)
         #TODO: have a stats npy file as well.
 
     def rescale_covid_data(self, data_sample, stats, index):
@@ -158,8 +158,8 @@ class CovidDataset(Dataset):
         return inputs, targets, test_sample
 
 class StandardizedDataset(Dataset):
-    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="weather", model=None):
-        super(StandardizedDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model)
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="weather", model=None, target_features=None):
+        super(StandardizedDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features)
         self.means = np.load(os.path.join(data_path, "means.npy"))
         self.stds = np.load(os.path.join(data_path, "stds.npy"))
 
@@ -205,10 +205,11 @@ if __name__ == '__main__':
     print("train_mean", train_mean)
 
     # ---------------------------------------------------- test standardized dataset --------------------------------------
-    air_quality_dataset = StandardizedDataset(data_path="../../data/air_quality", BATCH_SIZE=32, BUFFER_SIZE=500, name="air_quality")
+    target_features = list(range(5))
+    air_quality_dataset = StandardizedDataset(data_path="../../data/air_quality", BATCH_SIZE=32, BUFFER_SIZE=500, name="air_quality", target_features=target_features)
     train_data, val_data, test_data = air_quality_dataset.get_datasets()
     target_features = list(range(5))
-    train_dataset, val_dataset, test_dataset = air_quality_dataset.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=4, target_feature=target_features)
+    train_dataset, val_dataset, test_dataset = air_quality_dataset.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=4)
     for (inp, tar) in train_dataset.take(1):
         print('input example shape', inp.shape)
         print('input example', inp[0,:,:,0])
