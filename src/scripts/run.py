@@ -1,5 +1,5 @@
 import argparse
-from src.data_provider.datasets import Dataset, CovidDataset
+from src.data_provider.datasets import Dataset, CovidDataset, StandardizedDataset
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
@@ -17,6 +17,7 @@ if __name__ == '__main__':
         else:
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
+
     algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo}
 
     parser = argparse.ArgumentParser()
@@ -31,7 +32,8 @@ if __name__ == '__main__':
     parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
     parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
     # model parameters:
-    parser.add_argument("-algo", type=str, required=True, help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
+    parser.add_argument("-algo", type=str, required=True,
+                        help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
     parser.add_argument("-full_model", type=str2bool, default=True,
                         help="simple transformer or one with ffn and layer norm")
@@ -66,14 +68,18 @@ if __name__ == '__main__':
     list_samples = [72, 2]
 
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
-
+    BUFFER_SIZE = 500
     if args.dataset == 'synthetic':
-        BUFFER_SIZE = 500
-        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset, model=args.dataset_model)
+        dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
+                          model=args.dataset_model)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
-        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset, model=None)
+        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
+                               model=None)
+    elif args.dataset == 'air_quality' or 'weather':
+        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
+                                      name=args.dataset)
 
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:
@@ -82,5 +88,5 @@ if __name__ == '__main__':
         print("skipping training...")
     algo.test(alpha=args.alpha, beta=args.beta, p=args.p)
     if args.inference:
-        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta, p=args.p)
-
+        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
+                              p=args.p)
