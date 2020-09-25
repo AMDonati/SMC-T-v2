@@ -6,6 +6,48 @@ from sklearn.model_selection import KFold
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
+def convert_col_into_float64(df, list_cols):
+    for col in list_cols:
+        df[col] = df[col].astype(str)
+        df[col]=df[col].str.replace(',', '.')
+        df[col]=df[col].astype(float)
+    return df
+
+def getIndexes(dfObj, value):
+    ''' Get index positions of value in dataframe i.e. dfObj.'''
+    listOfPos = list()
+    # Get bool dataframe with True at positions where the given value exists
+    result = dfObj.isin([value])
+    # Get list of columns that contains the value
+    seriesObj = result.any()
+    columnNames = list(seriesObj[seriesObj == True].index)
+    # Iterate over list of columns and fetch the rows indexes where value exists
+    for col in columnNames:
+        rows = list(result[col][result[col] == True].index)
+        for row in rows:
+            listOfPos.append((row, col))
+    # Return a list of tuples indicating the positions of value in the dataframe
+    list_rows = [r for (r, _) in listOfPos]
+    list_cols = [c for (_, c) in listOfPos]
+    return listOfPos, list_rows, list_cols
+
+def fill_missing_values(df, list_cols, value=-200):
+    reduced_list_of_pos, rows_reduced, _ = getIndexes(df[list_cols], value=value)
+    rows_reduced = list(set(rows_reduced))
+    for col in list_cols:
+        df_tmp = df[col].drop(index=rows_reduced, axis=0)
+        mean = np.mean(df_tmp)
+        df[col].iloc[rows_reduced] = mean
+    return df, rows_reduced
+
+def get_rows_nan_values(df):
+    rows_with_nan = []
+    for index, row in df.iterrows():
+        is_nan_series = row.isnull()
+        if is_nan_series.any():
+            rows_with_nan.append(index)
+    return rows_with_nan
+
 
 def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
     data = []

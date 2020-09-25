@@ -56,13 +56,14 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
         # save datasets:
         print("train data shape", train_data.shape)
         print("val data shape", val_data.shape)
-        print("tes data shape", test_data.shape)
-        print("saving datasets into .npy files...")
-        np.save(os.path.join(train_path, "weather.npy"), train_data)
-        np.save(os.path.join(val_path, "weather.npy"), val_data)
-        np.save(os.path.join(test_path, "weather.npy"), test_data)
-        np.save(os.path.join(weather_path, "means.npy"), data_mean)
-        np.save(os.path.join(weather_path, "stds.npy"), data_std)
+        print("test data shape", test_data.shape)
+        if save_path is not None:
+            print("saving datasets into .npy files...")
+            np.save(os.path.join(train_path, "weather.npy"), train_data)
+            np.save(os.path.join(val_path, "weather.npy"), val_data)
+            np.save(os.path.join(test_path, "weather.npy"), test_data)
+            np.save(os.path.join(weather_path, "means.npy"), data_mean)
+            np.save(os.path.join(weather_path, "stds.npy"), data_std)
 
         return (train_data, val_data, test_data), uni_data_df, stats
 
