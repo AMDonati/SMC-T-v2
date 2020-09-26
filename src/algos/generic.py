@@ -2,6 +2,9 @@ from src.utils.utils_train import create_logger
 import os
 import tensorflow as tf
 import json
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 class Algo:
     def __init__(self, dataset, args):
@@ -66,7 +69,8 @@ class Algo:
                 self.seq_len = tf.shape(inp)[-2].numpy()
         else:
             self.logger.info("loading datasets for performing cross-validation...")
-            train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim, target_feature=target_feature)
+            train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim,
+                                                                                                     target_feature=target_feature)
             for (inp, tar) in train_dataset[0].take(1):
                 self.output_size = tf.shape(tar)[-1].numpy()
                 self.logger.info("number of target features: {}".format(self.output_size))
@@ -96,7 +100,7 @@ class Algo:
         assert self.test_predictive_distribution is not None, "error in predictive intervals computation"
         mean_distrib = tf.reduce_mean(self.test_predictive_distribution, axis=1)
         std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
-        lower_bounds = mean_distrib - factor * std_distrib # shape(B,S,F)
+        lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + factor * std_distrib
         return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
 
@@ -105,11 +109,11 @@ class Algo:
         lower_bounds, upper_bounds = self.compute_predictive_interval()
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
-        for (_, tar) in self.test_dataset:
+        for (_, tar) in self.test_dataset: #TODO: here replace tar by input.
             tar = tf.squeeze(tar)
             for index in range(num_samples):
                 for t in range(seq_len):
-                    item = tar[index, t, :] # shape (F)
+                    item = tar[index, t, :]  # shape (F)
                     low_b = lower_bounds[index, t]
                     upper_b = upper_bounds[index, t]
                     bool_low = tf.math.reduce_all(tf.math.greater_equal(item, low_b))
@@ -118,3 +122,27 @@ class Algo:
                         inside_pi += 1
         mpiw = inside_pi / (seq_len * num_samples)
         return mpiw
+
+    def plot_preds_targets(self, predictions_test):
+        for (inputs, targets) in self.test_dataset:
+            if len(tf.shape(inputs)) == 4:
+                inputs = tf.squeeze(inputs, axis=1)
+                targets = tf.squeeze(targets, axis=1)
+            index = np.random.randint(inputs.shape[0])
+            inp, tar = inputs[index], targets[index]
+            mean_pred = predictions_test[index, :, 0].numpy()
+            #tar = tar[:, 0].numpy()
+            inp = inp[:, 0].numpy()
+        if self.test_predictive_distribution is not None:
+            sample = self.test_predictive_distribution[index, :, :, 0].numpy()  # (mc_samples, seq_len, F)
+            mean_pred = np.mean(sample, axis=0)
+        x = np.linspace(1, self.seq_len, self.seq_len)
+        plt.plot(x, mean_pred, 'red', lw=2, label='predictions for sample: {}'.format(index))
+        #plt.plot(x, tar, 'blue', lw=2, label='targets for sample: {}'.format(index))
+        plt.plot(x, inp, 'cyan', lw=2, label='ground-truth for sample: {}'.format(index))
+        if self.test_predictive_distribution is not None:
+            for i in range(sample.shape[0]):
+                plt.scatter(x, sample[i], c='orange')
+        plt.legend(fontsize=10)
+        plt.savefig(os.path.join(self.out_folder, "plot_test_preds_targets_sample{}".format(index)))
+        plt.close()

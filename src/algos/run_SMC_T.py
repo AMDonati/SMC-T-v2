@@ -8,6 +8,7 @@ from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class SMCTAlgo(Algo):
@@ -284,6 +285,7 @@ class SMCTAlgo(Algo):
             test_metric_avg_pred = tf.keras.losses.MSE(tar,
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
+            mean_preds = tf.reduce_mean(preds_test, axis=1)
 
         self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
 
@@ -306,3 +308,7 @@ class SMCTAlgo(Algo):
                 print('preds particles shape', preds_test.shape)
                 print('preds particles resampled shape', preds_test_resampl.shape)
             self.logger.info("saving predicted particles on test set...")
+
+        # plot targets versus preds for test samples:
+        for _ in range(4):
+            self.plot_preds_targets(predictions_test=mean_preds)

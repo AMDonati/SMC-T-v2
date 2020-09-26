@@ -93,15 +93,18 @@ class BaselineTAlgo(Algo):
                 print("mc dropout samples multistep shape", mc_samples_multi.shape)
 
     def _create_out_folder(self, args):
-        out_file = '{}_Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}_pdrop{}'.format(args.dataset, args.d_model, args.dff,
-                                                                                  args.pe,
-                                                                                  self.bs, args.full_model,
-                                                                                          args.p_drop)
-        datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        output_folder = os.path.join(args.output_path, out_file, datetime_folder)
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-        return output_folder
+        if args.save_path is not None:
+            return args.save_path
+        else:
+            out_file = '{}_Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}_pdrop{}'.format(args.dataset, args.d_model, args.dff,
+                                                                                      args.pe,
+                                                                                      self.bs, args.full_model,
+                                                                                              args.p_drop)
+            datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            output_folder = os.path.join(args.output_path, out_file, datetime_folder)
+            if not os.path.isdir(output_folder):
+                os.makedirs(output_folder)
+            return output_folder
 
     def _load_ckpt(self, num_train=1): #TODO: check checkpoint loading here.
         # creating checkpoint manager
@@ -179,3 +182,6 @@ class BaselineTAlgo(Algo):
                 self.logger.info("computing MPIW on test set...")
                 mpiw = self.compute_MPIW()
                 self.logger.info("MPIW on test set: {}".format(mpiw))
+            # plot targets versus preds for test samples:
+            for _ in range(4):
+                self.plot_preds_targets(predictions_test=predictions_test)

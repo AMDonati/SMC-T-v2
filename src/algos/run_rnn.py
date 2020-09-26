@@ -148,4 +148,6 @@ class RNNAlgo(Algo):
                 mpiw = self.compute_MPIW()
                 self.logger.info("MPIW on test set: {}".format(mpiw))
 
-
+            # plot targets versus preds for test samples:
+            for _ in range(4):
+                self.plot_preds_targets(predictions_test=test_preds)
