@@ -84,26 +84,22 @@ class RNNAlgo(Algo):
 
     def launch_inference(self, **kwargs):
         mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
-        _, _, test_data = self.dataset.get_datasets()
-        test_data = tf.convert_to_tensor(test_data)
-        inputs, targets = self.dataset.split_fn(test_data)
-        mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inputs, save_path=mc_dropout_unistep_path) # shape (B,N_est,S, F)
-        print("mc dropout samples unistep shape", mc_samples_uni.shape)
-        if self.dataset.name == "synthetic":
-            mse = self.compute_mse_predictive_distribution(mc_samples=mc_samples_uni, test_data=test_data, alpha=kwargs["alpha"])
-            if self.dataset.model == 2:
-                mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
-            self.logger.info("mean square error of predictive distribution: {}".format(mse))
-        if kwargs["multistep"]:
-            mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
-            print("mc dropout samples multistep shape", mc_samples_multi.shape)
+        if self.test_predictive_distribution is None:
+            self.get_predictive_distribution()
+        np.save(mc_dropout_unistep_path, self.test_predictive_distribution)
+        print("mc dropout samples unistep shape", self.test_predictive_distribution.shape)
 
-    def compute_mse_predictive_distribution(self, mc_samples, test_data, alpha):
-        mean_distrib = tf.reduce_mean(mc_samples, axis=1)
-        mse = tf.keras.losses.MSE(mean_distrib, alpha * test_data[:, :-1, :])
-        mse = tf.reduce_mean(mse)
-        return mse
+        if kwargs["multistep"]:
+            for (inputs, _) in self.test_dataset:
+                mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
+                print("mc dropout samples multistep shape", mc_samples_multi.shape)
+
+    def get_predictive_distribution(self):
+        if self.p_drop > 0:
+            for (inp, _) in self.test_dataset:
+                mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inp, save_path=None)
+                print("shape of predictive distribution", mc_samples_uni.shape)
+            self.test_predictive_distribution = mc_samples_uni
 
     def train(self):
         if not self.cv:
@@ -137,5 +133,19 @@ class RNNAlgo(Algo):
             test_loss = tf.keras.losses.MSE(test_preds, tar)
             test_loss = tf.reduce_mean(test_loss)
         self.logger.info("test loss: {}".format(test_loss))
+
+        if self.p_drop > 0:
+            self.get_predictive_distribution()
+            if self.dataset.name == "synthetic":
+                self.logger.info("computing mean square error of predictive distribution...")
+                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
+                if self.dataset.model == 2:
+                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
+                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
+                self.logger.info("mse predictive distribution: {}".format(mse))
+        else:
+            self.logger.info("computing MPIW on test set...")
+            mpiw = self.compute_MPIW()
+            self.logger.info("MPIW on test set: {}".format(mpiw))
 
 

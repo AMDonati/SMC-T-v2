@@ -26,6 +26,7 @@ class BaselineTAlgo(Algo):
         self.transformer = Transformer(num_layers=1, d_model=args.d_model, num_heads=1, dff=args.dff,
                                        target_vocab_size=self.output_size,
                                        maximum_position_encoding=args.pe, rate=args.p_drop, full_model=args.full_model)
+        self.p_drop = args.p_drop
         self.ckpt_manager, _ = self._load_ckpt()
 
     def _MC_Dropout(self, inp_model, save_path=None):
@@ -74,24 +75,18 @@ class BaselineTAlgo(Algo):
             np.save(save_path, preds_test_MC_Dropout)
         return preds_test_MC_Dropout
 
-    def compute_mse_predictive_distribution(self, mc_samples, inputs, alpha):
-        mean_distrib = tf.reduce_mean(mc_samples, axis=1)
-        mse = tf.keras.losses.MSE(mean_distrib, alpha * inputs)
-        mse = tf.reduce_mean(mse)
-        return mse
+    def get_predictive_distribution(self):
+        if self.p_drop > 0:
+            for (inp, _) in self.test_dataset:
+                mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=None)
+                print("shape of predictive distribution", mc_samples_uni.shape)
+            self.test_predictive_distribution = mc_samples_uni
 
     def launch_inference(self, **kwargs):
         mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
         for (inp, _) in self.test_dataset:
             mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=mc_dropout_unistep_path)
             print("mc dropout samples unistep shape", mc_samples_uni.shape)
-            if self.dataset.name == "synthetic":
-                mse = self.compute_mse_predictive_distribution(mc_samples=mc_samples_uni, inputs=inp,
-                                                                   alpha=kwargs["alpha"])
-                if self.dataset.model == 2:
-                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                    mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
-            self.logger.info("mean square error of predictive distribution: {}".format(mse))
             if kwargs["multistep"]:
                 mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],
                                                               save_path=mc_dropout_multistep_path)
@@ -108,7 +103,7 @@ class BaselineTAlgo(Algo):
             os.makedirs(output_folder)
         return output_folder
 
-    def _load_ckpt(self, num_train=1):
+    def _load_ckpt(self, num_train=1): #TODO: check checkpoint loading here.
         # creating checkpoint manager
         ckpt = tf.train.Checkpoint(transformer=self.transformer,
                                    optimizer=self.optimizer)
@@ -170,3 +165,17 @@ class BaselineTAlgo(Algo):
             loss_test = tf.keras.losses.MSE(tar, predictions_test)  # (B,S)
             loss_test = tf.reduce_mean(loss_test)
         self.logger.info("test loss at the end of training: {}".format(loss_test))
+
+        if self.p_drop > 0:
+            self.get_predictive_distribution()
+            if self.dataset.name == "synthetic":
+                self.logger.info("computing mean square error of predictive distribution...")
+                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
+                if self.dataset.model == 2:
+                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
+                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
+                self.logger.info("mse predictive distribution: {}".format(mse))
+            else:
+                self.logger.info("computing MPIW on test set...")
+                mpiw = self.compute_MPIW()
+                self.logger.info("MPIW on test set: {}".format(mpiw))

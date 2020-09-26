@@ -17,6 +17,7 @@ class Algo:
         self.start_epoch = 0
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
+        self.test_predictive_distribution = None
 
     def train(self):
         pass
@@ -81,3 +82,39 @@ class Algo:
         mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
         mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
         return mc_dropout_unistep_path, mc_dropout_multistep_path
+
+    def compute_mse_predictive_distribution(self, alpha):
+        for (inp, _) in self.test_dataset:
+            if len(tf.shape(inp)) == 3:
+                inp = tf.expand_dims(inp, axis=1)
+            test_data_tiled = tf.tile(inp, multiples=[1, self.mc_samples, 1, 1])
+            mse = tf.keras.losses.MSE(self.test_predictive_distribution, alpha * test_data_tiled)
+            mse = tf.reduce_mean(mse)
+        return mse
+
+    def compute_predictive_interval(self, factor=1.96):
+        assert self.test_predictive_distribution is not None, "error in predictive intervals computation"
+        mean_distrib = tf.reduce_mean(self.test_predictive_distribution, axis=1)
+        std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
+        lower_bounds = mean_distrib - factor * std_distrib # shape(B,S,F)
+        upper_bounds = mean_distrib + factor * std_distrib
+        return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
+
+    def compute_MPIW(self):
+        inside_pi = 0
+        lower_bounds, upper_bounds = self.compute_predictive_interval()
+        seq_len = lower_bounds.shape[1]
+        num_samples = lower_bounds.shape[0]
+        for (_, tar) in self.test_dataset:
+            tar = tf.squeeze(tar)
+            for index in range(num_samples):
+                for t in range(seq_len):
+                    item = tar[index, t, :] # shape (F)
+                    low_b = lower_bounds[index, t]
+                    upper_b = upper_bounds[index, t]
+                    bool_low = tf.math.reduce_all(tf.math.greater_equal(item, low_b))
+                    bool_up = tf.math.reduce_all(tf.math.greater_equal(upper_b, item))
+                    if bool_low and bool_up:
+                        inside_pi += 1
+        mpiw = inside_pi / (seq_len * num_samples)
+        return mpiw

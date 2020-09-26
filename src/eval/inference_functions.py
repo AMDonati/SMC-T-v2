@@ -1,17 +1,15 @@
 import numpy as np
 import tensorflow as tf
-from src.utils.utils_train import write_to_csv
 
 def split_input_target(data):
     inp = data[:, :, :-1, :]
     tar = data[:, :, 1:, :]
     return inp, tar
 
-def inference_onestep(smc_transformer, test_sample, save_path, past_len=40):
+def inference_onestep(smc_transformer, inputs, targets, save_path, past_len=40):
     # forward pass on test_sample_past
-    inp, tar = split_input_target(test_sample)
     smc_transformer.cell.add_stop_resampling(past_len)
-    (preds, _), (K, V, _), _ = smc_transformer(inp, tar)  # K,V shape (1, P, 60, 1)
+    (preds, _), (K, V, _), _ = smc_transformer(inputs, targets)  # K,V shape (1, P, 60, 1)
     mean_preds = tf.reduce_mean(preds, axis=1)  # (shape 60)
     preds_future = preds[:, :, past_len:, :]
     if save_path is not None:
