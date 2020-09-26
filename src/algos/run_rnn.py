@@ -143,9 +143,9 @@ class RNNAlgo(Algo):
                     mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
                     mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
                 self.logger.info("mse predictive distribution: {}".format(mse))
-        else:
-            self.logger.info("computing MPIW on test set...")
-            mpiw = self.compute_MPIW()
-            self.logger.info("MPIW on test set: {}".format(mpiw))
+            else:
+                self.logger.info("computing MPIW on test set...")
+                mpiw = self.compute_MPIW()
+                self.logger.info("MPIW on test set: {}".format(mpiw))
 
 
