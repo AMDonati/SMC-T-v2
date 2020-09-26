@@ -131,7 +131,7 @@ class RNNAlgo(Algo):
                     "training of a LSTM for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
 
-    def test(self, alpha):
+    def test(self, **kwargs):
         for inp, tar in self.test_dataset:
             test_preds = self.lstm(inp)
             test_loss = tf.keras.losses.MSE(test_preds, tar)

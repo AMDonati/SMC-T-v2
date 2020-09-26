@@ -161,7 +161,7 @@ class BaselineTAlgo(Algo):
                     "training of a Baseline Transformer for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
 
-    def test(self, alpha):
+    def test(self, **kwargs):
         for (inp, tar) in self.test_dataset:
             seq_len = tf.shape(inp)[-2]
             predictions_test, _ = self.transformer(inputs=inp,
