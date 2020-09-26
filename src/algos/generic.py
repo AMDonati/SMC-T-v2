@@ -17,7 +17,6 @@ class Algo:
         self.start_epoch = 0
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
-        #self.logger = self.create_logger()
 
     def train(self):
         pass
@@ -61,6 +60,7 @@ class Algo:
             self.dataset.check_dataset(test_dataset)
             for (inp, tar) in train_dataset.take(1):
                 self.output_size = tf.shape(tar)[-1].numpy()
+                self.logger.info("number of target features: {}".format(self.output_size))
                 self.num_features = tf.shape(inp)[-1].numpy()
                 self.seq_len = tf.shape(inp)[-2].numpy()
         else:
@@ -68,6 +68,7 @@ class Algo:
             train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim, target_feature=target_feature)
             for (inp, tar) in train_dataset[0].take(1):
                 self.output_size = tf.shape(tar)[-1].numpy()
+                self.logger.info("number of target features: {}".format(self.output_size))
                 self.num_features = tf.shape(inp)[-1].numpy()
                 self.seq_len = tf.shape(inp)[-2].numpy()
         return train_dataset, val_dataset, test_dataset

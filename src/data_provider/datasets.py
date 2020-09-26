@@ -2,7 +2,6 @@ import os
 import numpy as np
 import tensorflow as tf
 from src.preprocessing.utils import split_synthetic_dataset, split_covid_data
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 class Dataset:
@@ -55,17 +54,17 @@ class Dataset:
         x_train, y_train = self.split_fn(train_data)
         x_val, y_val = self.split_fn(val_data)
         x_test, y_test = self.split_fn(test_data)
+
         if with_lengths:
             lengths_train = x_train.shape[1] * np.ones(
                 shape=x_train.shape[0])  # tensor with value seq_len of size batch_size.
             lengths_val = x_val.shape[1] * np.ones(shape=x_val.shape[0])
             lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
 
-        #if self.target_features is not None:
-            #self.target_features = target_feature
         y_train = y_train[:, :, self.target_features]
         y_val = y_val[:, :, self.target_features]
         y_test = y_test[:, :, self.target_features]
+
         if num_dim == 4:
             # adding the particle dim:
             x_train = x_train[:, np.newaxis, :, :]  # (B,P,S,F)

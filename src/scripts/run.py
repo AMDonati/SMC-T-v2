@@ -86,7 +86,7 @@ if __name__ == '__main__':
         algo.train()
     else:
         print("skipping training...")
-    algo.test(alpha=args.alpha, beta=args.beta, p=args.p)
+    algo.test(alpha=args.alpha, beta=args.beta, p=args.p, save_particles=True)
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
                               p=args.p)
