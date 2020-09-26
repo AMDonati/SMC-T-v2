@@ -80,6 +80,10 @@ if __name__ == '__main__':
     elif args.dataset == 'air_quality':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, target_features=list(range(5)))
+    elif args.dataset == 'weather':
+        BUFFER_SIZE = 5000
+        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
+                                      name=args.dataset)
 
     algo = algos[args.algo](dataset=dataset, args=args)
     if args.ep > 0:

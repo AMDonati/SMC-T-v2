@@ -20,17 +20,17 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
     df = pd.read_csv(csv_path)
     uni_data_df = df[col_name]
     uni_data_df.index = df[index_name]
-    print('length of original continuous dataset: {}'.format(len(uni_data_df)))
+    print('length of original dataset: {}'.format(len(uni_data_df)))
 
     uni_data = uni_data_df.values
     if max_samples is not None:
         uni_data = uni_data[:max_samples, :]
 
-    # # normalization
-    # data_mean = uni_data.mean(axis=0)
-    # data_std = uni_data.std(axis=0)
-    # uni_data = (uni_data - data_mean) / data_std
-    # stats = (data_mean, data_std)
+    # normalization
+    data_mean = uni_data.mean(axis=0)
+    data_std = uni_data.std(axis=0)
+    uni_data = (uni_data - data_mean) / data_std
+    stats = (data_mean, data_std)
 
     data_in_seq = split_dataset_into_seq(uni_data, 0, None, history, step)
 
@@ -48,16 +48,6 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
         # split between validation dataset and test set:
         train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
         val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True)
-
-        # normalization
-        data_mean_seq = train_data.mean(axis=0)
-        data_mean = data_mean_seq.mean(axis=0)
-        data_std_seq = train_data.std(axis=0)
-        data_std = data_std_seq.std(axis=0)
-        stats = (data_mean, data_std)
-        train_data = (train_data - data_mean) / data_std
-        val_data = (val_data - data_mean) / data_std
-        test_data = (test_data - data_mean) / data_std
 
         # reshaping arrays to have a (future shape) of (B,S,1):
         if len(col_name) == 1:

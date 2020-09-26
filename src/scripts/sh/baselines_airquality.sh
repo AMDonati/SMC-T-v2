@@ -15,5 +15,6 @@ python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "lstm" -rnn_units 64 -bs 64 -ep 50 -output_path "exp_airquality" -p_drop 0.1 -inference 1 -mc_samples 1000
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "lstm" -rnn_units 64 -bs 64 -ep 50 -output_path "exp_airquality" -p_drop 0.2 -inference 1 -mc_samples 1000
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "lstm" -rnn_units 64 -bs 64 -ep 50 -output_path "exp_airquality" -p_drop 0.5 -inference 1 -mc_samples 1000
-
+python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "lstm" -rnn_units 32 -bs 128 -ep 50 -output_path "output/temp/weather"
+python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "baseline_t" -d_model 16 -dff 16 -bs 64 -ep 50 -output_path "output/temp/weather"
 

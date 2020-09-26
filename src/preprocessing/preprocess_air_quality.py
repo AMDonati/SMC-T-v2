@@ -48,6 +48,12 @@ def preprocess_dataframe(csv_path, save_path=None):
 
 
 def split_air_quality_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
+    # normalization
+    data_mean = data.mean(axis=0)
+    data_std = data.std(axis=0)
+    data = (data - data_mean) / data_std
+    stats = (data_mean, data_std)
+
     data_in_seq = split_dataset_into_seq(data, start_index=0, end_index=None, history_size=13, step=1)
     # save_paths:
     if save_path is not None:
@@ -62,16 +68,6 @@ def split_air_quality_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
     # split between validation dataset and test set:
     train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
     val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True)
-
-    # normalization
-    data_mean_seq = train_data.mean(axis=0)
-    data_mean = data_mean_seq.mean(axis=0)
-    data_std_seq = train_data.std(axis=0)
-    data_std = data_std_seq.std(axis=0)
-    stats = (data_mean, data_std)
-    train_data = (train_data - data_mean) / data_std
-    val_data = (val_data - data_mean) / data_std
-    test_data = (test_data - data_mean) / data_std
 
     # save datasets:
     if save_path is not None:
