@@ -109,11 +109,12 @@ class Algo:
         lower_bounds, upper_bounds = self.compute_predictive_interval()
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
-        for (_, tar) in self.test_dataset: #TODO: here replace tar by input.
-            tar = tf.squeeze(tar)
+        for (inp, _) in self.test_dataset: #TODO: here replace tar by input.
+            if len(tf.shape(inp)) == 4:
+                inp = tf.squeeze(inp, axis=1)
             for index in range(num_samples):
                 for t in range(seq_len):
-                    item = tar[index, t, :]  # shape (F)
+                    item = inp[index, t, :]  # shape (F)
                     low_b = lower_bounds[index, t]
                     upper_b = upper_bounds[index, t]
                     bool_low = tf.math.reduce_all(tf.math.greater_equal(item, low_b))
