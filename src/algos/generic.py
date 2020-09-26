@@ -50,7 +50,7 @@ class Algo:
         if not self.cv:
             train_data, val_data, test_data = self.dataset.get_datasets()
             self.logger.info('num samples in training dataset: {}'.format(train_data.shape[0]))
-            self.logger.info('number of timeteps: {}'.format(train_data.shape[1]))
+            self.logger.info('number of timeteps: {}'.format(train_data.shape[1] - 1))
             self.logger.info('number of features: {}'.format(train_data.shape[-1]))
             train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                     val_data=val_data,
