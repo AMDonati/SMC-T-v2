@@ -169,31 +169,3 @@ class BaselineTAlgo(Algo):
             loss_test = tf.keras.losses.MSE(tar, predictions_test)  # (B,S)
             loss_test = tf.reduce_mean(loss_test)
         return loss_test, predictions_test
-
-    def test(self, **kwargs):
-        test_metrics = {}
-        test_loss, predictions_test = self.compute_test_loss(kwargs["save_particles"])
-        test_metrics["test_loss"] = test_loss
-        self.logger.info("test loss at the end of training: {}".format(test_loss))
-        if self.distribution:
-            self.get_predictive_distribution()
-            if self.dataset.name == "synthetic":
-                self.logger.info("computing mean square error of predictive distribution...")
-                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
-                if self.dataset.model == 2:
-                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
-                self.logger.info("mse predictive distribution: {}".format(mse))
-                test_metrics["mse"] = mse
-            else:
-                self.logger.info("computing MPIW on test set...")
-                mpiw = self.compute_MPIW()
-                test_metrics["mpiw"] = mpiw
-                self.logger.info("MPIW on test set: {}".format(mpiw))
-            # plot targets versus preds for test samples:
-            if kwargs["plot"]:
-                for _ in range(4):
-                    self.plot_preds_targets(predictions_test=predictions_test)
-            if kwargs["save_metrics"]:
-                write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
-        return test_metrics

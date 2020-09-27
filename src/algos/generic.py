@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from src.utils.utils_train import write_to_csv
 
-
 class Algo:
     def __init__(self, dataset, args):
         self.dataset = dataset
@@ -101,17 +100,19 @@ class Algo:
         std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
         lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + factor * std_distrib
-        # return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
-        return lower_bounds, upper_bounds
+        piw = upper_bounds - lower_bounds
+        MPIW = tf.reduce_mean(piw)
+        return lower_bounds, upper_bounds, MPIW
 
-    def compute_MPIW(self):
+    def compute_PICP_MPIW(self):
         inside_pi = 0
-        lower_bounds, upper_bounds = self.compute_predictive_interval()
+        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval()
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
         for (inp, _) in self.test_dataset:
             if len(tf.shape(inp)) == 4:
                 inp = tf.squeeze(inp, axis=1)
+                inp = inp[:,:,:len(self.dataset.target_features)] # taking only the target features.
             for index in range(num_samples):
                 for t in range(seq_len):
                     item = inp[index, t, :]  # shape (F)
@@ -121,8 +122,8 @@ class Algo:
                     bool_up = tf.math.reduce_all(tf.math.greater_equal(upper_b, item))
                     if bool_low and bool_up:
                         inside_pi += 1
-        mpiw = inside_pi / (seq_len * num_samples)
-        return mpiw
+        PICP = inside_pi / (seq_len * num_samples)
+        return PICP, MPIW
 
     def plot_preds_targets(self, predictions_test):
         for (inputs, targets) in self.test_dataset:
@@ -191,9 +192,11 @@ class Algo:
                 test_metrics["mse"] = mse.numpy()
             else:
                 self.logger.info("computing MPIW on test set...")
-                mpiw = self.compute_MPIW()
-                test_metrics["mpiw"] = mpiw.numpy()
-                self.logger.info("MPIW on test set: {}".format(mpiw))
+                PICP, MPIW = self.compute_PICP_MPIW()
+                test_metrics["MPIW"] = MPIW.numpy()
+                test_metrics["PICP"] = PICP
+                self.logger.info("MPIW on test set: {}".format(MPIW))
+                self.logger.info("PICP 0.95 on test set: {}".format(PICP))
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):

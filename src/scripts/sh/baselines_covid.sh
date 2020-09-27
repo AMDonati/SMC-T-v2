@@ -7,3 +7,11 @@ python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "baseli
 python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "baseline_t" -d_model 32 -dff 32 -bs 32 -pe 100 -ep 50 -output_path "output/covid" -p_drop 0.1 -mc_samples 1000
 python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "baseline_t" -d_model 32 -dff 32 -bs 32 -pe 100 -ep 50 -output_path "output/covid" -p_drop 0.2 -mc_samples 1000
 python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "baseline_t" -d_model 32 -dff 32 -bs 32 -pe 100 -ep 50 -output_path "output/covid" -p_drop 0.5 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 16 -bs 32 -ep 50 -output_path "output/exp_covid"
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 16 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.1 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 16 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.2 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 16 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.5 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 32 -bs 32 -ep 50 -output_path "output/exp_covid"
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 32 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.1 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 32 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.2 -mc_samples 1000
+python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 32 -bs 32 -ep 50 -output_path "output/exp_covid" -p_drop 0.5 -mc_samples 1000
