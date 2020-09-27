@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from src.utils.utils_train import write_to_csv
 
+
 class Algo:
     def __init__(self, dataset, args):
         self.dataset = dataset
@@ -100,7 +101,7 @@ class Algo:
         std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
         lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + factor * std_distrib
-        #return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
+        # return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
         return lower_bounds, upper_bounds
 
     def compute_MPIW(self):
@@ -131,14 +132,14 @@ class Algo:
             index = np.random.randint(inputs.shape[0])
             inp, tar = inputs[index], targets[index]
             mean_pred = predictions_test[index, :, 0].numpy()
-            #tar = tar[:, 0].numpy()
+            # tar = tar[:, 0].numpy()
             inp = inp[:, 0].numpy()
         if self.test_predictive_distribution is not None:
             sample = self.test_predictive_distribution[index, :, :, 0].numpy()  # (mc_samples, seq_len, F)
             mean_pred = np.mean(sample, axis=0)
         x = np.linspace(1, self.seq_len, self.seq_len)
         plt.plot(x, mean_pred, 'red', lw=2, label='predictions for sample: {}'.format(index))
-        #plt.plot(x, tar, 'blue', lw=2, label='targets for sample: {}'.format(index))
+        # plt.plot(x, tar, 'blue', lw=2, label='targets for sample: {}'.format(index))
         plt.plot(x, inp, 'cyan', lw=2, label='ground-truth for sample: {}'.format(index))
         if self.test_predictive_distribution is not None:
             for i in range(sample.shape[0]):
@@ -167,8 +168,9 @@ class Algo:
                 test_mse.append(val)
         test_metrics_cv["test_loss_mean"] = np.mean(test_losses)
         test_metrics_cv["test_loss_std"] = np.std(test_losses)
-        test_metrics_cv["mse_mean"] = np.mean(test_mse)
-        test_metrics_cv["mse_std"] = np.std(test_mse)
+        if len(test_mse) > 0:
+            test_metrics_cv["mse_mean"] = np.mean(test_mse)
+            test_metrics_cv["mse_std"] = np.std(test_mse)
         write_to_csv(output_dir=os.path.join(self.out_folder, "test_metrics.csv"), dic=test_metrics_cv)
         return test_metrics_cv
 
@@ -184,7 +186,7 @@ class Algo:
                 mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
                 if self.dataset.model == 2:
                     mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
+                    mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
                 self.logger.info("mse predictive distribution: {}".format(mse))
                 test_metrics["mse"] = mse.numpy()
             else:
@@ -192,10 +194,10 @@ class Algo:
                 mpiw = self.compute_MPIW()
                 test_metrics["mpiw"] = mpiw.numpy()
                 self.logger.info("MPIW on test set: {}".format(mpiw))
-            # plot targets versus preds for test samples:
-            if kwargs["plot"]:
-                for _ in range(4):
-                    self.plot_preds_targets(predictions_test=predictions_test)
-            if kwargs["save_metrics"]:
-                write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
+        # plot targets versus preds for test samples:
+        if kwargs["plot"]:
+            for _ in range(4):
+                self.plot_preds_targets(predictions_test=predictions_test)
+        if kwargs["save_metrics"]:
+            write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
         return test_metrics

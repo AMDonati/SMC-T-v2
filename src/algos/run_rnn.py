@@ -30,18 +30,29 @@ class RNNAlgo(Algo):
                                               training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.distribution = True if self.p_drop > 0 else False
+        self._load_ckpt()
 
     def _create_out_folder(self, args):
-        output_path = args.output_path
-        out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
-                                                                                   args.p_drop,
-                                                                                   args.rnn_drop, self.lr,
-                                                                                   self.bs, args.cv)
-        datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        output_folder = os.path.join(output_path, out_file, datetime_folder)
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-        return output_folder
+        if args.save_path is not None:
+            return args.save_path
+        else:
+            output_path = args.output_path
+            out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
+                                                                                       args.p_drop,
+                                                                                       args.rnn_drop, self.lr,
+                                                                                       self.bs, args.cv)
+            datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            output_folder = os.path.join(output_path, out_file, datetime_folder)
+            if not os.path.isdir(output_folder):
+                os.makedirs(output_folder)
+            return output_folder
+
+    def _load_ckpt(self, num_train=1):
+        ckpt_path = os.path.join(self.ckpt_path, "RNN_Baseline_{}".format(num_train))
+        if os.path.isdir(ckpt_path):
+            latest = tf.train.latest_checkpoint(ckpt_path)
+            self.logger.info("loading latest checkpoint from {}".format(latest))
+            self.lstm.load_weights(latest)
 
     def _MC_Dropout_LSTM(self, inp_model, save_path=None):
         '''

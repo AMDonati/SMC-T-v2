@@ -17,12 +17,15 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
             monitor='val_loss',
             save_best_only=True,
             save_weights_only=True,
-            verbose=0)
+            verbose=1)
     ]
     model.compile(optimizer=optimizer,
                   loss='mse')
 
     print(model.summary())
+
+    # Save the weights using the `checkpoint_path` format
+    #model.save_weights(checkpoint_path.format(epoch=0))
 
     # --- starting the training ... -----------------------------------------------
     start_training = time.time()
