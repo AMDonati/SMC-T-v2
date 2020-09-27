@@ -95,45 +95,6 @@ def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, 
         return list_train_data, list_val_data, test_data
 
 
-def split_covid_data(arr_path, normalize=True, split=0.8):
-    covid_data = np.load(arr_path)
-    covid_data = covid_data.astype(np.float32)
-    num_samples = covid_data.shape[0]
-    TRAIN_SPLIT = int(num_samples * split)
-    VAL_SPLIT = TRAIN_SPLIT + int(num_samples * (1 - split) * 0.5) + 1
-    if normalize:
-        data_mean = np.mean(covid_data, axis=1, keepdims=True)
-        data_std = np.std(covid_data, axis=1, keepdims=True)
-        covid_data = (covid_data - data_mean) / data_std
-        stats_train = (data_mean[:TRAIN_SPLIT, :], data_std[:TRAIN_SPLIT, :])
-        stats_val = (data_mean[TRAIN_SPLIT:VAL_SPLIT, :], data_std[TRAIN_SPLIT:VAL_SPLIT, :])
-        stats_test = (data_mean[VAL_SPLIT:, :], data_std[VAL_SPLIT:, :])
-        stats = (stats_train, stats_val, stats_test)
-    else:
-        stats = None
-
-    train_data = covid_data[:TRAIN_SPLIT, :]
-    val_data = covid_data[TRAIN_SPLIT:VAL_SPLIT, :]
-    test_data = covid_data[VAL_SPLIT:, :]
-
-    # reshaping arrays:
-    train_data = np.reshape(train_data, newshape=(train_data.shape[0], train_data.shape[1], 1))
-    val_data = np.reshape(val_data, newshape=(val_data.shape[0], val_data.shape[1], 1))
-    test_data = np.reshape(test_data, newshape=(test_data.shape[0], test_data.shape[1], 1))
-
-    folder_path = os.path.dirname(arr_path)
-    train_data_path = os.path.join(folder_path, "train")
-    val_data_path = os.path.join(folder_path, "val")
-    test_data_path = os.path.join(folder_path, "test")
-    for path in [train_data_path, val_data_path, test_data_path]:
-        if not os.path.isdir(path):
-            os.makedirs(path)
-    np.save(os.path.join(train_data_path, "covid.npy"), train_data)
-    np.save(os.path.join(val_data_path, "covid.npy"), val_data)
-    np.save(os.path.join(test_data_path, "covid.npy"), test_data)
-    print("saving train, val and test sets in npy files...")
-    return train_data, val_data, test_data, stats
-
 def preprocess_m5_dataset(csv_path):
     df = pd.read_csv(csv_path)
     df = df.set_index(keys='id')

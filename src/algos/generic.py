@@ -102,14 +102,15 @@ class Algo:
         std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
         lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + factor * std_distrib
-        return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
+        #return tf.cast(lower_bounds, dtype=tf.float64), tf.cast(upper_bounds, dtype=tf.float64)
+        return lower_bounds, upper_bounds
 
     def compute_MPIW(self):
         inside_pi = 0
         lower_bounds, upper_bounds = self.compute_predictive_interval()
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
-        for (inp, _) in self.test_dataset: #TODO: here replace tar by input.
+        for (inp, _) in self.test_dataset:
             if len(tf.shape(inp)) == 4:
                 inp = tf.squeeze(inp, axis=1)
             for index in range(num_samples):

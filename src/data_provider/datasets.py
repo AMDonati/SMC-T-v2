@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import tensorflow as tf
-from src.preprocessing.utils import split_synthetic_dataset, split_covid_data
+from src.preprocessing.utils import split_synthetic_dataset
 from sklearn.preprocessing import StandardScaler
+import h5py
 
 class Dataset:
     def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None):
@@ -36,8 +37,11 @@ class Dataset:
 
     def get_datasets(self):
         train_data = self.get_data_from_folder(self.train_path)
+        train_data = train_data.astype(np.float32)
         val_data = self.get_data_from_folder(self.val_path)
+        val_data = val_data.astype(np.float32)
         test_data = self.get_data_from_folder(self.test_path)
+        test_data = test_data.astype(np.float32)
         return train_data, val_data, test_data
 
     def data_to_dataset(self, train_data, val_data, test_data, num_dim=4, with_lengths=False):
@@ -135,7 +139,14 @@ class Dataset:
 class CovidDataset(Dataset):
     def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None, target_features=None):
         super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features)
-        #TODO: have a stats npy file as well.
+        # load stats in memory.
+        stats_hf = h5py.File(os.path.join(data_path, "stats.h5"), 'r')
+        self.train_mean = self.load_data_from_h5(stats_hf.get('train_mean'))
+        self.train_std = self.load_data_from_h5(stats_hf.get('train_std'))
+        self.val_mean = self.load_data_from_h5(stats_hf.get('val_mean'))
+        self.val_std = self.load_data_from_h5(stats_hf.get('val_std'))
+        self.test_mean = self.load_data_from_h5(stats_hf.get('test_mean'))
+        self.test_std = self.load_data_from_h5(stats_hf.get('test_std'))
 
     def rescale_covid_data(self, data_sample, stats, index):
         data_mean, data_std = stats
@@ -143,6 +154,11 @@ class CovidDataset(Dataset):
         data_sample = std * data_sample + mean
         data_sample = data_sample.astype(np.int32)
         return data_sample
+
+    def load_data_from_h5(self, dataset):
+        arr = np.array(dataset, dtype=np.float32)
+        tensor = tf.constant(arr)
+        return tensor
 
     def get_data_sample_from_index(self, index, past_len, num_dim=4):
         _, _, test_data = self.get_datasets()
@@ -167,6 +183,7 @@ class StandardizedDataset(Dataset):
 
 
 if __name__ == '__main__':
+
     synthetic_dataset = Dataset(data_path='../../data/synthetic_model_1', BUFFER_SIZE=50, BATCH_SIZE=64)
     train_data, val_data, test_data = synthetic_dataset.get_datasets()
     print('train data shape', train_data.shape)
@@ -207,12 +224,23 @@ if __name__ == '__main__':
     target_features = list(range(5))
     air_quality_dataset = StandardizedDataset(data_path="../../data/air_quality", BATCH_SIZE=32, BUFFER_SIZE=500, name="air_quality", target_features=target_features)
     train_data, val_data, test_data = air_quality_dataset.get_datasets()
-    target_features = list(range(5))
     train_dataset, val_dataset, test_dataset = air_quality_dataset.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=4)
     for (inp, tar) in train_dataset.take(1):
         print('input example shape', inp.shape)
         print('input example', inp[0,:,:,0])
         print('target example shape', tar.shape)
         print('target example', tar[0,:,:,0])
+
+    # ------------------------------------------------ test Covid Dataset -----------------------------------------------------
+    covid_dataset = CovidDataset(data_path="../../data/covid", BATCH_SIZE=32)
+    train_mean = covid_dataset.train_mean
+    print("train_mean", train_mean.shape)
+    train_std = covid_dataset.train_std
+    print("train_std", train_std.shape)
+    train_data, val_data, test_data = covid_dataset.get_datasets()
+    print("train_data", train_data.shape)
+    train_dataset, val_dataset, test_dataset = covid_dataset.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data)
+    print('done')
+
 
 
