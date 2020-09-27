@@ -103,7 +103,7 @@ class Dataset:
         list_test_data = [test_data] * len(list_train_data)
         train_datasets, val_datasets, test_datasets = [], [], []
         for train_data, val_data, test_data in zip(list_train_data, list_val_data, list_test_data):
-            train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, target_feature=target_feature, num_dim=num_dim)
+            train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=num_dim)
             train_datasets.append(train_dataset)
             val_datasets.append(val_dataset)
             test_datasets.append(test_dataset)

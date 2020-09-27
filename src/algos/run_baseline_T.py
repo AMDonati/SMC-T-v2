@@ -1,4 +1,4 @@
-from src.utils.utils_train import CustomSchedule
+from src.utils.utils_train import CustomSchedule, write_to_csv
 import tensorflow as tf
 import os
 from src.models.Baselines.Transformer_without_enc import Transformer
@@ -28,6 +28,7 @@ class BaselineTAlgo(Algo):
                                        maximum_position_encoding=args.pe, rate=args.p_drop, full_model=args.full_model)
         self.p_drop = args.p_drop
         self.ckpt_manager, _ = self._load_ckpt()
+        self.distribution = True if self.p_drop > 0 else False
 
     def _MC_Dropout(self, inp_model, save_path=None):
         '''
@@ -76,7 +77,7 @@ class BaselineTAlgo(Algo):
         return preds_test_MC_Dropout
 
     def get_predictive_distribution(self):
-        if self.p_drop > 0:
+        if self.distribution:
             for (inp, _) in self.test_dataset:
                 mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=None)
                 print("shape of predictive distribution", mc_samples_uni.shape)
@@ -159,7 +160,7 @@ class BaselineTAlgo(Algo):
                     "training of a Baseline Transformer for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
 
-    def test(self, **kwargs):
+    def compute_test_loss(self, save_particles=True):
         for (inp, tar) in self.test_dataset:
             seq_len = tf.shape(inp)[-2]
             predictions_test, _ = self.transformer(inputs=inp,
@@ -167,9 +168,14 @@ class BaselineTAlgo(Algo):
                                                    mask=create_look_ahead_mask(seq_len))  # (B,S,F)
             loss_test = tf.keras.losses.MSE(tar, predictions_test)  # (B,S)
             loss_test = tf.reduce_mean(loss_test)
-        self.logger.info("test loss at the end of training: {}".format(loss_test))
+        return loss_test, predictions_test
 
-        if self.p_drop > 0:
+    def test(self, **kwargs):
+        test_metrics = {}
+        test_loss, predictions_test = self.compute_test_loss(kwargs["save_particles"])
+        test_metrics["test_loss"] = test_loss
+        self.logger.info("test loss at the end of training: {}".format(test_loss))
+        if self.distribution:
             self.get_predictive_distribution()
             if self.dataset.name == "synthetic":
                 self.logger.info("computing mean square error of predictive distribution...")
@@ -178,10 +184,16 @@ class BaselineTAlgo(Algo):
                     mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
                     mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
                 self.logger.info("mse predictive distribution: {}".format(mse))
+                test_metrics["mse"] = mse
             else:
                 self.logger.info("computing MPIW on test set...")
                 mpiw = self.compute_MPIW()
+                test_metrics["mpiw"] = mpiw
                 self.logger.info("MPIW on test set: {}".format(mpiw))
             # plot targets versus preds for test samples:
-            for _ in range(4):
-                self.plot_preds_targets(predictions_test=predictions_test)
+            if kwargs["plot"]:
+                for _ in range(4):
+                    self.plot_preds_targets(predictions_test=predictions_test)
+            if kwargs["save_metrics"]:
+                write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
+        return test_metrics

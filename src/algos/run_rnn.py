@@ -29,6 +29,7 @@ class RNNAlgo(Algo):
                                               rnn_drop_rate=args.rnn_drop,
                                               training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
+        self.distribution = True if self.p_drop > 0 else False
 
     def _create_out_folder(self, args):
         output_path = args.output_path
@@ -95,7 +96,7 @@ class RNNAlgo(Algo):
                 print("mc dropout samples multistep shape", mc_samples_multi.shape)
 
     def get_predictive_distribution(self):
-        if self.p_drop > 0:
+        if self.distribution:
             for (inp, _) in self.test_dataset:
                 mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inp, save_path=None)
                 print("shape of predictive distribution", mc_samples_uni.shape)
@@ -127,27 +128,9 @@ class RNNAlgo(Algo):
                     "training of a LSTM for train/val split number {} done...".format(num_train + 1))
                 self.logger.info('-' * 60)
 
-    def test(self, **kwargs):
+    def compute_test_loss(self, save_particles=True):
         for inp, tar in self.test_dataset:
             test_preds = self.lstm(inp)
             test_loss = tf.keras.losses.MSE(test_preds, tar)
             test_loss = tf.reduce_mean(test_loss)
-        self.logger.info("test loss: {}".format(test_loss))
-
-        if self.p_drop > 0:
-            self.get_predictive_distribution()
-            if self.dataset.name == "synthetic":
-                self.logger.info("computing mean square error of predictive distribution...")
-                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
-                if self.dataset.model == 2:
-                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
-                self.logger.info("mse predictive distribution: {}".format(mse))
-            else:
-                self.logger.info("computing MPIW on test set...")
-                mpiw = self.compute_MPIW()
-                self.logger.info("MPIW on test set: {}".format(mpiw))
-
-            # plot targets versus preds for test samples:
-            for _ in range(4):
-                self.plot_preds_targets(predictions_test=test_preds)
+        return test_loss, test_preds

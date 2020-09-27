@@ -8,7 +8,6 @@ from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class SMCTAlgo(Algo):
@@ -30,7 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                attn_window=args.attn_w)
-        self.smc = args.smc
+        self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
@@ -92,7 +91,7 @@ class SMCTAlgo(Algo):
                                   logger=self.logger,
                                   start_epoch=self.start_epoch,
                                   num_train=1)
-            if self.smc:
+            if self.distribution:
                 self.sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
                                                       [self.smc_transformer.cell.Sigma_obs.numpy(),
                                                        self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
@@ -117,7 +116,7 @@ class SMCTAlgo(Algo):
                                       logger=self.logger,
                                       start_epoch=start_epoch,
                                       num_train=num_train)
-                if self.smc:
+                if self.distribution:
                     sigmas_after_training = dict(zip(['sigma_obs', 'k', 'q', 'v', 'z'],
                                                      [self.smc_transformer.cell.Sigma_obs.numpy(),
                                                       self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
@@ -148,9 +147,11 @@ class SMCTAlgo(Algo):
             self.start_epoch = start_epoch
         else:
             start_epoch = 0
-        if self.save_path is not None:
+        if self.save_path is not None and self.distribution:
             # self._check_consistency_hparams(args)
-            with open(os.path.join(self.save_path, "sigmas_after_training.json")) as json_file:
+            sigma_file = "sigmas_after_training.json" if not self.cv else "sigmas_after_training_{}.json".format(
+                num_train)
+            with open(os.path.join(self.save_path, sigma_file)) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
             self._reinit_sigmas()
@@ -245,13 +246,13 @@ class SMCTAlgo(Algo):
                                           len_future=self.seq_len - 1)
             if kwargs["multistep"]:
                 distrib_multi = get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs,
-                                              P=self.smc_transformer.cell.num_particles,
-                                              save_path_distrib=save_path_distrib_multi,
-                                              len_future=self.seq_len - self.past_len) # shape (B,mc_samples,len_future, F)
+                                                          P=self.smc_transformer.cell.num_particles,
+                                                          save_path_distrib=save_path_distrib_multi,
+                                                          len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
 
     def get_predictive_distribution(self):
-        if self.smc:
+        if self.distribution:
             for (inp, tar) in self.test_dataset:
                 particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inp,
                                                           targets=tar,
@@ -276,9 +277,8 @@ class SMCTAlgo(Algo):
                                                'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
         return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
-    def test(self, **kwargs):
-        self.logger.info("computing test mse metric at the end of training...")
-        # computing loss on test_dataset:
+
+    def compute_test_loss(self, save_particles=True):
         for (inp, tar) in self.test_dataset:
             (preds_test, preds_test_resampl), _, _ = self.smc_transformer(inputs=inp,
                                                                           targets=tar)  # predictions test are the ones not resampled.
@@ -286,29 +286,10 @@ class SMCTAlgo(Algo):
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
             mean_preds = tf.reduce_mean(preds_test, axis=1)
-
-        self.logger.info("test mse metric from avg particle: {}".format(test_metric_avg_pred))
-
-        if self.smc:
-            self.get_predictive_distribution()
-            if self.dataset.name == "synthetic":
-                self.logger.info("computing mean square error of predictive distribution...")
-                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
-                if self.dataset.model == 2:
-                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
-                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
-                self.logger.info("mse predictive distribution: {}".format(mse))
-            else:
-                self.logger.info("computing MPIW on test set...")
-                mpiw = self.compute_MPIW()
-                self.logger.info("MPIW on test set: {}".format(mpiw))
-            if kwargs["save_particles"]:
-                np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
-                np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
-                print('preds particles shape', preds_test.shape)
-                print('preds particles resampled shape', preds_test_resampl.shape)
+        if save_particles:
+            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
+            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
+            print('preds particles shape', preds_test.shape)
+            print('preds particles resampled shape', preds_test_resampl.shape)
             self.logger.info("saving predicted particles on test set...")
-
-        # plot targets versus preds for test samples:
-        for _ in range(4):
-            self.plot_preds_targets(predictions_test=mean_preds)
+        return test_metric_avg_pred, mean_preds

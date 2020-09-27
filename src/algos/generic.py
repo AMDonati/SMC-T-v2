@@ -4,7 +4,7 @@ import tensorflow as tf
 import json
 import matplotlib.pyplot as plt
 import numpy as np
-
+from src.utils.utils_train import write_to_csv
 
 class Algo:
     def __init__(self, dataset, args):
@@ -21,11 +21,9 @@ class Algo:
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
         self.test_predictive_distribution = None
+        self.distribution = False
 
     def train(self):
-        pass
-
-    def test(self):
         pass
 
     def launch_inference(self, **kwargs):
@@ -148,3 +146,56 @@ class Algo:
         plt.legend(fontsize=10)
         plt.savefig(os.path.join(self.out_folder, "plot_test_preds_targets_sample{}".format(index)))
         plt.close()
+
+    def test_cv(self, **kwargs):
+        test_metrics_cv = {}
+        for num_train in range(5):
+            self.logger.info("-" * 20 + "Testing for test split number {}".format(num_train + 1) + "-" * 20)
+            self._load_ckpt(num_train=num_train + 1)
+            if num_train == 0:
+                test_metrics = self.test(**kwargs, save_particles=True, plot=True, save_metrics=False)
+            else:
+                test_metrics = self.test(**kwargs, save_particles=False, plot=False, save_metrics=False)
+            self.logger.info("-" * 60)
+            for key, metric in test_metrics.items():
+                test_metrics_cv[key + '{}'.format(num_train + 1)] = metric
+        test_losses, test_mse = [], []
+        for key, val in test_metrics_cv.items():
+            if "test_loss" in key:
+                test_losses.append(val)
+            else:
+                test_mse.append(val)
+        test_metrics_cv["test_loss_mean"] = np.mean(test_losses)
+        test_metrics_cv["test_loss_std"] = np.std(test_losses)
+        test_metrics_cv["mse_mean"] = np.mean(test_mse)
+        test_metrics_cv["mse_std"] = np.std(test_mse)
+        write_to_csv(output_dir=os.path.join(self.out_folder, "test_metrics.csv"), dic=test_metrics_cv)
+        return test_metrics_cv
+
+    def test(self, **kwargs):
+        test_metrics = {}
+        test_loss, predictions_test = self.compute_test_loss(kwargs["save_particles"])
+        test_metrics["test_loss"] = test_loss.numpy()
+        self.logger.info("test loss at the end of training: {}".format(test_loss))
+        if self.distribution:
+            self.get_predictive_distribution()
+            if self.dataset.name == "synthetic":
+                self.logger.info("computing mean square error of predictive distribution...")
+                mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
+                if self.dataset.model == 2:
+                    mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
+                    mse = kwargs["p"] * mse + (1-kwargs["p"]) * mse_2
+                self.logger.info("mse predictive distribution: {}".format(mse))
+                test_metrics["mse"] = mse.numpy()
+            else:
+                self.logger.info("computing MPIW on test set...")
+                mpiw = self.compute_MPIW()
+                test_metrics["mpiw"] = mpiw.numpy()
+                self.logger.info("MPIW on test set: {}".format(mpiw))
+            # plot targets versus preds for test samples:
+            if kwargs["plot"]:
+                for _ in range(4):
+                    self.plot_preds_targets(predictions_test=predictions_test)
+            if kwargs["save_metrics"]:
+                write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
+        return test_metrics

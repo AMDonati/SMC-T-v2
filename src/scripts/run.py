@@ -86,11 +86,17 @@ if __name__ == '__main__':
                                       name=args.dataset)
 
     algo = algos[args.algo](dataset=dataset, args=args)
+
     if args.ep > 0:
         algo.train()
     else:
         print("skipping training...")
-    algo.test(alpha=args.alpha, beta=args.beta, p=args.p, save_particles=True)
+
+    if not args.cv:
+        test_metrics = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, save_particles=True, plot=True, save_metrics=True)
+    else:
+        test_metrics = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p)
+
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
                               p=args.p)
