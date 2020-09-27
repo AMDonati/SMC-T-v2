@@ -5,6 +5,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from src.utils.utils_train import write_to_csv
+import time
 
 class Algo:
     def __init__(self, dataset, args):
@@ -105,6 +106,7 @@ class Algo:
         return lower_bounds, upper_bounds, MPIW
 
     def compute_PICP_MPIW(self):
+        start_time = time.time()
         inside_pi = 0
         lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval()
         seq_len = lower_bounds.shape[1]
@@ -112,17 +114,18 @@ class Algo:
         for (inp, _) in self.test_dataset:
             if len(tf.shape(inp)) == 4:
                 inp = tf.squeeze(inp, axis=1)
-                inp = inp[:,:,:len(self.dataset.target_features)] # taking only the target features.
-            for index in range(num_samples):
-                for t in range(seq_len):
-                    item = inp[index, t, :]  # shape (F)
-                    low_b = lower_bounds[index, t]
-                    upper_b = upper_bounds[index, t]
-                    bool_low = tf.math.reduce_all(tf.math.greater_equal(item, low_b))
-                    bool_up = tf.math.reduce_all(tf.math.greater_equal(upper_b, item))
-                    if bool_low and bool_up:
-                        inside_pi += 1
+            inp = inp[:,:,:len(self.dataset.target_features)] # taking only the target features.
+            for t in range(seq_len):
+                item = inp[:, t, :]  # shape (B,F)
+                low_b = lower_bounds[:, t, :]  # (B,F)
+                upper_b = upper_bounds[:, t, :]
+                bool_low = tf.math.reduce_all(tf.math.greater_equal(item, low_b), axis=1)  # B
+                bool_up = tf.math.reduce_all(tf.math.greater_equal(upper_b, item), axis=1)  # B
+                prod_bool = tf.math.multiply(tf.cast(bool_up, dtype=tf.float32), tf.cast(bool_low, dtype=tf.float32))  # (B) equal to True only if both are True.
+                num_inside_pi = tf.reduce_sum(prod_bool)
+                inside_pi += num_inside_pi
         PICP = inside_pi / (seq_len * num_samples)
+        print("PCIP computation time", time.time() - start_time)
         return PICP, MPIW
 
     def plot_preds_targets(self, predictions_test):
