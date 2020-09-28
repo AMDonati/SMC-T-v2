@@ -34,6 +34,8 @@ class SMCTAlgo(Algo):
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
         self.ckpt_manager, _ = self._load_ckpt()
+        assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
+        self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -251,7 +253,7 @@ class SMCTAlgo(Algo):
                                                           len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
 
-    def get_predictive_distribution(self):
+    def get_predictive_distribution(self, save_path): #TODO: add option to save_distrib.
         if self.distribution:
             for (inp, tar) in self.test_dataset:
                 particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inp,
@@ -260,23 +262,40 @@ class SMCTAlgo(Algo):
                 sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
                 distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
                                                                  P=self.smc_transformer.cell.num_particles,
-                                                                 save_path_distrib=None,
+                                                                 save_path_distrib=save_path,
                                                                  N_est=self.mc_samples,
                                                                  len_future=self.seq_len)
                 distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
             self.test_predictive_distribution = distrib_per_timestep
 
-    def _get_inference_paths(self, index):
-        save_path_means = os.path.join(self.inference_path, 'mean_preds_sample_{}.npy'.format(index))
-        save_path_means_multi = os.path.join(self.inference_path, 'mean_preds_sample_{}_multi.npy'.format(index))
-        save_path_preds_multi = os.path.join(self.inference_path, 'particules_sample_{}_multi.npy'.format(index))
-        save_path_distrib = os.path.join(self.inference_path,
-                                         'distrib_future_timesteps_sample_{}.npy'.format(
-                                             index))
-        save_path_distrib_multi = os.path.join(self.inference_path,
-                                               'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
-        return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
+    def get_predictive_distribution_multistep(self, save_path):
+        if self.distribution:
+            for (inputs, targets) in self.test_dataset:
+                inp, tar = inputs[:,:,:self.past_len,:], targets[:,:,:self.past_len,:]
+                if self.output_size < self.num_features:
+                    future_input_features = inputs[:,:,self.past_len:,len(self.dataset.target_features):]
+                else:
+                    future_input_features = None
+                particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp, targets=tar, past_len=self.past_len, future_len=self.future_len, future_input_features=future_input_features)
+                sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
+                distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
+                                                                 P=self.smc_transformer.cell.num_particles,
+                                                                 save_path_distrib=save_path,
+                                                                 N_est=self.mc_samples,
+                                                                 len_future=self.future_len)
+                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+            self.test_predictive_distribution_multistep = distrib_per_timestep
 
+    # def _get_inference_paths(self, index):
+    #     save_path_means = os.path.join(self.inference_path, 'mean_preds_sample_{}.npy'.format(index))
+    #     save_path_means_multi = os.path.join(self.inference_path, 'mean_preds_sample_{}_multi.npy'.format(index))
+    #     save_path_preds_multi = os.path.join(self.inference_path, 'particules_sample_{}_multi.npy'.format(index))
+    #     save_path_distrib = os.path.join(self.inference_path,
+    #                                      'distrib_future_timesteps_sample_{}.npy'.format(
+    #                                          index))
+    #     save_path_distrib_multi = os.path.join(self.inference_path,
+    #                                            'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
+    #     return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
     def compute_test_loss(self, save_particles=True):
         for (inp, tar) in self.test_dataset:

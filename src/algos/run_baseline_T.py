@@ -29,6 +29,8 @@ class BaselineTAlgo(Algo):
         self.p_drop = args.p_drop
         self.ckpt_manager, _ = self._load_ckpt()
         self.distribution = True if self.p_drop > 0 else False
+        assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
+        self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
 
     def _MC_Dropout(self, inp_model, save_path=None):
         '''
@@ -50,7 +52,7 @@ class BaselineTAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout)
         return predictions_test_MC_Dropout
 
-    def _MC_Dropout_multistep(self, inp_model, len_future=None, save_path=None):
+    def _MC_Dropout_multistep(self, inp_model, future_input_features=None, len_future=None, save_path=None):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -66,32 +68,19 @@ class BaselineTAlgo(Algo):
                 seq_len = tf.shape(inp)[-2]
                 preds_test, _ = self.transformer(inputs=inp,
                                                  training=True,
-                                                 mask=create_look_ahead_mask(seq_len))  # (B,S,1)
-                last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
-                inp = tf.concat([inp, last_pred], axis=1)
-            list_predictions.append(preds_test)
-        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # (B,S,N)
+                                                 mask=create_look_ahead_mask(seq_len))  # (B,S,F)
+                last_pred = preds_test[:, -1, :] # (B,F)
+                if t < len_future:
+                    if future_input_features is not None:
+                        last_pred = tf.concat([last_pred, future_input_features[:, t, :]], axis=-1)
+                    last_pred = tf.expand_dims(last_pred, axis=-2)
+                    inp = tf.concat([inp, last_pred], axis=1)
+            list_predictions.append(preds_test[:, self.past_len:, :])
+        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # (B,N,S)
         print('mc dropout multistep done')
         if save_path is not None:
             np.save(save_path, preds_test_MC_Dropout)
         return preds_test_MC_Dropout
-
-    def get_predictive_distribution(self):
-        if self.distribution:
-            for (inp, _) in self.test_dataset:
-                mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=None)
-                print("shape of predictive distribution", mc_samples_uni.shape)
-            self.test_predictive_distribution = mc_samples_uni
-
-    def launch_inference(self, **kwargs):
-        mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
-        for (inp, _) in self.test_dataset:
-            mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=mc_dropout_unistep_path)
-            print("mc dropout samples unistep shape", mc_samples_uni.shape)
-            if kwargs["multistep"]:
-                mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],
-                                                              save_path=mc_dropout_multistep_path)
-                print("mc dropout samples multistep shape", mc_samples_multi.shape)
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -107,7 +96,7 @@ class BaselineTAlgo(Algo):
                 os.makedirs(output_folder)
             return output_folder
 
-    def _load_ckpt(self, num_train=1): #TODO: check checkpoint loading here.
+    def _load_ckpt(self, num_train=1):
         # creating checkpoint manager
         ckpt = tf.train.Checkpoint(transformer=self.transformer,
                                    optimizer=self.optimizer)

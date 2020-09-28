@@ -57,9 +57,14 @@ if __name__ == '__main__':
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
     parser.add_argument("-past_len", type=int, default=10, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-future_len", type=int, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
     parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
+    # misc:
+    parser.add_argument("-save_distrib", type=str2bool, default=True, help="save predictive distribution on test set.")
+    parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
+    parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
 
     args = parser.parse_args()
 
@@ -94,9 +99,9 @@ if __name__ == '__main__':
         print("skipping training...")
 
     if not args.cv:
-        test_metrics = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, save_particles=True, plot=True, save_metrics=True)
+        test_metrics = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, save_particles=args.save_particles, plot=args.save_plot, save_distrib=args.save_distrib, save_metrics=True)
     else:
-        test_metrics = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p)
+        test_metrics = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
 
     if args.inference:
         algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,

@@ -30,6 +30,7 @@ class RNNAlgo(Algo):
                                               training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.distribution = True if self.p_drop > 0 else False
+        self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
         self._load_ckpt()
 
     def _create_out_folder(self, args):
@@ -54,7 +55,7 @@ class RNNAlgo(Algo):
             self.logger.info("loading latest checkpoint from {}".format(latest))
             self.lstm.load_weights(latest)
 
-    def _MC_Dropout_LSTM(self, inp_model, save_path=None):
+    def _MC_Dropout(self, inp_model, save_path=None):
         '''
         :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
         :param inp_model: array of shape (B,S,F)
@@ -71,7 +72,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout)
         return predictions_test_MC_Dropout
 
-    def _MC_Dropout_LSTM_multistep(self, inp_model, len_future=None, save_path=None):
+    def _MC_Dropout_multistep(self, inp_model, future_input_features=None, len_future=None, save_path=None):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -85,33 +86,18 @@ class RNNAlgo(Algo):
             inp = inp_model
             for t in range(len_future + 1):
                 preds_test = self.lstm(inputs=inp)  # (B,S,1)
-                last_pred = tf.expand_dims(preds_test[:, -1, :], axis=-2)
-                inp = tf.concat([inp, last_pred], axis=1)
-            list_predictions.append(preds_test)
+                last_pred = preds_test[:, -1, :]
+                if t < len_future:
+                    if future_input_features is not None:
+                        last_pred = tf.concat([last_pred, future_input_features[:,t,:]], axis=-1)
+                    last_pred = tf.expand_dims(last_pred, axis=-2)
+                    inp = tf.concat([inp, last_pred], axis=1)
+            list_predictions.append(preds_test[:,self.past_len:, :])
         preds_test_MC_Dropout = tf.stack(list_predictions, axis=1)
         print('mc dropout LSTM multistep done')
         if save_path is not None:
             np.save(save_path, preds_test_MC_Dropout)
         return preds_test_MC_Dropout
-
-    def launch_inference(self, **kwargs):
-        mc_dropout_unistep_path, mc_dropout_multistep_path = self._get_inference_paths()
-        if self.test_predictive_distribution is None:
-            self.get_predictive_distribution()
-        np.save(mc_dropout_unistep_path, self.test_predictive_distribution)
-        print("mc dropout samples unistep shape", self.test_predictive_distribution.shape)
-
-        if kwargs["multistep"]:
-            for (inputs, _) in self.test_dataset:
-                mc_samples_multi = self._MC_Dropout_LSTM_multistep(inp_model=inputs[:, :self.past_len, :], save_path=mc_dropout_multistep_path)
-                print("mc dropout samples multistep shape", mc_samples_multi.shape)
-
-    def get_predictive_distribution(self):
-        if self.distribution:
-            for (inp, _) in self.test_dataset:
-                mc_samples_uni = self._MC_Dropout_LSTM(inp_model=inp, save_path=None)
-                print("shape of predictive distribution", mc_samples_uni.shape)
-            self.test_predictive_distribution = mc_samples_uni
 
     def train(self):
         if not self.cv:

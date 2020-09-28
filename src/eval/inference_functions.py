@@ -16,24 +16,27 @@ def inference_onestep(smc_transformer, inputs, targets, save_path, past_len=40):
         np.save(save_path, mean_preds)
     return preds_future, mean_preds
 
-def inference_multistep(smc_transformer, test_sample, save_path=None, save_path_preds=None, past_len=40, future_len=20):
+def inference_multistep(smc_transformer, inputs, targets, future_input_features=None, past_len=40, future_len=20, save_path=None, save_path_preds=None):
     P = smc_transformer.cell.num_particles
     sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
     # forward pass on test_sample_past
-    inp, tar = split_input_target(test_sample[:, :, :past_len + 1, :])
     smc_transformer.seq_len = past_len
     smc_transformer.cell.add_stop_resampling(past_len)
     for i in range(future_len+1):
-        (preds, _), _, _ = smc_transformer(inp, tar)  # K,V shape (1, P, 40, D)
+        (preds, _), _, _ = smc_transformer(inputs, targets)  # K,V shape (1, P, 40, D)
         last_pred = preds[:,:,-1,:]
         last_pred = last_pred + tf.random.normal(shape=last_pred.shape, stddev=sigma_obs)
-        last_pred = tf.expand_dims(last_pred, axis=-2)
         if i == 0:
-            inp = tf.tile(inp, multiples=[1,P,1,1])
-            tar = tf.tile(tar, multiples=[1,P,1,1])
-        inp = tf.concat([inp, last_pred], axis=-2)
-        tar = tf.concat([tar, tf.zeros(shape=(tar.shape[0], tar.shape[1], 1, tar.shape[-1]))], axis=-2)
-        smc_transformer.seq_len += 1
+            inputs = tf.tile(inputs, multiples=[1,P,1,1])
+            targets = tf.tile(targets, multiples=[1,P,1,1])
+        if i < future_len:
+            if future_input_features is not None:
+                input_features = tf.tile(future_input_features[:,:,i,:], multiples=[1,P,1])
+                last_pred = tf.concat([last_pred, input_features], axis=-1)
+            last_pred = tf.expand_dims(last_pred, axis=-2)
+            inputs = tf.concat([inputs, last_pred], axis=-2)
+            targets = tf.concat([targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]))], axis=-2) # dummy target (not used when resampling is stopped.)
+            smc_transformer.seq_len += 1
     mean_preds = tf.reduce_mean(preds, axis=1)
     preds_future = preds[:,:,past_len:,:]
     if save_path is not None:
@@ -57,9 +60,9 @@ def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, N_est=10, 
 
 def get_empirical_distrib(mean_NP, sigma_obs, N_est, P):
     emp_distrib = []
-    for i in range(N_est):
+    for i in range(N_est): #TODO: parallelize the process.
         ind_p = np.random.randint(0, P)
-        sampled_mean = mean_NP[:, ind_p,:]
+        sampled_mean = mean_NP[:, ind_p, :]
         sample = sampled_mean + tf.random.normal(shape=sampled_mean.shape, stddev=sigma_obs)
         emp_distrib.append(sample)
     emp_distrib = np.stack(emp_distrib, axis=0)

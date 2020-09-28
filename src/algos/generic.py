@@ -5,7 +5,6 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from src.utils.utils_train import write_to_csv
-import time
 
 class Algo:
     def __init__(self, dataset, args):
@@ -22,13 +21,8 @@ class Algo:
         self.mc_samples = args.mc_samples
         self.past_len = args.past_len
         self.test_predictive_distribution = None
+        self.test_predictive_distribution_multistep = None
         self.distribution = False
-
-    def train(self):
-        pass
-
-    def launch_inference(self, **kwargs):
-        pass
 
     def create_logger(self):
         out_file_log = os.path.join(self.out_folder, 'training_log.log')
@@ -82,9 +76,28 @@ class Algo:
         self.inference_path = os.path.join(self.out_folder, "inference_results")
         if not os.path.isdir(self.inference_path):
             os.makedirs(self.inference_path)
-        mc_dropout_unistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_unistep.npy')
-        mc_dropout_multistep_path = os.path.join(self.inference_path, 'mc_dropout_samples_test_data_multistep.npy')
-        return mc_dropout_unistep_path, mc_dropout_multistep_path
+        distrib_unistep_path = os.path.join(self.inference_path, 'distrib_unistep.npy')
+        distrib_multistep_path = os.path.join(self.inference_path, 'distrib_multistep.npy')
+        return distrib_unistep_path, distrib_multistep_path
+
+    def get_predictive_distribution(self, save_path):
+        if self.distribution:
+            for (inp, _) in self.test_dataset:
+                mc_samples_uni = self._MC_Dropout(inp_model=inp, save_path=save_path)
+                print("shape of predictive distribution", mc_samples_uni.shape)
+            self.test_predictive_distribution = mc_samples_uni
+
+    def get_predictive_distribution_multistep(self, save_path):
+        if self.distribution:
+            for (inp, _) in self.test_dataset:
+                if self.output_size < self.num_features:
+                    future_input_features = inp[:,self.past_len:,len(self.dataset.target_features):]
+                else:
+                    future_input_features = None
+                mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],
+                                                              save_path=save_path, len_future=self.future_len, future_input_features=future_input_features)
+                print("shape of predictive distribution multistep", mc_samples_multi.shape)
+            self.test_predictive_distribution_multistep = mc_samples_multi
 
     def compute_mse_predictive_distribution(self, alpha):
         for (inp, _) in self.test_dataset:
@@ -95,26 +108,25 @@ class Algo:
             mse = tf.reduce_mean(mse)
         return mse
 
-    def compute_predictive_interval(self, factor=1.96):
-        assert self.test_predictive_distribution is not None, "error in predictive intervals computation"
-        mean_distrib = tf.reduce_mean(self.test_predictive_distribution, axis=1)
-        std_distrib = tf.math.reduce_std(self.test_predictive_distribution, axis=1)
+    def compute_predictive_interval(self, predictive_distribution, factor=1.96):
+        assert predictive_distribution is not None, "error in predictive intervals computation"
+        mean_distrib = tf.reduce_mean(predictive_distribution, axis=1)
+        std_distrib = tf.math.reduce_std(predictive_distribution, axis=1)
         lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + factor * std_distrib
         piw = upper_bounds - lower_bounds
         MPIW = tf.reduce_mean(piw)
         return lower_bounds, upper_bounds, MPIW
 
-    def compute_PICP_MPIW(self):
-        start_time = time.time()
+    def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
         inside_pi = 0
-        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval()
+        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval(predictive_distribution)
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
         for (inp, _) in self.test_dataset:
             if len(tf.shape(inp)) == 4:
                 inp = tf.squeeze(inp, axis=1)
-            inp = inp[:,:,:len(self.dataset.target_features)] # taking only the target features.
+            inp = inp[:,past_len:,:len(self.dataset.target_features)] # taking only the target features.
             for t in range(seq_len):
                 item = inp[:, t, :]  # shape (B,F)
                 low_b = lower_bounds[:, t, :]  # (B,F)
@@ -125,7 +137,6 @@ class Algo:
                 num_inside_pi = tf.reduce_sum(prod_bool)
                 inside_pi += num_inside_pi
         PICP = inside_pi / (seq_len * num_samples)
-        print("PCIP computation time", time.time() - start_time)
         return PICP, MPIW
 
     def plot_preds_targets(self, predictions_test):
@@ -158,9 +169,9 @@ class Algo:
             self.logger.info("-" * 20 + "Testing for test split number {}".format(num_train + 1) + "-" * 20)
             self._load_ckpt(num_train=num_train + 1)
             if num_train == 0:
-                test_metrics = self.test(**kwargs, save_particles=True, plot=True, save_metrics=False)
+                test_metrics = self.test(**kwargs, save_particles=True, plot=True, save_metrics=False, save_distrib=True)
             else:
-                test_metrics = self.test(**kwargs, save_particles=False, plot=False, save_metrics=False)
+                test_metrics = self.test(**kwargs, save_particles=False, plot=False, save_metrics=False, save_distrib=False)
             self.logger.info("-" * 60)
             for key, metric in test_metrics.items():
                 test_metrics_cv[key + '{}'.format(num_train + 1)] = metric
@@ -184,7 +195,11 @@ class Algo:
         test_metrics["test_loss"] = test_loss.numpy()
         self.logger.info("test loss at the end of training: {}".format(test_loss))
         if self.distribution:
-            self.get_predictive_distribution()
+            if kwargs["save_distrib"]:
+                distrib_unistep_path, distrib_multistep_path = self._get_inference_paths()
+            else:
+                distrib_unistep_path, distrib_multistep_path = None, None
+            self.get_predictive_distribution(save_path=distrib_unistep_path)
             if self.dataset.name == "synthetic":
                 self.logger.info("computing mean square error of predictive distribution...")
                 mse = self.compute_mse_predictive_distribution(alpha=kwargs["alpha"])
@@ -195,11 +210,19 @@ class Algo:
                 test_metrics["mse"] = mse.numpy()
             else:
                 self.logger.info("computing MPIW on test set...")
-                PICP, MPIW = self.compute_PICP_MPIW()
+                PICP, MPIW = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution)
                 test_metrics["MPIW"] = MPIW.numpy()
-                test_metrics["PICP"] = PICP
+                test_metrics["PICP"] = PICP.numpy()
                 self.logger.info("MPIW on test set: {}".format(MPIW))
                 self.logger.info("PICP 0.95 on test set: {}".format(PICP))
+                if kwargs["multistep"]:
+                    self.logger.info("computing multistep MPIW on test set...")
+                    self.get_predictive_distribution_multistep(save_path=distrib_multistep_path)
+                    PICP_multi, MPIW_multi = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len)
+                    test_metrics["MPIW_multistep"] = MPIW_multi.numpy()
+                    test_metrics["PICP_multistep"] = PICP_multi.numpy()
+                    self.logger.info("MPIW multistep on test set: {}".format(MPIW_multi))
+                    self.logger.info("PICP multistep 0.95 on test set: {}".format(PICP_multi))
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):
