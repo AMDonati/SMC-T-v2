@@ -60,6 +60,7 @@ if __name__ == '__main__':
     parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
     parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
+
     args = parser.parse_args()
 
     if not args.smc:
