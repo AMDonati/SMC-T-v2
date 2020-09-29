@@ -4,6 +4,7 @@ from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
+from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 
 if __name__ == '__main__':
     #  trick for boolean parser args.
@@ -18,7 +19,7 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo}
+    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo, "bayesian_lstm": BayesianRNNAlgo}
 
     parser = argparse.ArgumentParser()
     # data parameters:
@@ -43,6 +44,10 @@ if __name__ == '__main__':
     parser.add_argument("-rnn_units", type=int, default=8, help="number of rnn units")
     parser.add_argument("-p_drop", type=float, default=0., help="dropout on output layer")
     parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
+    parser.add_argument("-prior_sigma_1", type=float, default=0.1, help="prior sigma param for Bayesian LSTM.")
+    parser.add_argument("-prior_sigma_2", type=float, default=0.002, help="prior sigma param for Bayesian LSTM.")
+    parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
+    parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
     # training params.
     parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
@@ -68,8 +73,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if not args.smc:
-        assert args.particles == (1 or None)
+    #if not args.smc:
+        #assert args.particles == (1 or None)
 
     list_samples = [72, 2]
 
@@ -103,6 +108,6 @@ if __name__ == '__main__':
     else:
         test_metrics = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
 
-    if args.inference:
-        algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
-                              p=args.p)
+    # if args.inference:
+    #     algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
+    #                           p=args.p)

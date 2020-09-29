@@ -108,12 +108,12 @@ class Algo:
             mse = tf.reduce_mean(mse)
         return mse
 
-    def compute_predictive_interval(self, predictive_distribution, factor=1.96):
+    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96):
         assert predictive_distribution is not None, "error in predictive intervals computation"
         mean_distrib = tf.reduce_mean(predictive_distribution, axis=1)
         std_distrib = tf.math.reduce_std(predictive_distribution, axis=1)
-        lower_bounds = mean_distrib - factor * std_distrib  # shape(B,S,F)
-        upper_bounds = mean_distrib + factor * std_distrib
+        lower_bounds = mean_distrib - std_multiplier * std_distrib  # shape(B,S,F)
+        upper_bounds = mean_distrib + std_multiplier * std_distrib
         piw = upper_bounds - lower_bounds
         MPIW = tf.reduce_mean(piw)
         return lower_bounds, upper_bounds, MPIW
@@ -193,7 +193,7 @@ class Algo:
         test_metrics = {}
         test_loss, predictions_test = self.compute_test_loss(kwargs["save_particles"])
         test_metrics["test_loss"] = test_loss.numpy()
-        self.logger.info("test loss at the end of training: {}".format(test_loss))
+        self.logger.info("test loss at the end of training: {}".format(test_loss.numpy()))
         if self.distribution:
             if kwargs["save_distrib"]:
                 distrib_unistep_path, distrib_multistep_path = self._get_inference_paths()
@@ -206,7 +206,7 @@ class Algo:
                 if self.dataset.model == 2:
                     mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
                     mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
-                self.logger.info("mse predictive distribution: {}".format(mse))
+                self.logger.info("mse predictive distribution: {}".format(mse.numpy()))
                 test_metrics["mse"] = mse.numpy()
             else:
                 self.logger.info("computing MPIW on test set...")

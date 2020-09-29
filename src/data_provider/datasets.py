@@ -44,6 +44,15 @@ class Dataset:
         test_data = test_data.astype(np.float32)
         return train_data, val_data, test_data
 
+    def get_features_labels(self, train_data, val_data, test_data):
+        x_train, y_train = self.split_fn(train_data)
+        x_val, y_val = self.split_fn(val_data)
+        x_test, y_test = self.split_fn(test_data)
+        y_train = y_train[:, :, self.target_features]
+        y_val = y_val[:, :, self.target_features]
+        y_test = y_test[:, :, self.target_features]
+        return (x_train, y_train), (x_val, y_val), (x_test, y_test)
+
     def data_to_dataset(self, train_data, val_data, test_data, num_dim=4, with_lengths=False):
         '''
         :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
@@ -55,19 +64,14 @@ class Dataset:
         input data:  batches of train data > shape (B, S+1, F) > S+1 because the data is split in the SMC_Transformer.Py script.
         target data: shape (B,S,1) > univariate ts to be predicted (shifted from one timestep compared to the input data).
         '''
-        x_train, y_train = self.split_fn(train_data)
-        x_val, y_val = self.split_fn(val_data)
-        x_test, y_test = self.split_fn(test_data)
+
+        (x_train, y_train), (x_val, y_val), (x_test, y_test) = self.get_features_labels(train_data=train_data, val_data=val_data, test_data=test_data)
 
         if with_lengths:
             lengths_train = x_train.shape[1] * np.ones(
                 shape=x_train.shape[0])  # tensor with value seq_len of size batch_size.
             lengths_val = x_val.shape[1] * np.ones(shape=x_val.shape[0])
             lengths_test = x_test.shape[1] * np.ones(x_test.shape[0])
-
-        y_train = y_train[:, :, self.target_features]
-        y_val = y_val[:, :, self.target_features]
-        y_test = y_test[:, :, self.target_features]
 
         if num_dim == 4:
             # adding the particle dim:
