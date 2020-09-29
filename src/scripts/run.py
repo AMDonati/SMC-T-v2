@@ -73,9 +73,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #if not args.smc:
-        #assert args.particles == (1 or None)
-
     list_samples = [72, 2]
 
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
