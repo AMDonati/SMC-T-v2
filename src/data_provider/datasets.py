@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import h5py
 
 class Dataset:
-    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None):
+    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None, max_size_test=3000):
         self.data_path = data_path
         self.data_arr = self.get_data_from_folder(self.data_path)
         self.train_path = os.path.join(data_path, "train")
@@ -17,6 +17,7 @@ class Dataset:
         self.name = name
         self.model = model
         self.target_features = list(range(self.data_arr.shape[-1])) if target_features is None else target_features
+        self.max_size_test = max_size_test
 
     def split_fn(self, chunk):
         input_text = chunk[:, :-1, :]
@@ -41,6 +42,9 @@ class Dataset:
         val_data = self.get_data_from_folder(self.val_path)
         val_data = val_data.astype(np.float32)
         test_data = self.get_data_from_folder(self.test_path)
+        if test_data.shape[0] > self.max_size_test:
+            test_data = test_data[:self.max_size_test] # to avoid memory issues at test time.
+            print("reducing test dataset size to {} samples...".format(self.max_size_test))
         test_data = test_data.astype(np.float32)
         return train_data, val_data, test_data
 

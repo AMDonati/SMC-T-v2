@@ -33,9 +33,13 @@ class Plot:
         transf_path = os.path.join(self.output_path, "baseline_t")
         bayes_path = os.path.join(self.output_path, "bayesian_lstm")
         self.smc_distrib = self.dataset.get_data_from_folder(smc_t_path)
+        print("smc-t distrib shape", self.smc_distrib.shape)
         self.lstm_distrib = self.dataset.get_data_from_folder(lstm_path)
+        print("lstm distrib shape", self.lstm_distrib.shape)
         self.transf_distrib = self.dataset.get_data_from_folder(transf_path)
+        print("transformer distrib shape", self.transf_distrib.shape)
         self.bayes_distrib = self.dataset.get_data_from_folder(bayes_path)
+        print("bayes distrib shape", self.bayes_distrib.shape)
 
     def get_true_CI(self, index, tsp):
         mean = np.squeeze(self.test_data[index, tsp])
