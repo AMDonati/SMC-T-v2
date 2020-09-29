@@ -112,6 +112,7 @@ class BayesianRNNAlgo(Algo):
         train_mse_history, val_mse_history = [], []
         for epoch in range(self.EPOCHS):
             for i, (datapoints, labels) in enumerate(self.train_dataset):
+                datapoints, labels = datapoints.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
                 loss = self.bayesian_lstm.sample_elbo(inputs=datapoints,
                                                       labels=labels,
