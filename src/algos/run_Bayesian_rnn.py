@@ -16,16 +16,18 @@ class BayesianRNNAlgo(Algo):
         self.lr = args.lr
         self.EPOCHS = args.ep
         self.criterion = nn.MSELoss()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.bayesian_lstm = BayesianLSTMModel(input_size=self.num_features, rnn_units=args.rnn_units,
                                                output_size=self.output_size, prior_sigma_1=args.prior_sigma_1,
                                                prior_sigma_2=args.prior_sigma_2, prior_pi=args.prior_pi,
-                                               posterior_rho_init=args.posterior_rho)
+                                               posterior_rho_init=args.posterior_rho).to(self.device)
         self.optimizer = optim.Adam(self.bayesian_lstm.parameters(), lr=self.lr)
         self.sample_nbr = args.particles
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
         self.save_hparams(args=args)
         self.distribution = True
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def create_torch_datasets(self, args):
         train_data, val_data, test_data = self.dataset.get_datasets()
@@ -65,6 +67,7 @@ class BayesianRNNAlgo(Algo):
             return output_folder
 
     def get_mse(self, dataset):
+        self.bayesian_lstm.eval()
         losses = []
         with torch.no_grad():
             for (X, y) in dataset:
@@ -80,6 +83,7 @@ class BayesianRNNAlgo(Algo):
         return torch.tensor(test_loss).float(), preds.cpu().detach().numpy()
 
     def get_predictive_distribution(self, save_path):
+        self.bayesian_lstm.eval()
         with torch.no_grad():
             for (X_test, y_test) in self.test_dataset:
                 preds = [self.bayesian_lstm(X_test) for _ in range(self.mc_samples)]
@@ -88,19 +92,22 @@ class BayesianRNNAlgo(Algo):
         self.test_predictive_distribution = preds
 
     def compute_mse_predictive_distribution(self, alpha):
-        for (X_test, _) in self.test_dataset:
-            X_test = torch.unsqueeze(X_test, dim=1)
-            X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1,1])
-            mse = self.criterion(self.test_predictive_distribution, alpha*X_test_tiled)
-            return mse
+        self.bayesian_lstm.eval()
+        with torch.no_grad():
+            for (X_test, _) in self.test_dataset:
+                X_test = torch.unsqueeze(X_test, dim=1)
+                X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1,1])
+                mse = self.criterion(self.test_predictive_distribution, alpha*X_test_tiled).cpu()
+        return mse
 
     def train(self, num_train=1):
         iteration = 0
         print('testing forward pass...')
-        for (X_test, y_test) in self.test_dataset:
-            preds_test = self.bayesian_lstm(X_test)
-            print('preds test shape', preds_test.shape)
-            print('preds test example', preds_test[0, :, 0])
+        with torch.no_grad():
+            for (X_test, y_test) in self.test_dataset:
+                preds_test = self.bayesian_lstm(X_test)
+                print('preds test shape', preds_test.cpu().shape)
+                print('preds test example', preds_test.cpu().numpy()[0, :, 0])
 
         train_mse_history, val_mse_history = [], []
         for epoch in range(self.EPOCHS):
