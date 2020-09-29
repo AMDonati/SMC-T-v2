@@ -42,6 +42,6 @@ if __name__ == '__main__':
       dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE)
 
   algo = algos["baseline_t"](dataset=dataset, args=args)
-  algo.train()
+  algo._train()
   algo.test()
 

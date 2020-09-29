@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     algo = algos["lstm"](dataset=dataset, args=args)
     if args.ep > 0:
-        algo.train()
+        algo._train()
     algo.test()
     if args.inference:
         algo.launch_inference(multistep=args.multistep)

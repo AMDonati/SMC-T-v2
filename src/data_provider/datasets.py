@@ -102,9 +102,15 @@ class Dataset:
             elif inp.shape == 3:
                 assert inp[:, 1:, self.target_features] == tar[:, :-1, self.target_features], "error in inputs/targets of dataset"
 
-    def get_datasets_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9, num_dim=4, target_feature=None):
-        list_train_data, list_val_data, test_data = split_synthetic_dataset(x_data=self.data_arr, TRAIN_SPLIT=TRAIN_SPLIT, VAL_SPLIT_cv=VAL_SPLIT_cv, cv=True)
+    def get_data_splits_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9):
+        list_train_data, list_val_data, test_data = split_synthetic_dataset(x_data=self.data_arr,
+                                                                            TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                            VAL_SPLIT_cv=VAL_SPLIT_cv, cv=True)
         list_test_data = [test_data] * len(list_train_data)
+        return list_train_data, list_val_data, list_test_data
+
+    def get_datasets_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9, num_dim=4):
+        list_train_data, list_val_data, list_test_data = self.get_data_splits_for_crossvalidation(TRAIN_SPLIT=TRAIN_SPLIT, VAL_SPLIT_cv=VAL_SPLIT_cv)
         train_datasets, val_datasets, test_datasets = [], [], []
         for train_data, val_data, test_data in zip(list_train_data, list_val_data, list_test_data):
             train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=num_dim)

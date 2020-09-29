@@ -25,12 +25,13 @@ class BayesianRNNAlgo(Algo):
         self.sample_nbr = args.particles
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
+        self.ckpt_path = self.create_ckpt_path()
+        _, _ = self._load_ckpt()
         self.save_hparams(args=args)
         self.distribution = True
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def create_torch_datasets(self, args):
-        train_data, val_data, test_data = self.dataset.get_datasets()
+    def data_to_dataset(self, train_data, val_data, test_data, args):
         (X_train, y_train), (X_val, y_val), (X_test, y_test) = self.dataset.get_features_labels(train_data=train_data,
                                                                                                 val_data=val_data,
                                                                                                 test_data=test_data)
@@ -49,17 +50,38 @@ class BayesianRNNAlgo(Algo):
         self.num_train_samples = X_train.shape[0]
         return dataloader_train, dataloader_val, dataloader_test
 
+    def create_torch_datasets(self, args):
+        if not args.cv:
+            train_data, val_data, test_data = self.dataset.get_datasets()
+            dataloader_train, dataloader_val, dataloader_test = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, args=args)
+            return dataloader_train, dataloader_val, dataloader_test
+        else:
+            train_datasets, val_datasets, test_datasets = self.get_dataset_for_crossvalidation(args=args)
+            return train_datasets, val_datasets, test_datasets
+
+    def get_dataset_for_crossvalidation(self, args):
+        list_train_data, list_val_data, list_test_data = self.dataset.get_data_splits_for_crossvalidation()
+        train_datasets, val_datasets, test_datasets = [], [], []
+        for train_data, val_data, test_data in zip(list_train_data, list_val_data, list_test_data):
+            train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data,
+                                                                            test_data=test_data, args=args)
+            train_datasets.append(train_dataset)
+            val_datasets.append(val_dataset)
+            test_datasets.append(test_dataset)
+        return train_datasets, val_datasets, test_datasets[0]
+
     def _create_out_folder(self, args):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}'.format(args.dataset,
+            out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(args.dataset,
                                                                                                       args.rnn_units,
                                                                                                       self.bs, self.lr,
                                                                                                       args.prior_sigma_1,
                                                                                                       args.prior_sigma_2,
                                                                                                       args.prior_pi,
-                                                                                                      args.posterior_rho)
+                                                                                                      args.posterior_rho,
+                                                                                                        args.cv)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(args.output_path, out_file, datetime_folder)
             if not os.path.isdir(output_folder):
@@ -79,6 +101,32 @@ class BayesianRNNAlgo(Algo):
         mse = np.mean(losses)
         return mse, preds
 
+    def save_ckpt(self, EPOCH, loss, num_train=1):
+        ckpt_path = os.path.join(self.ckpt_path, "Bayesian_LSTM_{}".format(num_train))
+        if not os.path.isdir(ckpt_path):
+            os.makedirs(ckpt_path)
+        torch.save({
+            'epoch': EPOCH,
+            'model_state_dict': self.bayesian_lstm.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'loss': loss,
+        }, os.path.join(ckpt_path, 'model.pt'))
+
+    def _load_ckpt(self, num_train=1):
+        ckpt_path = os.path.join(self.ckpt_path, "Bayesian_LSTM_{}".format(num_train))
+        if os.path.isdir(ckpt_path):
+            checkpoint = torch.load(os.path.join(ckpt_path, 'model.pt'))
+            self.bayesian_lstm.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
+            self.start_epoch = epoch
+            self.logger.info("loading checkpoint for epoch {} from {}".format(epoch, ckpt_path))
+        else:
+            epoch = 0
+            loss = None
+        return epoch, loss
+
     def compute_test_loss(self, save_particles=True):
         test_loss, preds = self.get_mse(dataset=self.test_dataset)
         return torch.tensor(test_loss).float(), preds.cpu().detach().numpy()
@@ -89,7 +137,8 @@ class BayesianRNNAlgo(Algo):
             for (X_test, y_test) in self.test_dataset:
                 preds = [self.bayesian_lstm(X_test) for _ in range(self.mc_samples)]
         preds = torch.stack(preds, dim=1).cpu() # (B,N,S,F)
-        np.save(save_path, preds)
+        if save_path is not None:
+            np.save(save_path, preds)
         self.test_predictive_distribution = preds
 
     def compute_mse_predictive_distribution(self, alpha):
@@ -101,18 +150,18 @@ class BayesianRNNAlgo(Algo):
                 mse = self.criterion(self.test_predictive_distribution.to(self.device), alpha*X_test_tiled).cpu()
         return mse
 
-    def train(self, num_train=1):
-        iteration = 0
-        print('testing forward pass...')
-        with torch.no_grad():
-            for (X_test, y_test) in self.test_dataset:
-                preds_test = self.bayesian_lstm(X_test)
-                print('preds test shape', preds_test.cpu().shape)
-                print('preds test example', preds_test.cpu().numpy()[0, :, 0])
+    def _train(self, train_dataset, val_dataset, num_train=1):
+        # if num_train == 1:
+        #     print('testing forward pass...')
+        #     with torch.no_grad():
+        #         for (X_test, y_test) in self.test_dataset:
+        #             preds_test = self.bayesian_lstm(X_test)
+        #             print('preds test shape', preds_test.cpu().shape)
+        #             print('preds test example', preds_test.cpu().numpy()[0, :, 0])
 
         train_mse_history, val_mse_history = [], []
         for epoch in range(self.EPOCHS):
-            for i, (datapoints, labels) in enumerate(self.train_dataset):
+            for i, (datapoints, labels) in enumerate(train_dataset):
                 datapoints, labels = datapoints.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
                 loss = self.bayesian_lstm.sample_elbo(inputs=datapoints,
@@ -123,16 +172,16 @@ class BayesianRNNAlgo(Algo):
                 loss.backward()
                 self.optimizer.step()
 
-                iteration += 1
-            train_mse, _ = self.get_mse(dataset=self.train_dataset)
+            train_mse, _ = self.get_mse(dataset=train_dataset)
             train_mse_history.append(train_mse)
-            val_mse, _ = self.get_mse(dataset=self.val_dataset)
+            val_mse, _ = self.get_mse(dataset=val_dataset)
             val_mse_history.append(val_mse)
 
             self.logger.info("Epoch: {}/{}".format(str(epoch+1), self.EPOCHS))
             self.logger.info("Train-Loss: {:.4f}".format(loss))
             self.logger.info("Train-mse: {:.4f}".format(train_mse))
             self.logger.info("Val-mse: {:.4f}".format(val_mse))
+            self.save_ckpt(EPOCH=epoch, loss=loss, num_train=num_train)
 
         # storing history of losses and accuracies in a csv file
         keys = ['train mse', 'val mse']
@@ -145,9 +194,19 @@ class BayesianRNNAlgo(Algo):
                                 logger=self.logger,
                                 start_epoch=self.start_epoch)
 
+    def train(self):
+        if not self.cv:
+            self._train(train_dataset=self.train_dataset, val_dataset=self.val_dataset)
+            self.logger.info("Training for a Bayesian LSTM done...")
+            self.logger.info('-' * 60)
+        else:
+            for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
+                start_epoch, _ = self._load_ckpt(num_train=num_train + 1)
+                self._train(train_dataset=train_dataset, val_dataset=val_dataset, num_train=num_train+1)
+                self.logger.info(
+                "training of a Bayesian LSTM for train/val split number {} done...".format(num_train + 1))
+            self.logger.info('-' * 60)
 
-    def test_cv(self, **kwargs):
-        pass
     def plot_preds_targets(self, predictions_test):
         pass
     def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
