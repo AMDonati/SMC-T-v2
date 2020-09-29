@@ -96,9 +96,9 @@ class BayesianRNNAlgo(Algo):
         self.bayesian_lstm.eval()
         with torch.no_grad():
             for (X_test, _) in self.test_dataset:
-                X_test = torch.unsqueeze(X_test, dim=1).to(self.device)
+                X_test = torch.unsqueeze(X_test, dim=1)
                 X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1,1]).to(self.device)
-                mse = self.criterion(self.test_predictive_distribution, alpha*X_test_tiled).cpu()
+                mse = self.criterion(self.test_predictive_distribution.to(self.device), alpha*X_test_tiled).cpu()
         return mse
 
     def train(self, num_train=1):
