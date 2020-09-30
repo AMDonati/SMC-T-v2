@@ -8,10 +8,12 @@ import json
 
 
 class Plot:
-    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.1, output_path=None,
+    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.2, output_path=None,
                  colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         self.output_path = output_path
+        if not os.path.isdir(self.output_path):
+            os.makedirs(self.output_path)
         self.dataset = dataset
         self.distribs_path = distribs_path
         self.smc_distrib = self.get_empirical_distribs("smc")
