@@ -142,6 +142,33 @@ class BayesianRNNAlgo(Algo):
             np.save(save_path, preds)
         self.test_predictive_distribution = preds
 
+    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96):
+        means = predictive_distribution.mean(axis=1)
+        stds = predictive_distribution.std(axis=1)
+        ci_upper = means + (std_multiplier * stds) # (B,S,F)
+        ci_lower = means - (std_multiplier * stds) # (B,S,F)
+        mpiw = (ci_upper - ci_lower).mean()
+        return ci_lower, ci_upper, mpiw
+
+    def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
+        inside_pi = 0
+        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval(predictive_distribution)
+        seq_len = lower_bounds.size(1)
+        num_samples = lower_bounds.size(0)
+        for (inp, _) in self.test_dataset:
+            inp = inp[:,past_len:,:len(self.dataset.target_features)] # taking only the target features.
+            for t in range(seq_len):
+                item = inp[:, t, :]  # shape (B,F)
+                low_b = lower_bounds[:, t, :]  # (B,F)
+                upper_b = upper_bounds[:, t, :]
+                bool_low = (low_b <= item).all(dim=-1)
+                bool_up = (upper_b >= item).all(dim=-1)
+                ic_acc = bool_low * bool_up
+                ic_acc = ic_acc.float().sum()
+                inside_pi += ic_acc
+        PICP = inside_pi / (seq_len * num_samples)
+        return PICP, MPIW
+
     def compute_mse_predictive_distribution(self, alpha):
         self.bayesian_lstm.eval()
         with torch.no_grad():
@@ -152,13 +179,6 @@ class BayesianRNNAlgo(Algo):
         return mse
 
     def _train(self, train_dataset, val_dataset, num_train=1):
-        # if num_train == 1:
-        #     print('testing forward pass...')
-        #     with torch.no_grad():
-        #         for (X_test, y_test) in self.test_dataset:
-        #             preds_test = self.bayesian_lstm(X_test)
-        #             print('preds test shape', preds_test.cpu().shape)
-        #             print('preds test example', preds_test.cpu().numpy()[0, :, 0])
 
         train_mse_history, val_mse_history = [], []
         for epoch in range(self.EPOCHS):
@@ -210,7 +230,6 @@ class BayesianRNNAlgo(Algo):
 
     def plot_preds_targets(self, predictions_test):
         pass
-    def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
-        pass
+
     def get_predictive_distribution_multistep(self, save_path):
         pass
