@@ -190,7 +190,6 @@ class BayesianRNNAlgo(Algo):
                                                       criterion=self.criterion,
                                                       sample_nbr=self.sample_nbr,
                                                       complexity_cost_weight=1 / self.num_train_samples)
-                print("first gradient step")
                 loss.backward()
                 self.optimizer.step()
 
