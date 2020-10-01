@@ -179,7 +179,7 @@ class BayesianRNNAlgo(Algo):
         return mse
 
     def _train(self, train_dataset, val_dataset, num_train=1):
-
+        print("starting training ...")
         train_mse_history, val_mse_history = [], []
         for epoch in range(self.EPOCHS):
             for i, (datapoints, labels) in enumerate(train_dataset):
@@ -190,6 +190,7 @@ class BayesianRNNAlgo(Algo):
                                                       criterion=self.criterion,
                                                       sample_nbr=self.sample_nbr,
                                                       complexity_cost_weight=1 / self.num_train_samples)
+                print("first gradient step")
                 loss.backward()
                 self.optimizer.step()
 
