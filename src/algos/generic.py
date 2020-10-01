@@ -62,8 +62,7 @@ class Algo:
                 self.seq_len = tf.shape(inp)[-2].numpy()
         else:
             self.logger.info("loading datasets for performing cross-validation...")
-            train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim,
-                                                                                                     target_feature=target_feature)
+            train_dataset, val_dataset, test_dataset = self.dataset.get_datasets_for_crossvalidation(num_dim=num_dim)
             for (inp, tar) in train_dataset[0].take(1):
                 self.output_size = tf.shape(tar)[-1].numpy()
                 self.logger.info("number of target features: {}".format(self.output_size))
