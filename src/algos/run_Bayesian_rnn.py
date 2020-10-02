@@ -30,6 +30,7 @@ class BayesianRNNAlgo(Algo):
         self.save_hparams(args=args)
         self.distribution = True
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
 
     def data_to_dataset(self, train_data, val_data, test_data, args):
         (X_train, y_train), (X_val, y_val), (X_test, y_test) = self.dataset.get_features_labels(train_data=train_data,
@@ -53,7 +54,9 @@ class BayesianRNNAlgo(Algo):
     def create_torch_datasets(self, args):
         if not args.cv:
             train_data, val_data, test_data = self.dataset.get_datasets()
-            dataloader_train, dataloader_val, dataloader_test = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, args=args)
+            dataloader_train, dataloader_val, dataloader_test = self.data_to_dataset(train_data=train_data,
+                                                                                     val_data=val_data,
+                                                                                     test_data=test_data, args=args)
             return dataloader_train, dataloader_val, dataloader_test
         else:
             train_datasets, val_datasets, test_datasets = self.get_dataset_for_crossvalidation(args=args)
@@ -74,15 +77,16 @@ class BayesianRNNAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_nbr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(args.dataset,
-                                                                                                      args.rnn_units,
-                                                                                                      self.bs, self.lr,
-                                                                                                       self.sample_nbr,
-                                                                                                      args.prior_sigma_1,
-                                                                                                      args.prior_sigma_2,
-                                                                                                      args.prior_pi,
-                                                                                                      args.posterior_rho,
-                                                                                                        args.cv)
+            out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_nbr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(
+                args.dataset,
+                args.rnn_units,
+                self.bs, self.lr,
+                self.sample_nbr,
+                args.prior_sigma_1,
+                args.prior_sigma_2,
+                args.prior_pi,
+                args.posterior_rho,
+                args.cv)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(args.output_path, out_file, datetime_folder)
             if not os.path.isdir(output_folder):
@@ -137,16 +141,36 @@ class BayesianRNNAlgo(Algo):
         with torch.no_grad():
             for (X_test, y_test) in self.test_dataset:
                 preds = [self.bayesian_lstm(X_test) for _ in range(self.mc_samples)]
-        preds = torch.stack(preds, dim=1).cpu() # (B,N,S,F)
+        preds = torch.stack(preds, dim=1).cpu()  # (B,N,S,F)
         if save_path is not None:
             np.save(save_path, preds)
         self.test_predictive_distribution = preds
 
+    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path):
+        list_predictions = []
+        with torch.no_grad():
+            for i in range(self.mc_samples):
+                inp = inp_model
+                for t in range(self.future_len + 1):
+                    preds_test = self.bayesian_lstm(inp)  # (B,S,F)
+                    last_pred = preds_test[:, -1, :]
+                    if t < self.future_len:
+                        if future_inp_features is not None:
+                            last_pred = torch.cat([last_pred, future_inp_features[:, t, :]], dim=-1)
+                            last_pred = torch.unsqueeze(last_pred, dim=-2)
+                            inp = torch.cat([inp, last_pred], dim=1)
+                list_predictions.append(preds_test[:, self.past_len:, :])
+            preds_test_MC = torch.stack(list_predictions, dim=1).cpu() # (B,N,len_future,F)
+        print("{} multistep predictions sampled from Bayesian LSTM".format(self.mc_samples))
+        if save_path is not None:
+            np.save(save_path, preds_test_MC)
+        return preds_test_MC
+
     def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96):
         means = predictive_distribution.mean(axis=1)
         stds = predictive_distribution.std(axis=1)
-        ci_upper = means + (std_multiplier * stds) # (B,S,F)
-        ci_lower = means - (std_multiplier * stds) # (B,S,F)
+        ci_upper = means + (std_multiplier * stds)  # (B,S,F)
+        ci_lower = means - (std_multiplier * stds)  # (B,S,F)
         mpiw = (ci_upper - ci_lower).mean()
         return ci_lower, ci_upper, mpiw
 
@@ -156,7 +180,7 @@ class BayesianRNNAlgo(Algo):
         seq_len = lower_bounds.size(1)
         num_samples = lower_bounds.size(0)
         for (inp, _) in self.test_dataset:
-            inp = inp[:,past_len:,:len(self.dataset.target_features)] # taking only the target features.
+            inp = inp[:, past_len:, :len(self.dataset.target_features)]  # taking only the target features.
             for t in range(seq_len):
                 item = inp[:, t, :]  # shape (B,F)
                 low_b = lower_bounds[:, t, :]  # (B,F)
@@ -174,8 +198,8 @@ class BayesianRNNAlgo(Algo):
         with torch.no_grad():
             for (X_test, _) in self.test_dataset:
                 X_test = torch.unsqueeze(X_test, dim=1)
-                X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1,1]).to(self.device)
-                mse = self.criterion(self.test_predictive_distribution.to(self.device), alpha*X_test_tiled).cpu()
+                X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1, 1]).to(self.device)
+                mse = self.criterion(self.test_predictive_distribution.to(self.device), alpha * X_test_tiled).cpu()
         return mse
 
     def _train(self, train_dataset, val_dataset, num_train=1):
@@ -198,7 +222,7 @@ class BayesianRNNAlgo(Algo):
             val_mse, _ = self.get_mse(dataset=val_dataset)
             val_mse_history.append(val_mse)
 
-            self.logger.info("Epoch: {}/{}".format(str(epoch+1), self.EPOCHS))
+            self.logger.info("Epoch: {}/{}".format(str(epoch + 1), self.EPOCHS))
             self.logger.info("Train-Loss: {:.4f}".format(loss))
             self.logger.info("Train-mse: {:.4f}".format(train_mse))
             self.logger.info("Val-mse: {:.4f}".format(val_mse))
@@ -223,13 +247,10 @@ class BayesianRNNAlgo(Algo):
         else:
             for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
                 start_epoch, _ = self._load_ckpt(num_train=num_train + 1)
-                self._train(train_dataset=train_dataset, val_dataset=val_dataset, num_train=num_train+1)
+                self._train(train_dataset=train_dataset, val_dataset=val_dataset, num_train=num_train + 1)
                 self.logger.info(
-                "training of a Bayesian LSTM for train/val split number {} done...".format(num_train + 1))
+                    "training of a Bayesian LSTM for train/val split number {} done...".format(num_train + 1))
             self.logger.info('-' * 60)
 
     def plot_preds_targets(self, predictions_test):
-        pass
-
-    def get_predictive_distribution_multistep(self, save_path):
         pass

@@ -52,25 +52,23 @@ class BaselineTAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout)
         return predictions_test_MC_Dropout
 
-    def _MC_Dropout_multistep(self, inp_model, future_input_features=None, len_future=None, save_path=None):
+    def stochastic_forward_pass_multistep(self, inp_model, future_input_features=None, save_path=None):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
             :param mc_samples:
             :return:
         '''
-        if len_future is None:
-            len_future = self.seq_len - self.past_len
         list_predictions = []
         for i in range(self.mc_samples):
             inp = inp_model
-            for t in range(len_future + 1):
+            for t in range(self.future_len + 1):
                 seq_len = tf.shape(inp)[-2]
                 preds_test, _ = self.transformer(inputs=inp,
                                                  training=True,
                                                  mask=create_look_ahead_mask(seq_len))  # (B,S,F)
                 last_pred = preds_test[:, -1, :] # (B,F)
-                if t < len_future:
+                if t < self.future_len:
                     if future_input_features is not None:
                         last_pred = tf.concat([last_pred, future_input_features[:, t, :]], axis=-1)
                     last_pred = tf.expand_dims(last_pred, axis=-2)

@@ -24,6 +24,9 @@ class Algo:
         self.test_predictive_distribution_multistep = None
         self.distribution = False
 
+    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path):
+        pass
+
     def create_logger(self):
         out_file_log = os.path.join(self.out_folder, 'training_log.log')
         logger = create_logger(out_file_log=out_file_log)
@@ -42,7 +45,7 @@ class Algo:
         with open(config_path, 'w') as fp:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
 
-    def load_datasets(self, num_dim=4, target_feature=None):
+    def load_datasets(self, num_dim=4):
         if not self.cv:
             train_data, val_data, test_data = self.dataset.get_datasets()
             self.logger.info('num samples in training dataset: {}'.format(train_data.shape[0]))
@@ -93,8 +96,8 @@ class Algo:
                     future_input_features = inp[:,self.past_len:,len(self.dataset.target_features):]
                 else:
                     future_input_features = None
-                mc_samples_multi = self._MC_Dropout_multistep(inp_model=inp[:, :self.past_len, :],
-                                                              save_path=save_path, len_future=self.future_len, future_input_features=future_input_features)
+                mc_samples_multi = self.stochastic_forward_pass_multistep(inp_model=inp[:, :self.past_len, :],
+                                                              save_path=save_path, future_inp_features=future_input_features)
                 print("shape of predictive distribution multistep", mc_samples_multi.shape)
             self.test_predictive_distribution_multistep = mc_samples_multi
 
@@ -210,18 +213,18 @@ class Algo:
             else:
                 self.logger.info("computing MPIW on test set...")
                 PICP, MPIW = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution)
-                test_metrics["MPIW"] = MPIW.numpy()
                 test_metrics["PICP"] = PICP.numpy()
-                self.logger.info("MPIW on test set: {}".format(MPIW))
+                test_metrics["MPIW"] = MPIW.numpy()
                 self.logger.info("PICP 0.95 on test set: {}".format(PICP))
+                self.logger.info("MPIW on test set: {}".format(MPIW))
                 if kwargs["multistep"]:
                     self.logger.info("computing multistep MPIW on test set...")
                     self.get_predictive_distribution_multistep(save_path=distrib_multistep_path)
                     PICP_multi, MPIW_multi = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len)
-                    test_metrics["MPIW_multistep"] = MPIW_multi.numpy()
                     test_metrics["PICP_multistep"] = PICP_multi.numpy()
-                    self.logger.info("MPIW multistep on test set: {}".format(MPIW_multi))
+                    test_metrics["MPIW_multistep"] = MPIW_multi.numpy()
                     self.logger.info("PICP multistep 0.95 on test set: {}".format(PICP_multi))
+                    self.logger.info("MPIW multistep on test set: {}".format(MPIW_multi))
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):
