@@ -72,7 +72,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout)
         return predictions_test_MC_Dropout
 
-    def stochastic_forward_pass_multistep(self, inp_model, future_input_features=None, save_path=None):
+    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features=None, save_path=None):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -86,8 +86,8 @@ class RNNAlgo(Algo):
                 preds_test = self.lstm(inputs=inp)  # (B,S,1)
                 last_pred = preds_test[:, -1, :]
                 if t < self.future_len:
-                    if future_input_features is not None:
-                        last_pred = tf.concat([last_pred, future_input_features[:,t,:]], axis=-1)
+                    if future_inp_features is not None:
+                        last_pred = tf.concat([last_pred, future_inp_features[:, t, :]], axis=-1)
                     last_pred = tf.expand_dims(last_pred, axis=-2)
                     inp = tf.concat([inp, last_pred], axis=1)
             list_predictions.append(preds_test[:,self.past_len:, :])

@@ -166,19 +166,23 @@ class BayesianRNNAlgo(Algo):
             np.save(save_path, preds_test_MC)
         return preds_test_MC
 
-    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96):
+    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96, save_path=None):
         means = predictive_distribution.mean(axis=1)
         stds = predictive_distribution.std(axis=1)
         ci_upper = means + (std_multiplier * stds)  # (B,S,F)
         ci_lower = means - (std_multiplier * stds)  # (B,S,F)
         mpiw = (ci_upper - ci_lower).mean()
-        return ci_lower, ci_upper, mpiw
+        mpiw_per_timestep = (ci_upper - ci_lower).mean(dim=[0,2]).cpu().numpy()
+        if save_path is not None:
+            np.save(os.path.join(save_path, "MPIW_per_timestep.npy"), mpiw_per_timestep)
+        return ci_lower, ci_upper, mpiw, mpiw_per_timestep
 
-    def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
+    def compute_PICP_MPIW(self, predictive_distribution, past_len=0, save_path=None):
         inside_pi = 0
-        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval(predictive_distribution)
+        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution, save_path=save_path)
         seq_len = lower_bounds.size(1)
         num_samples = lower_bounds.size(0)
+        PICP_per_timestep = []
         for (inp, _) in self.test_dataset:
             inp = inp[:, past_len:, :len(self.dataset.target_features)]  # taking only the target features.
             for t in range(seq_len):
@@ -190,8 +194,12 @@ class BayesianRNNAlgo(Algo):
                 ic_acc = bool_low * bool_up
                 ic_acc = ic_acc.float().sum()
                 inside_pi += ic_acc
+                PICP_per_timestep.append(ic_acc.numpy() / num_samples)
+        PICP_per_timestep = np.stack(PICP_per_timestep)
+        if save_path is not None:
+            np.save(os.path.join(save_path, "PICP_per_timestep.npy"), PICP_per_timestep)
         PICP = inside_pi / (seq_len * num_samples)
-        return PICP, MPIW
+        return PICP, MPIW, PICP_per_timestep, MPIW_per_timestep
 
     def compute_mse_predictive_distribution(self, alpha):
         self.bayesian_lstm.eval()

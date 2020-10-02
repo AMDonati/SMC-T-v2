@@ -110,7 +110,7 @@ class Algo:
             mse = tf.reduce_mean(mse)
         return mse
 
-    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96):
+    def compute_predictive_interval(self, predictive_distribution, std_multiplier=1.96, save_path=None):
         assert predictive_distribution is not None, "error in predictive intervals computation"
         mean_distrib = tf.reduce_mean(predictive_distribution, axis=1)
         std_distrib = tf.math.reduce_std(predictive_distribution, axis=1)
@@ -118,11 +118,15 @@ class Algo:
         upper_bounds = mean_distrib + std_multiplier * std_distrib
         piw = upper_bounds - lower_bounds
         MPIW = tf.reduce_mean(piw)
-        return lower_bounds, upper_bounds, MPIW
+        MPIW_per_timestep = tf.reduce_mean(piw, axis=[0,2])
+        if save_path is not None:
+            np.save(os.path.join(save_path, "MPIW_per_timestep.npy"), MPIW_per_timestep)
+        return lower_bounds, upper_bounds, MPIW, MPIW_per_timestep
 
-    def compute_PICP_MPIW(self, predictive_distribution, past_len=0):
+    def compute_PICP_MPIW(self, predictive_distribution, past_len=0, save_path=None):
         inside_pi = 0
-        lower_bounds, upper_bounds, MPIW = self.compute_predictive_interval(predictive_distribution)
+        PICP_per_timestep = []
+        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution, save_path=save_path)
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
         for (inp, _) in self.test_dataset:
@@ -137,9 +141,13 @@ class Algo:
                 bool_up = tf.math.reduce_all(tf.math.greater_equal(upper_b, item), axis=1)  # B
                 prod_bool = tf.math.multiply(tf.cast(bool_up, dtype=tf.float32), tf.cast(bool_low, dtype=tf.float32))  # (B) equal to True only if both are True.
                 num_inside_pi = tf.reduce_sum(prod_bool)
+                PICP_per_timestep.append(num_inside_pi.numpy() / num_samples)
                 inside_pi += num_inside_pi
         PICP = inside_pi / (seq_len * num_samples)
-        return PICP, MPIW
+        PICP_per_timestep = np.stack(PICP_per_timestep) # shape S.
+        if save_path is not None:
+            np.save(os.path.join(save_path, "PICP_per_timestep.npy"), PICP_per_timestep)
+        return PICP, MPIW, PICP_per_timestep, MPIW_per_timestep
 
     def plot_preds_targets(self, predictions_test):
         for (inputs, targets) in self.test_dataset:
@@ -212,7 +220,7 @@ class Algo:
                 test_metrics["mse"] = mse.numpy()
             else:
                 self.logger.info("computing MPIW on test set...")
-                PICP, MPIW = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution)
+                PICP, MPIW, _, _ = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution)
                 test_metrics["PICP"] = PICP.numpy()
                 test_metrics["MPIW"] = MPIW.numpy()
                 self.logger.info("PICP 0.95 on test set: {}".format(PICP))
@@ -220,11 +228,15 @@ class Algo:
                 if kwargs["multistep"]:
                     self.logger.info("computing multistep MPIW on test set...")
                     self.get_predictive_distribution_multistep(save_path=distrib_multistep_path)
-                    PICP_multi, MPIW_multi = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len)
+                    PICP_multi, MPIW_multi, PICP_per_timestep, MPIW_per_timestep = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len, save_path=self.inference_path)
                     test_metrics["PICP_multistep"] = PICP_multi.numpy()
                     test_metrics["MPIW_multistep"] = MPIW_multi.numpy()
+                    test_metrics["PICP_per_timestep_multistep"] = PICP_per_timestep
+                    test_metrics["MPIW_per_timestep_multistep"] = MPIW_per_timestep
                     self.logger.info("PICP multistep 0.95 on test set: {}".format(PICP_multi))
                     self.logger.info("MPIW multistep on test set: {}".format(MPIW_multi))
+                    self.logger.info("PICP per timestep multistep 0.95 on test set: {}".format(PICP_per_timestep))
+                    self.logger.info("MPIW per timestep multistep on test set: {}".format(MPIW_per_timestep))
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):
