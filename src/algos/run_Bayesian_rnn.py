@@ -158,8 +158,8 @@ class BayesianRNNAlgo(Algo):
                         if future_inp_features is not None:
                             future_inp_features = future_inp_features.to(self.device)
                             last_pred = torch.cat([last_pred, future_inp_features[:, t, :]], dim=-1)
-                            last_pred = torch.unsqueeze(last_pred, dim=-2)
-                            inp = torch.cat([inp, last_pred], dim=1)
+                        last_pred = torch.unsqueeze(last_pred, dim=-2)
+                        inp = torch.cat([inp, last_pred], dim=1)
                 list_predictions.append(preds_test[:, self.past_len:, :])
             preds_test_MC = torch.stack(list_predictions, dim=1).cpu() # (B,N,len_future,F)
         print("{} multistep predictions sampled from Bayesian LSTM".format(self.mc_samples))

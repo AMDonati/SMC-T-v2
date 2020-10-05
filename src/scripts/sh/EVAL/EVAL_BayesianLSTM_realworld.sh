@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-python src/scripts/run.py -dataset "covid" -dataset_model 1 -data_path "data/covid" -algo "bayesian_lstm" -rnn_units 32 -bs 32 -ep 0 -output_path "output/exp_covid" -mc_samples 1000 -particles 3 -multistep 1 -past_len 40
+python src/scripts/run.py -dataset "covid" -dataset_model 1 -data_path "data/covid" -algo "bayesian_lstm" -rnn_units 32 -bs 32 -ep 0 -output_path "output/exp_covid" -mc_samples 1000 -particles 3 -multistep 1 -past_len 40 -save_path "output/exp_covid/bayesian_lstm_d32/1"
 python src/scripts/run.py -dataset "air_quality" -dataset_model 1 -data_path "data/air_quality" -algo "bayesian_lstm" -rnn_units 32 -bs 64 -ep 0 -output_path "output/exp_air_quality" -mc_samples 1000 -particles 3 -save_path "output/exp_air_quality/bayesian_lstm_d32/1" -multistep 1 -past_len 6
-python src/scripts/run.py -dataset "weather" -dataset_model 1 -data_path "data/weather" -algo "bayesian_lstm" -rnn_units 32 -bs 256 -ep 0 -output_path "output/exp_weather_old" -mc_samples 1000 -particles 3 -save_path "output/exp_weather_old/bayesian_lstm_d32/1" -past_len 12
+python src/scripts/run.py -dataset "weather" -dataset_model 1 -data_path "data/weather" -algo "bayesian_lstm" -rnn_units 32 -bs 256 -ep 0 -output_path "output/exp_weather_old" -mc_samples 1000 -particles 3 -save_path "output/exp_weather_old/bayesian_lstm_d32/1" -past_len 12 -multistep 1
