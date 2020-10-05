@@ -5,6 +5,7 @@ import pickle as pkl
 import logging
 import numpy as np
 import tensorflow as tf
+from configparser import ConfigParser
 
 
 def write_to_csv(output_dir, dic):
@@ -94,6 +95,15 @@ def saving_model_outputs(output_path, predictions, attn_weights, pred_fname, att
 def save_to_pickle(file_name, np_array):
     with open(file_name, 'wb') as f:
         pkl.dump(np_array, f)
+
+
+def create_config_file(conf_file, args):
+    config = ConfigParser()
+    config.add_section('main')
+    for key, value in vars(args).items():
+        config.set('main', key, str(value))
+    with open(conf_file, 'w') as fp:
+        config.write(fp)
 
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------

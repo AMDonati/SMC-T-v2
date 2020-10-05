@@ -6,21 +6,23 @@ from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 
-if __name__ == '__main__':
-    #  trick for boolean parser args.
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ('yes', 'true', 't', 'y', '1'):
-            return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-            return False
-        else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
+#  trick for boolean parser args.
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-    algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo, "bayesian_lstm": BayesianRNNAlgo}
+algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo,
+         "bayesian_lstm": BayesianRNNAlgo}
 
+
+def get_parser():
     parser = argparse.ArgumentParser()
     # data parameters:
     parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
@@ -71,9 +73,9 @@ if __name__ == '__main__':
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
     parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
 
-    args = parser.parse_args()
+    return parser
 
-    list_samples = [72, 2]
+def run(args):
 
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
     BUFFER_SIZE = 500
@@ -101,10 +103,19 @@ if __name__ == '__main__':
         print("skipping training...")
 
     if not args.cv:
-        test_metrics = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, save_particles=args.save_particles, plot=args.save_plot, save_distrib=args.save_distrib, save_metrics=True)
+        _ = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
+                                 save_particles=args.save_particles, plot=args.save_plot,
+                                 save_distrib=args.save_distrib, save_metrics=True)
     else:
-        test_metrics = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
+        _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
 
     # if args.inference:
     #     algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
     #                           p=args.p)
+
+
+if __name__ == '__main__':
+    #list_samples = [72, 2]
+    parser = get_parser()
+    args = parser.parse_args()
+    run(args)

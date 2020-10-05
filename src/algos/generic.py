@@ -1,10 +1,10 @@
 from src.utils.utils_train import create_logger
 import os
 import tensorflow as tf
-import json
 import matplotlib.pyplot as plt
 import numpy as np
-from src.utils.utils_train import write_to_csv
+from src.utils.utils_train import write_to_csv, create_config_file
+import json
 
 class Algo:
     def __init__(self, dataset, args):
@@ -44,6 +44,7 @@ class Algo:
         config_path = os.path.join(self.out_folder, "config.json")
         with open(config_path, 'w') as fp:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
+        #create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
     def load_datasets(self, num_dim=4):
         if not self.cv:
