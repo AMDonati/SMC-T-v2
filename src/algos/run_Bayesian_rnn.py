@@ -150,7 +150,7 @@ class BayesianRNNAlgo(Algo):
         list_predictions = []
         with torch.no_grad():
             for i in range(self.mc_samples):
-                inp = inp_model
+                inp = inp_model.to(self.device)
                 for t in range(self.future_len + 1):
                     preds_test = self.bayesian_lstm(inp)  # (B,S,F)
                     last_pred = preds_test[:, -1, :]
