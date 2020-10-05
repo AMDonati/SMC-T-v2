@@ -156,6 +156,7 @@ class SMCTAlgo(Algo):
             with open(os.path.join(self.save_path, sigma_file)) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
+            self.logger.info("updating sigmas values with the latest ones...{}".format(dict_json))
             self._reinit_sigmas()
         return ckpt_manager, start_epoch
 
