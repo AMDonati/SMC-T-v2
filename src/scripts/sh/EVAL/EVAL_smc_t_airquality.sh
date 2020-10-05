@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 0 -output_path "output/exp_airquality" -particles 10 -smc True -save_path "output/exp_airquality/smc_t/smc_T_d32_10p/1" -multistep 1 -past_len 6 -mc_samples 1000
-python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 0 -output_path "output/exp_airquality" -particles 60 -smc True -save_path "output/exp_airquality/smc_t_d32_p60/1" -multistep 1 -past_len 6 -mc_samples 1000
+python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 0 -output_path "output/exp_airquality" -particles 60 -smc True -save_path "output/exp_airquality/smc_t/smc_t_d32_p60/1" -multistep 1 -past_len 6 -mc_samples 1000

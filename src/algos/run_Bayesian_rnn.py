@@ -156,6 +156,7 @@ class BayesianRNNAlgo(Algo):
                     last_pred = preds_test[:, -1, :]
                     if t < self.future_len:
                         if future_inp_features is not None:
+                            future_inp_features = future_inp_features.to(self.device)
                             last_pred = torch.cat([last_pred, future_inp_features[:, t, :]], dim=-1)
                             last_pred = torch.unsqueeze(last_pred, dim=-2)
                             inp = torch.cat([inp, last_pred], dim=1)
