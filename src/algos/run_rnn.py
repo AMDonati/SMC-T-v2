@@ -69,7 +69,7 @@ class RNNAlgo(Algo):
         predictions_test_MC_Dropout = tf.stack(list_predictions, axis=1)  # shape (B, N, S, F)
         print('MC Dropout unistep done')
         if save_path is not None:
-            np.save(save_path, predictions_test_MC_Dropout)
+            np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
     def stochastic_forward_pass_multistep(self, inp_model, future_inp_features=None, save_path=None):
@@ -94,7 +94,7 @@ class RNNAlgo(Algo):
         preds_test_MC_Dropout = tf.stack(list_predictions, axis=1)
         print('mc dropout LSTM multistep done')
         if save_path is not None:
-            np.save(save_path, preds_test_MC_Dropout)
+            np.save(save_path, preds_test_MC_Dropout.numpy())
         return preds_test_MC_Dropout
 
     def train(self):
