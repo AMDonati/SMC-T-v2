@@ -9,7 +9,7 @@ def preprocess_dataframe(csv_path, save_path=None):
     # df = convert_col_into_float64(df, list_cols)
     df[list_cols] = df[list_cols].apply(pd.to_numeric, errors='coerce')
     # removing columns with too much missing values.
-    df = df.dropna()
+    df = df.dropna() # remove 2 rows.
 
     assert df.isnull().any(axis=1).sum() == 0, "error in nan values"
 

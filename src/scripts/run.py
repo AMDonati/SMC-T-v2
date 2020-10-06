@@ -71,7 +71,7 @@ def get_parser():
     # misc:
     parser.add_argument("-save_distrib", type=str2bool, default=True, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
-    parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
+    parser.add_argument("-save_particles", type=str2bool, default=True, help="save predicted particles on test set.")
 
     return parser
 
@@ -90,6 +90,11 @@ def run(args):
     elif args.dataset == 'air_quality':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, target_features=list(range(5)))
+
+    elif args.dataset == 'energy':
+        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
+                                      name=args.dataset, target_features=list(range(20)))
+
     elif args.dataset == 'weather':
         BUFFER_SIZE = 5000
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
@@ -115,7 +120,6 @@ def run(args):
 
 
 if __name__ == '__main__':
-    #list_samples = [72, 2]
     parser = get_parser()
     args = parser.parse_args()
     run(args)

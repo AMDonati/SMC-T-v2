@@ -15,7 +15,8 @@ def preprocess_dataframe(csv_path, save_path=None):
         if not os.path.isdir(path):
             os.makedirs(path)
         df.to_csv(os.path.join(path, "raw_data.csv"))
-    return df
+        np.save(os.path.join(path, "raw_data.npy"), df.values)
+    return df, df.values
 
 
 def split_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
@@ -25,7 +26,7 @@ def split_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
     data = (data - data_mean) / data_std
     stats = (data_mean, data_std)
 
-    data_in_seq = split_dataset_into_seq(data.values, start_index=0, end_index=None, history_size=13, step=1)
+    data_in_seq = split_dataset_into_seq(data, start_index=0, end_index=None, history_size=13, step=1)
 
     # save_paths:
     if save_path is not None:
@@ -57,14 +58,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-csv_path", type=str, default="data/energy/energydata_complete.csv")
     parser.add_argument("-data_path", type=str, default="data",
-                        help="data folder to upload and save weather dataset.")
+                        help="data folder to upload and save energy dataset.")
     parser.add_argument("-TRAIN_SPLIT", type=float, default=0.7,
                         help="train split for spliting between train and validation sets.")
     parser.add_argument("-history", type=int, default=13, help="history of past observations.")
     args = parser.parse_args()
 
-    df = preprocess_dataframe(args.csv_path, args.data_path)
-    (train_data, val_data, test_data), data_in_seq, (mean, std) = split_dataset(data=df, TRAIN_SPLIT=args.TRAIN_SPLIT,
+    df, array = preprocess_dataframe(args.csv_path, args.data_path)
+    (train_data, val_data, test_data), data_in_seq, (mean, std) = split_dataset(data=array, TRAIN_SPLIT=args.TRAIN_SPLIT,
                                                                                 save_path=args.data_path)
     print("train data shape", train_data.shape)
     print("val data shape", val_data.shape)

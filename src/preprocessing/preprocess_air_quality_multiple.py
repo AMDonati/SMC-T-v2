@@ -8,10 +8,10 @@ def preprocess_dataframe(csv_path, save_path=None):
     frame = pd.concat(df_from_each_file, ignore_index=True)
     frame['Date'] = pd.to_datetime(frame[['year', 'month', 'day', "hour"]])
     frame.drop(["year", "month", "day", "hour", "No"], inplace=True, axis=1)
-    frame.fillna(method="backfill", inplace=True)
-    frame = pd.get_dummies(frame, columns=['wd'])
+    frame.fillna(method="backfill", inplace=True) # filled with previous value.
+    frame = pd.get_dummies(frame, columns=['wd']) # one-hot encoding de la colonne "wd".
     frame.set_index(["station", "Date"], inplace=True)
-    frame = frame.apply(pd.to_numeric, errors='coerce')
+    frame = frame.apply(pd.to_numeric, errors='coerce') # mise en float64.
     return frame
 
 

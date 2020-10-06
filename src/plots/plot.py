@@ -8,7 +8,7 @@ import json
 
 
 class Plot:
-    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.2, output_path=None,
+    def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
                  colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         self.output_path = output_path
@@ -16,17 +16,10 @@ class Plot:
             os.makedirs(self.output_path)
         self.dataset = dataset
         self.distribs_path = distribs_path
-        self.smc_distrib = self.get_empirical_distribs("smc")
-        self.lstm_distrib = self.get_empirical_distribs("lstm")
-        self.transf_distrib = self.get_empirical_distribs("transf")
-        self.bayes_distrib = self.get_empirical_distribs("bayes")
-        self.get_captions(captions)
-        self.alpha = alpha
-        self.variance = variance
         _, _, test_data = self.dataset.get_datasets()
         self.test_data = test_data[:, :-1, :]  # 24 first timesteps.
-        self.shift_x = shift_x
         # plot params:
+        self.get_captions(captions)
         self.color_smc = colors[0]
         self.color_lstm = colors[1]
         self.color_transf = colors[2]
@@ -50,6 +43,25 @@ class Plot:
             self.lstm_caption = "MC-Dropout LSTM"
             self.transf_caption = "MC-Dropout Transformer"
             self.bayes_captions = "Bayesian LSTM"
+
+    def plot(self, num_plots=5):
+        pass
+
+
+class CIPlot(Plot):
+
+    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.2, output_path=None,
+                 colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
+                 linewidth=0):
+        super(CIPlot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions, shift_x=shift_x,
+                                     output_path=output_path, colors=colors, marker=marker, markersize=markersize,
+                                     alpha_plot=alpha_plot, linewidth=linewidth)
+        self.smc_distrib = self.get_empirical_distribs("smc")
+        self.lstm_distrib = self.get_empirical_distribs("lstm")
+        self.transf_distrib = self.get_empirical_distribs("transf")
+        self.bayes_distrib = self.get_empirical_distribs("bayes")
+        self.alpha = alpha
+        self.variance = variance
 
     def get_empirical_distribs(self, prefix):
         distrib = self.dataset.get_data_from_folder(self.distribs_path[prefix])
@@ -125,6 +137,35 @@ class Plot:
         for _ in range(num_plots):
             self._plot()
 
+class PICP_MPIW_Plot(Plot):
+    def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
+                 colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
+                 linewidth=0):
+        super(PICP_MPIW_Plot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions, shift_x=shift_x,
+                                     output_path=output_path, colors=colors, marker=marker, markersize=markersize,
+                                     alpha_plot=alpha_plot, linewidth=linewidth)
+
+        self.smc_results = self.upload_npy_files("smc")
+        self.lstm_results = self.upload_npy_files("lstm")
+        self.transf_results = self.upload_npy_files("transf")
+        self.bayes_results = self.upload_npy_files("bayes")
+        self.seq_len = self.smc_results.shape[0]
+
+    def upload_npy_files(self, prefix):
+        metric = np.load(self.distribs_path[prefix])
+        print("{} metric shape".format(prefix), metric.shape)
+        return metric
+
+    def plot(self):
+        fig, ax = plt.subplots(figsize=(15, 10))
+        x = np.linspace(1, self.seq_len, self.seq_len)
+        ax.bar(x, self.smc_results, width=0.2, label=self.smc_caption)
+        ax.plot(x, self.smc_results, color="red")
+        ax.set_xticks(x)
+        ax.legend()
+        plt.show()
+
+
 
 if __name__ == '__main__':
     # load dataset
@@ -136,10 +177,14 @@ if __name__ == '__main__':
                         help="path for uploading the dataset")
     parser.add_argument("-output_path", type=str, default="../../output/plots/ci_plots/synthetic_model_1",
                         help="path for saving the plot")
-    parser.add_argument("-smc", type=str, default="../../output/plots/ci_plots/synthetic_model_1/smc_t", help="path for the smc distrib npy file.")
-    parser.add_argument("-lstm", type=str, default="../../output/plots/ci_plots/synthetic_model_1/lstm", help="path for the lstm distrib npy file.")
-    parser.add_argument("-transf", default="../../output/plots/ci_plots/synthetic_model_1/baseline_t", type=str, help="path for the transformer distrib npy file.")
-    parser.add_argument("-bayes", type=str, default="../../output/plots/ci_plots/synthetic_model_1/bayesian_lstm", help="path for the bayesian lstm distrib npy file.")
+    parser.add_argument("-smc", type=str, default="../../output/plots/ci_plots/synthetic_model_1/smc_t",
+                        help="path for the smc distrib npy file.")
+    parser.add_argument("-lstm", type=str, default="../../output/plots/ci_plots/synthetic_model_1/lstm",
+                        help="path for the lstm distrib npy file.")
+    parser.add_argument("-transf", default="../../output/plots/ci_plots/synthetic_model_1/baseline_t", type=str,
+                        help="path for the transformer distrib npy file.")
+    parser.add_argument("-bayes", type=str, default="../../output/plots/ci_plots/synthetic_model_1/bayesian_lstm",
+                        help="path for the bayesian lstm distrib npy file.")
     parser.add_argument("-captions", type=str, help="path for the captions json file.")
     parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic models 1 & 2.")
     parser.add_argument("-beta", type=float, default=0.54, help="beta value for synthetic model 2")
@@ -152,6 +197,7 @@ if __name__ == '__main__':
 
     distribs_path = {"smc": args.smc, "lstm": args.lstm, "transf": args.transf, "bayes": args.bayes}
 
-    ci_plot = Plot(dataset=dataset, distribs_path=distribs_path, captions=args.captions, alpha=args.alpha, variance=args.variance, output_path=args.output_path)
+    ci_plot = Plot(dataset=dataset, distribs_path=distribs_path, captions=args.captions, alpha=args.alpha,
+                   variance=args.variance, output_path=args.output_path)
 
     ci_plot.plot()
