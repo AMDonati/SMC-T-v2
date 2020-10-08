@@ -5,7 +5,7 @@ from src.data_provider.datasets import Dataset, CovidDataset
 import numpy as np
 import os
 import json
-
+import tensorflow as tf
 
 class Plot:
     def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
@@ -16,8 +16,12 @@ class Plot:
             os.makedirs(self.output_path)
         self.dataset = dataset
         self.distribs_path = distribs_path
-        _, _, test_data = self.dataset.get_datasets()
+        train_data, val_data, test_data = self.dataset.get_datasets()
         self.test_data = test_data[:, :-1, :]  # 24 first timesteps.
+        _, _, self.test_dataset = self.dataset.data_to_dataset(train_data=train_data,
+                                                                                val_data=val_data,
+                                                                                test_data=test_data,
+                                                                                num_dim=3)
         # plot params:
         self.get_captions(captions)
         self.color_smc = colors[0]
@@ -69,89 +73,137 @@ class CIPlot(Plot):
         return distrib
 
     def get_true_CI(self, index, tsp):
-        mean = np.squeeze(self.test_data[index, tsp])
-        lower_bound = mean - 1.96 * np.sqrt(self.variance)
-        upper_bound = mean + 1.96 * np.sqrt(self.variance)
-        yy = np.linspace(lower_bound, upper_bound, 100)
+        for inp, _ in self.test_dataset:
+            inp = inp.numpy()
+            mean = np.squeeze(inp[index, tsp])
+            lower_bound = mean - 1.96 * np.sqrt(self.variance)
+            upper_bound = mean + 1.96 * np.sqrt(self.variance)
+            yy = np.linspace(lower_bound, upper_bound, 100)
         return yy
 
     def get_pred_CI(self, distrib, index, tsp):
-        mean = np.squeeze(np.mean(distrib[index, :, tsp], axis=0))
-        std = np.squeeze(np.std(distrib[index, :, tsp], axis=0))
+        distrib_i_t = distrib[index, :, tsp]
+        mean = np.squeeze(np.mean(distrib_i_t, axis=0))
+        std = np.squeeze(np.std(distrib_i_t, axis=0))
         lower_b = mean - 1.96 * std
         upper_b = mean + 1.96 * std
         zz = np.linspace(lower_b, upper_b, 100)
         return zz
 
     def plot_true_mean(self, idx_test):
-        plt.plot(self.test_data[idx_test, :, 0], color='grey', label='True mean', linewidth=3)
+        for inp, _ in self.test_dataset:
+            inp = inp.numpy()
+            plt.plot(inp[idx_test, :, 0], color='grey', label='True mean', linewidth=3)
 
     def plot_predicted_mean(self, distrib, index, color):
         mean = np.squeeze(np.mean(distrib[index], axis=0))
         plt.plot(mean, color=color, linewidth=2)
 
-    def _plot(self):
-        plt.figure(figsize=(15, 10))
-        for j in range(1):
-            plt.subplot(1, 1, j + 1)
-            idx_test = np.random.randint(0, self.test_data.shape[0])
-            self.plot_true_mean(idx_test)
-            #self.plot_predicted_mean(self.smc_distrib, index=idx_test, color=self.color_smc)
-            #self.plot_predicted_mean(self.lstm_distrib, index=idx_test, color=self.color_lstm)
-            #self.plot_predicted_mean(self.transf_distrib, index=idx_test, color=self.color_transf)
-            #self.plot_predicted_mean(self.bayes_distrib, index=idx_test, color=self.color_bayes)
-            for tsp in range(self.test_data.shape[1]):
-                yy = self.get_true_CI(index=idx_test, tsp=tsp)
-                smc = self.get_pred_CI(distrib=self.smc_distrib, index=idx_test, tsp=tsp)
-                lstm = self.get_pred_CI(distrib=self.lstm_distrib, index=idx_test, tsp=tsp)
-                transf = self.get_pred_CI(distrib=self.transf_distrib, index=idx_test, tsp=tsp)
-                bayes = self.get_pred_CI(distrib=self.bayes_distrib, index=idx_test, tsp=tsp)
-                xx = tsp * np.ones(100)
-                if tsp == 0:
-                    plt.plot(xx, yy, color='grey', label='True 95% confidence interval', linewidth=3)
-                    plt.plot(xx - self.shift_x, smc, color=self.color_smc, label=self.smc_caption, marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, label=self.lstm_caption,
-                             marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 2 * self.shift_x, transf, color=self.color_transf, label=self.transf_caption,
-                             marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 3 * self.shift_x, bayes, color=self.color_bayes, label=self.bayes_captions,
-                             marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                else:
-                    plt.plot(xx, yy, color='grey', linewidth=3)
-                    plt.plot(xx - self.shift_x, smc, color=self.color_smc, marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 2 * self.shift_x, transf, color=self.color_transf,
-                             marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 3 * self.shift_x, bayes, color=self.color_bayes,
-                             marker=self.marker,
-                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-            plt.ylabel('Signal values', fontsize=16)
-            plt.xlabel('Time steps', fontsize=16)
-            plt.grid('on')
-            plt.legend(markerscale=3, fontsize=14, frameon=False)
-            if self.output_path is not None:
-                plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)))
-            else:
-                plt.show()
+    def plot_full_distrib(self, x, distrib, index, color):
+        sample = distrib[index]
+        for i in range(sample.shape[0]):
+            plt.scatter(x, sample[i], c=color)
 
-    def plot(self, num_plots=5):
+    def _plot(self, idx_test, plot_means=False):
+        plt.figure(figsize=(15, 10))
+        plt.subplot(1, 1, 1)
+        self.plot_true_mean(idx_test)
+        if plot_means:
+            self.plot_predicted_mean(self.smc_distrib, index=idx_test, color=self.color_smc)
+            self.plot_predicted_mean(self.lstm_distrib, index=idx_test, color=self.color_lstm)
+            self.plot_predicted_mean(self.transf_distrib, index=idx_test, color=self.color_transf)
+            self.plot_predicted_mean(self.bayes_distrib, index=idx_test, color=self.color_bayes)
+        for tsp in range(self.test_data.shape[1]):
+            yy = self.get_true_CI(index=idx_test, tsp=tsp)
+            smc = self.get_pred_CI(distrib=self.smc_distrib, index=idx_test, tsp=tsp)
+            lstm = self.get_pred_CI(distrib=self.lstm_distrib, index=idx_test, tsp=tsp)
+            transf = self.get_pred_CI(distrib=self.transf_distrib, index=idx_test, tsp=tsp)
+            bayes = self.get_pred_CI(distrib=self.bayes_distrib, index=idx_test, tsp=tsp)
+            xx = tsp * np.ones(100)
+            if tsp == 0:
+                plt.plot(xx, yy, color='grey', label='True 95% confidence interval', linewidth=3)
+                plt.plot(xx - self.shift_x, smc, color=self.color_smc, label=self.smc_caption, marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, label=self.lstm_caption,
+                         marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 2 * self.shift_x, transf, color=self.color_transf, label=self.transf_caption,
+                         marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 3 * self.shift_x, bayes, color=self.color_bayes, label=self.bayes_captions,
+                         marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+            else:
+                plt.plot(xx, yy, color='grey', linewidth=3)
+                plt.plot(xx - self.shift_x, smc, color=self.color_smc, marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 2 * self.shift_x, transf, color=self.color_transf,
+                         marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+                plt.plot(xx + 3 * self.shift_x, bayes, color=self.color_bayes,
+                         marker=self.marker,
+                         markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
+        plt.ylabel('Signal values', fontsize=16)
+        plt.xlabel('Time steps', fontsize=16)
+        plt.grid('on')
+        plt.legend(markerscale=3, fontsize=14, frameon=False)
+        if self.output_path is not None:
+            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)))
+        else:
+            plt.show()
+
+    def _plot_full_distribs(self, plot_means=False):
+        plt.figure(figsize=(15, 10))
+        plt.subplot(1, 1, 1)
+        idx_test = np.random.randint(0, self.test_data.shape[0])
+        self.plot_true_mean(idx_test)
+        if plot_means:
+            self.plot_predicted_mean(self.smc_distrib, index=idx_test, color=self.color_smc)
+            self.plot_predicted_mean(self.lstm_distrib, index=idx_test, color=self.color_lstm)
+            self.plot_predicted_mean(self.transf_distrib, index=idx_test, color=self.color_transf)
+            self.plot_predicted_mean(self.bayes_distrib, index=idx_test, color=self.color_bayes)
+        for tsp in range(self.test_data.shape[1]):
+            yy = self.get_true_CI(index=idx_test, tsp=tsp)
+            xx = tsp * np.ones(100)
+            if tsp == 0:
+                plt.plot(xx, yy, color='grey', label='True 95% confidence interval', linewidth=3)
+            else:
+                plt.plot(xx, yy, color='grey', linewidth=3)
+        # x = np.linspace(1,self.test_data.shape[1], self.test_data.shape[1])
+        x = np.linspace(1, 24, 24)
+        self.plot_full_distrib(x=x, distrib=self.smc_distrib, index=idx_test, color=self.color_smc)
+        self.plot_full_distrib(x=x, distrib=self.lstm_distrib, index=idx_test, color=self.color_lstm)
+        self.plot_full_distrib(x=x, distrib=self.bayes_distrib, index=idx_test, color=self.color_bayes)
+        self.plot_full_distrib(x=x, distrib=self.transf_distrib, index=idx_test, color=self.color_transf)
+        plt.ylabel('Signal values', fontsize=16)
+        plt.xlabel('Time steps', fontsize=16)
+        plt.grid('on')
+        plt.legend(markerscale=3, fontsize=14, frameon=False)
+        if self.output_path is not None:
+            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)))
+        else:
+            plt.show()
+
+
+    def plot(self, num_plots=1):
+        idx_test = 37
+        # idx_test = np.random.randint(0, self.test_data.shape[0])
         for _ in range(num_plots):
-            self._plot()
+            self._plot(idx_test=idx_test)
+            #self._plot_full_distribs()
+
 
 class PICP_MPIW_Plot(Plot):
     def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
                  colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
-        super(PICP_MPIW_Plot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions, shift_x=shift_x,
-                                     output_path=output_path, colors=colors, marker=marker, markersize=markersize,
-                                     alpha_plot=alpha_plot, linewidth=linewidth)
+        super(PICP_MPIW_Plot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions,
+                                             shift_x=shift_x,
+                                             output_path=output_path, colors=colors, marker=marker,
+                                             markersize=markersize,
+                                             alpha_plot=alpha_plot, linewidth=linewidth)
 
         self.smc_results = self.upload_npy_files("smc")
         self.lstm_results = self.upload_npy_files("lstm")
@@ -172,7 +224,6 @@ class PICP_MPIW_Plot(Plot):
         ax.set_xticks(x)
         ax.legend()
         plt.show()
-
 
 
 if __name__ == '__main__':
@@ -206,6 +257,6 @@ if __name__ == '__main__':
     distribs_path = {"smc": args.smc, "lstm": args.lstm, "transf": args.transf, "bayes": args.bayes}
 
     ci_plot = CIPlot(dataset=dataset, distribs_path=distribs_path, captions=args.captions, alpha=args.alpha,
-                   variance=args.variance, output_path=args.output_path)
+                     variance=args.variance, output_path=args.output_path)
 
     ci_plot.plot()
