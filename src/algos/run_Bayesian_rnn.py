@@ -120,7 +120,7 @@ class BayesianRNNAlgo(Algo):
     def _load_ckpt(self, num_train=1):
         ckpt_path = os.path.join(self.ckpt_path, "Bayesian_LSTM_{}".format(num_train))
         if os.path.isdir(ckpt_path):
-            checkpoint = torch.load(os.path.join(ckpt_path, 'model.pt'))
+            checkpoint = torch.load(os.path.join(ckpt_path, 'model.pt'), map_location=self.device)
             self.bayesian_lstm.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epoch = checkpoint['epoch']

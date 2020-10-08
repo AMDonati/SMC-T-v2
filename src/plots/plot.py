@@ -9,7 +9,7 @@ import json
 
 class Plot:
     def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
-                 colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
+                 colors=['salmon', 'limegreen', 'seagreen', 'darkcyan'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         self.output_path = output_path
         if not os.path.isdir(self.output_path):
@@ -51,7 +51,7 @@ class Plot:
 class CIPlot(Plot):
 
     def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.2, output_path=None,
-                 colors=['firebrick', 'limegreen', 'seagreen', 'blueviolet'], marker='o', markersize=4, alpha_plot=0.8,
+                 colors=['salmon', 'limegreen', 'seagreen', 'darkcyan'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         super(CIPlot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions, shift_x=shift_x,
                                      output_path=output_path, colors=colors, marker=marker, markersize=markersize,
@@ -72,7 +72,7 @@ class CIPlot(Plot):
         mean = np.squeeze(self.test_data[index, tsp])
         lower_bound = mean - 1.96 * np.sqrt(self.variance)
         upper_bound = mean + 1.96 * np.sqrt(self.variance)
-        yy = np.linspace(lower_bound, upper_bound, 10)
+        yy = np.linspace(lower_bound, upper_bound, 100)
         return yy
 
     def get_pred_CI(self, distrib, index, tsp):
@@ -80,11 +80,15 @@ class CIPlot(Plot):
         std = np.squeeze(np.std(distrib[index, :, tsp], axis=0))
         lower_b = mean - 1.96 * std
         upper_b = mean + 1.96 * std
-        zz = np.linspace(lower_b, upper_b, 10)
+        zz = np.linspace(lower_b, upper_b, 100)
         return zz
 
     def plot_true_mean(self, idx_test):
-        plt.plot(self.test_data[idx_test, :, 0], color='darkcyan', label='True mean', linewidth=3)
+        plt.plot(self.test_data[idx_test, :, 0], color='grey', label='True mean', linewidth=3)
+
+    def plot_predicted_mean(self, distrib, index, color):
+        mean = np.squeeze(np.mean(distrib[index], axis=0))
+        plt.plot(mean, color=color, linewidth=2)
 
     def _plot(self):
         plt.figure(figsize=(15, 10))
@@ -92,15 +96,19 @@ class CIPlot(Plot):
             plt.subplot(1, 1, j + 1)
             idx_test = np.random.randint(0, self.test_data.shape[0])
             self.plot_true_mean(idx_test)
+            #self.plot_predicted_mean(self.smc_distrib, index=idx_test, color=self.color_smc)
+            #self.plot_predicted_mean(self.lstm_distrib, index=idx_test, color=self.color_lstm)
+            #self.plot_predicted_mean(self.transf_distrib, index=idx_test, color=self.color_transf)
+            #self.plot_predicted_mean(self.bayes_distrib, index=idx_test, color=self.color_bayes)
             for tsp in range(self.test_data.shape[1]):
                 yy = self.get_true_CI(index=idx_test, tsp=tsp)
                 smc = self.get_pred_CI(distrib=self.smc_distrib, index=idx_test, tsp=tsp)
                 lstm = self.get_pred_CI(distrib=self.lstm_distrib, index=idx_test, tsp=tsp)
                 transf = self.get_pred_CI(distrib=self.transf_distrib, index=idx_test, tsp=tsp)
                 bayes = self.get_pred_CI(distrib=self.bayes_distrib, index=idx_test, tsp=tsp)
-                xx = tsp * np.ones(10)
+                xx = tsp * np.ones(100)
                 if tsp == 0:
-                    plt.plot(xx, yy, color='darkcyan', label='True 95% confidence interval', linewidth=3)
+                    plt.plot(xx, yy, color='grey', label='True 95% confidence interval', linewidth=3)
                     plt.plot(xx - self.shift_x, smc, color=self.color_smc, label=self.smc_caption, marker=self.marker,
                              markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
                     plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, label=self.lstm_caption,
@@ -113,11 +121,11 @@ class CIPlot(Plot):
                              marker=self.marker,
                              markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
                 else:
-                    plt.plot(xx, yy, color='darkcyan', linewidth=3)
+                    plt.plot(xx, yy, color='grey', linewidth=3)
                     plt.plot(xx - self.shift_x, smc, color=self.color_smc, marker=self.marker,
                              markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-                    plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm,
-                             markersize=4, alpha=self.alpha_plot, linewidth=self.linewidth)
+                    plt.plot(xx + 1 * self.shift_x, lstm, color=self.color_lstm, marker=self.marker,
+                             markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
                     plt.plot(xx + 2 * self.shift_x, transf, color=self.color_transf,
                              marker=self.marker,
                              markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
@@ -197,7 +205,7 @@ if __name__ == '__main__':
 
     distribs_path = {"smc": args.smc, "lstm": args.lstm, "transf": args.transf, "bayes": args.bayes}
 
-    ci_plot = Plot(dataset=dataset, distribs_path=distribs_path, captions=args.captions, alpha=args.alpha,
+    ci_plot = CIPlot(dataset=dataset, distribs_path=distribs_path, captions=args.captions, alpha=args.alpha,
                    variance=args.variance, output_path=args.output_path)
 
     ci_plot.plot()
