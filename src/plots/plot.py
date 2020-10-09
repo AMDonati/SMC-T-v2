@@ -6,10 +6,12 @@ import numpy as np
 import os
 import json
 import tensorflow as tf
+#TODO: change shift to 0.15 and/or change marker size.
+#TODO: CHANGE color of Bayesian LSTM.
 
 class Plot:
-    def __init__(self, dataset, distribs_path, captions=None, shift_x=0.2, output_path=None,
-                 colors=['salmon', 'limegreen', 'seagreen', 'darkcyan'], marker='o', markersize=4, alpha_plot=0.8,
+    def __init__(self, dataset, distribs_path, captions=None, shift_x=0.15, output_path=None,
+                 colors=['salmon', 'limegreen', 'seagreen', 'steelblue'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         self.output_path = output_path
         if not os.path.isdir(self.output_path):
@@ -43,10 +45,10 @@ class Plot:
             self.transf_caption = dict_captions["transf"]
             self.bayes_captions = dict_captions["bayes"]
         else:
-            self.smc_caption = "SMC-Transformer"
-            self.lstm_caption = "MC-Dropout LSTM"
-            self.transf_caption = "MC-Dropout Transformer"
-            self.bayes_captions = "Bayesian LSTM"
+            self.smc_caption = "SMC-Transformer - M=30"
+            self.lstm_caption = "MC-Dropout LSTM - p=0.1"
+            self.transf_caption = "MC-Dropout Transformer - p=0.1"
+            self.bayes_captions = "Bayesian LSTM - M=10"
 
     def plot(self, num_plots=5):
         pass
@@ -54,8 +56,8 @@ class Plot:
 
 class CIPlot(Plot):
 
-    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.2, output_path=None,
-                 colors=['salmon', 'limegreen', 'seagreen', 'darkcyan'], marker='o', markersize=4, alpha_plot=0.8,
+    def __init__(self, dataset, distribs_path, captions=None, alpha=0.8, variance=0.5, shift_x=0.1, output_path=None,
+                 colors=['salmon', 'limegreen', 'seagreen', 'steelblue'], marker='o', markersize=4, alpha_plot=0.8,
                  linewidth=0):
         super(CIPlot, self).__init__(dataset=dataset, distribs_path=distribs_path, captions=captions, shift_x=shift_x,
                                      output_path=output_path, colors=colors, marker=marker, markersize=markersize,
@@ -148,9 +150,9 @@ class CIPlot(Plot):
         plt.ylabel('Signal values', fontsize=16)
         plt.xlabel('Time steps', fontsize=16)
         plt.grid('on')
-        plt.legend(markerscale=3, fontsize=14, frameon=False)
+        plt.legend(markerscale=3, fontsize=16, frameon=False)
         if self.output_path is not None:
-            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)))
+            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)), bbox_inches="tight")
         else:
             plt.show()
 
@@ -188,7 +190,7 @@ class CIPlot(Plot):
 
 
     def plot(self, num_plots=1):
-        idx_test = 37
+        idx_test = 69
         # idx_test = np.random.randint(0, self.test_data.shape[0])
         for _ in range(num_plots):
             self._plot(idx_test=idx_test)
@@ -232,7 +234,7 @@ if __name__ == '__main__':
     # data parameters:
     parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
     parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
-    parser.add_argument("-data_path", type=str, default="../../data/synthetic_model_1",
+    parser.add_argument("-data_path", type=str, default="../../data/synthetic_model_1_pytorch4vm",
                         help="path for uploading the dataset")
     parser.add_argument("-output_path", type=str, default="../../output/plots/ci_plots/synthetic_model_1",
                         help="path for saving the plot")
