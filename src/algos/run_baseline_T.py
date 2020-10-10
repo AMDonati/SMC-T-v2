@@ -84,10 +84,11 @@ class BaselineTAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}_pdrop{}'.format(args.dataset, args.d_model, args.dff,
-                                                                                      args.pe,
-                                                                                      self.bs, args.full_model,
-                                                                                              args.p_drop)
+            #out_file = '{}_Classic_T_depth_{}_dff_{}_pe_{}_bs_{}_fullmodel_{}_pdrop{}'.format(args.dataset, args.d_model, args.dff,
+                                                                                      #args.pe,
+                                                                                      #self.bs, args.full_model,
+                                                                                              #args.p_drop)
+            out_file = '{}_d{}_p{}'.format(args.algo,args.d_model,args.p_drop)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(args.output_path, out_file, datetime_folder)
             if not os.path.isdir(output_folder):

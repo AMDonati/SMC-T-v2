@@ -37,7 +37,7 @@ class Dataset:
         pass
 
     def get_datasets(self):
-        type = np.float16 if self.name == "energy" else np.float32
+        type = np.float32
         train_data = self.get_data_from_folder(self.train_path)
         train_data = train_data.astype(type)
         val_data = self.get_data_from_folder(self.val_path)

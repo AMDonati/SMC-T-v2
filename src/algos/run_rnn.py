@@ -38,10 +38,11 @@ class RNNAlgo(Algo):
             return args.save_path
         else:
             output_path = args.output_path
-            out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
-                                                                                       args.p_drop,
-                                                                                       args.rnn_drop, self.lr,
-                                                                                       self.bs, args.cv)
+            #out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
+                                                                                       #args.p_drop,
+                                                                                       #args.rnn_drop, self.lr,
+                                                                                       #self.bs, args.cv)
+            out_file = '{}_d{}_p{}'.format(args.algo, args.rnn_units, args.p_drop)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(output_path, out_file, datetime_folder)
             if not os.path.isdir(output_folder):

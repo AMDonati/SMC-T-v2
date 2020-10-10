@@ -41,14 +41,15 @@ class SMCTAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
-                                                                                            self.bs, args.full_model,
-                                                                                            args.dff, args.attn_w)
+            #out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
+                                                                                            #self.bs, args.full_model,
+                                                                                            #args.dff, args.attn_w)
+            out_file = '{}_d{}_{}p'.format(args.algo, args.d_model, args.particles)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-            if args.smc:
-                out_file = out_file + '__p_{}'.format(args.particles)
-                out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
-                out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+            # if args.smc:
+            #     out_file = out_file + '__p_{}'.format(args.particles)
+            #     out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
+            #     out_file = out_file + '_sigmas_{}'.format(args.sigmas)
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
             if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)

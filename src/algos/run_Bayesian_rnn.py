@@ -77,16 +77,17 @@ class BayesianRNNAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_nbr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(
-                args.dataset,
-                args.rnn_units,
-                self.bs, self.lr,
-                self.sample_nbr,
-                args.prior_sigma_1,
-                args.prior_sigma_2,
-                args.prior_pi,
-                args.posterior_rho,
-                args.cv)
+            # out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_nbr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(
+            #     args.dataset,
+            #     args.rnn_units,
+            #     self.bs, self.lr,
+            #     self.sample_nbr,
+            #     args.prior_sigma_1,
+            #     args.prior_sigma_2,
+            #     args.prior_pi,
+            #     args.posterior_rho,
+            #     args.cv)
+            out_file = '{}_d{}'.format(args.algo, args.rnn_units)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(args.output_path, out_file, datetime_folder)
             if not os.path.isdir(output_folder):
