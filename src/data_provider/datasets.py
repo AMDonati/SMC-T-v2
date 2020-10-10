@@ -37,15 +37,16 @@ class Dataset:
         pass
 
     def get_datasets(self):
+        type = np.float16 if self.name == "energy" else np.float32
         train_data = self.get_data_from_folder(self.train_path)
-        train_data = train_data.astype(np.float32)
+        train_data = train_data.astype(type)
         val_data = self.get_data_from_folder(self.val_path)
-        val_data = val_data.astype(np.float32)
+        val_data = val_data.astype(type)
         test_data = self.get_data_from_folder(self.test_path)
         if test_data.shape[0] > self.max_size_test:
             test_data = test_data[:self.max_size_test] # to avoid memory issues at test time.
             print("reducing test dataset size to {} samples...".format(self.max_size_test))
-        test_data = test_data.astype(np.float32)
+        test_data = test_data.astype(type)
         return train_data, val_data, test_data
 
     def get_features_labels(self, train_data, val_data, test_data):
