@@ -95,6 +95,10 @@ def run(args):
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, target_features=list(range(20)))
 
+    elif args.dataset == 'stock':
+        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
+                                      name=args.dataset)
+
     elif args.dataset == 'weather':
         BUFFER_SIZE = 5000
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,

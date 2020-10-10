@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+python src/scripts/run.py -dataset "stock" -data_path "data/stock" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_stock" -smc False
+python src/scripts/run.py -dataset "stock" -data_path "data/stock" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_stock" -particles 10 -smc True -multistep 1 -past_len 20 -mc_samples 1000
+python src/scripts/run.py -dataset "stock" -data_path "data/stock" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_stock" -particles 60 -smc True -multistep 1 -past_len 20 -mc_samples 1000
