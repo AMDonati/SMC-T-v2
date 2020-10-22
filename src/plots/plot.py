@@ -147,12 +147,14 @@ class CIPlot(Plot):
                 plt.plot(xx + 3 * self.shift_x, bayes, color=self.color_bayes,
                          marker=self.marker,
                          markersize=self.markersize, alpha=self.alpha_plot, linewidth=self.linewidth)
-        plt.ylabel('Signal values', fontsize=16)
-        plt.xlabel('Time steps', fontsize=16)
+        plt.ylabel('Signal values', fontsize=14)
+        plt.xlabel('Time steps', fontsize=14)
+        plt.tick_params(axis='x', labelsize=14)
+        plt.tick_params(axis='y', labelsize=14, labelright=True)
         plt.grid('on')
-        plt.legend(markerscale=3, fontsize=16, frameon=False)
+        plt.legend(markerscale=3, fontsize=14, frameon=False)
         if self.output_path is not None:
-            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}".format(idx_test)), bbox_inches="tight")
+            plt.savefig(os.path.join(self.output_path, "ci_plot_idx_test_{}.pdf".format(idx_test)), bbox_inches="tight")
         else:
             plt.show()
 
