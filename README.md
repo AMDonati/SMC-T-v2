@@ -9,7 +9,7 @@ The libraries needed to run the code are provided in the file requirements.txt.
 * `python src/preprocessing/create_synthetic_dataset.py -model 1 -num_samples 1000 -seq_len 24 -num_features 1`
 * `python src/preprocessing/create_synthetic_dataset.py -model 2 -alpha 0.9 -variance 0.3 -num_samples 1000 -seq_len 24 -num_features 1`
 #### Real-world datasets
-* To preprocess all the real-world datasets, please run: `sh preprocess_datasets.sh
+* To preprocess all the real-world datasets, please run: `sh preprocess_datasets.sh`
 
 
 ### Training the Baselines
@@ -26,4 +26,4 @@ The libraries needed to run the code are provided in the file requirements.txt.
 #### SMC Transformer
 * python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "../../data/synthetic_model_1" -algo "smc_t" -d_model 8 -dff 8 -bs 32 -ep 50 -particles 10 -smc True -output_path "exp_synthetic_model_1"
 
-* Example of sh scripts are provided in the scripts/sh folder.
+Examples of sh scripts are provided in the scripts/sh folder.
