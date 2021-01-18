@@ -284,5 +284,5 @@ class Algo:
         if kwargs["save_metrics"]:
             write_to_csv(dic=test_metrics_unistep, output_dir=os.path.join(self.out_folder, "test_metrics_unistep.csv"))
             if test_metrics_multistep:
-                write_to_csv(dic=test_metrics_unistep,
+                write_to_csv(dic=test_metrics_multistep,
                              output_dir=os.path.join(self.out_folder, "test_metrics_multistep.csv"))
