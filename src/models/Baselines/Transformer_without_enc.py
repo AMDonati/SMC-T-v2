@@ -2,8 +2,8 @@ import tensorflow as tf
 from src.models.SMC_Transformer.transformer_utils import positional_encoding
 from src.models.classic_layers import point_wise_feed_forward_network
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from src.models.Baselines.Attention_Transformer import MultiHeadAttention
-from src.models.Baselines.Attention_Transformer import OneHeadAttention
+from src.models.Baselines.self_attention import MultiHeadAttention
+from src.models.Baselines.self_attention import OneHeadAttention
 
 
 class DecoderLayer(tf.keras.layers.Layer):
@@ -95,9 +95,6 @@ class Transformer(tf.keras.Model):
                            target_vocab_size=target_vocab_size, maximum_position_encoding=maximum_position_encoding,
                            rate=rate, full_model=full_model)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
-
-  def stop_SMC_algo(self):
-    self.decoder.dec_layers[-1].mha.noise = False
 
   def call(self, inputs, training, mask):
     '''

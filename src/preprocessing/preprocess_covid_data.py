@@ -94,17 +94,3 @@ if __name__ == '__main__':
     print('test_data sample 0', test_data[0, :, :])
     stats_train, stats_val, stats_test = stats
 
-    # covid_old_train = np.load("data/covid/covid_train_data.npy")
-    # print("covid_old train", covid_old_train.shape)
-    # covid_train = np.load("data/covid/train/covid.npy")
-    # print("covid train", covid_train.shape)
-    # covid_old_val = np.load("data/covid/covid_val_data.npy")
-    # covid_val = np.load("data/covid/val/covid.npy")
-    # covid_old_test = np.load("data/covid/covid_test_data.npy")
-    # covid_test = np.load("data/covid/test/covid.npy")
-    # print("covid old val", covid_old_val.shape)
-    # print("covid val", covid_val.shape)
-    # print("covid old test", covid_old_test.shape)
-    # print("covid test", covid_test.shape)
-    # print("covid old: first sample", covid_old_train[0, :, 0])
-    # print("covid: first sample", covid_train[0, :, 0])

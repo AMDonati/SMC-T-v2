@@ -118,10 +118,6 @@ def run(args):
     else:
         _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
 
-    # if args.inference:
-    #     algo.launch_inference(list_samples=list_samples, multistep=args.multistep, alpha=args.alpha, beta=args.beta,
-    #                           p=args.p)
-
 
 if __name__ == '__main__':
     parser = get_parser()
