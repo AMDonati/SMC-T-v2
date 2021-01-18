@@ -23,7 +23,7 @@ class BaselineTAlgo(Algo):
         self.ckpt_path = self.create_ckpt_path()
         self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
-        self.transformer = Transformer(num_layers=args.num_layers, d_model=args.d_model, num_heads=1, dff=args.dff,
+        self.transformer = Transformer(num_layers=args.num_layers, d_model=args.d_model, num_heads=args.num_heads, dff=args.dff,
                                        target_vocab_size=self.output_size,
                                        maximum_position_encoding=args.pe, rate=args.p_drop, full_model=args.full_model)
         self.p_drop = args.p_drop

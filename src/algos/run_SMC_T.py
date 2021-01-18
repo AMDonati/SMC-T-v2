@@ -29,7 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -80,8 +80,9 @@ class SMCTAlgo(Algo):
     def train(self):
         self.logger.info('hparams...')
         self.logger.info(
-            'num layers: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
+            'num layers: {} - num_heads: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
                 self.smc_transformer.num_layers,
+                self.smc_transformer.num_heads,
                 self.smc_transformer.d_model, self.bs,
                 self.smc_transformer.full_model, self.smc_transformer.dff,
                 self.smc_transformer.cell.attention_smc.attn_window))

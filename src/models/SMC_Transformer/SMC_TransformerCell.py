@@ -2,6 +2,7 @@ import tensorflow as tf
 import collections
 # additional imports
 from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
+from src.models.SMC_Transformer.multi_head_attention_SMC import mha_SMC
 from src.models.SMC_Transformer.transformer_utils import resample
 from src.models.classic_layers import point_wise_feed_forward_network
 
@@ -10,7 +11,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -19,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         # store the decoding timestep
         self.dec_timestep = 0
         self.cell_count = 0
-        self.attention_smc = Self_Attention_SMC(d_model=d_model, attn_window=attn_window)
+        self.attention_smc = Self_Attention_SMC(d_model=d_model, attn_window=attn_window) if num_heads == 1 else mha_SMC(d_model=d_model, num_heads=num_heads, attn_window=attn_window)
         self.d_model = d_model
         self.output_size = output_size
         self.seq_len = seq_len
@@ -153,17 +154,26 @@ if __name__ == "__main__":
     d_model = 12
     output_size = 1
     seq_len = 4
-    task_type = 'regression'
 
-    # ---- test of compute w_regression ------------------------------------
+    num_particles = 20
+    sigma = 0.1
+    sigma_obs = 0.5
+    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
+
+    print(".........................................Test of compute w regression ................................")
     temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=False, dff=0)
-    temp_cell.add_SMC_parameters(dict_sigmas=None, sigma_obs=0.5, num_particles=10)
+
+    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=num_particles)
 
     temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
     temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
 
     temp_w = temp_cell.compute_w_regression(predictions=temp_pred, y=temp_y)
     print('w', temp_w.shape)
+
+    print(".........................................Test of multi-head attention  ................................")
+    temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=True, dff=24, num_heads=3)
+    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=num_particles)
 
 
 

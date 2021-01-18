@@ -38,6 +38,7 @@ def get_parser():
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
     parser.add_argument("-num_layers", type=int, default=1, help="number of layers in the network")
+    parser.add_argument("-num_heads", type=int, default=1, help="number of attention heads for Transformer networks")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
     parser.add_argument("-full_model", type=str2bool, default=True,
                         help="simple transformer or one with ffn and layer norm")

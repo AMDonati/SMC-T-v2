@@ -14,14 +14,14 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transformer(tf.keras.Model):
 
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, maximum_position_encoding=50,
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
                  rate=0., attn_window=None):
         super(SMC_Transformer, self).__init__()
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
 
-        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=1,
+        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate)
@@ -34,6 +34,7 @@ class SMC_Transformer(tf.keras.Model):
         self.full_model = full_model
         self.dff = dff
         self.num_layers = num_layers
+        self.num_heads = num_heads
 
     def compute_SMC_loss(self, targets, predictions):
         assert self.cell.noise == self.cell.attention_smc.noise == True
@@ -112,7 +113,10 @@ class SMC_Transformer(tf.keras.Model):
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
         outputs = [tf.squeeze(out, axis=-2) for out in outputs]
         R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        attn_weights = tf.transpose(outputs[1], perm=[0, 2, 1, 3])
+        attn_weights = outputs[1]
+        if len(tf.shape(attn_weights)) == 4: # one-head case
+            attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
+        attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
         # states
         K, V, R_resampl = new_states[0], new_states[1], new_states[2]  # (B,P,S,D)
 
@@ -164,10 +168,10 @@ if __name__ == "__main__":
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
 
-    print("..............................TEST MULTI-LAYER CASE ...............................................")
+    print("..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  num_layers=2)
+                                  num_layers=2, num_heads=2)
     print("Decoder num layers:", transformer.decoder.num_layers)
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 

@@ -4,7 +4,6 @@ import tensorflow as tf
 # ----- scaled_dot_product_attention_function & mha function ------------
 
 class mha_SMC(tf.keras.layers.Layer):
-
     def __init__(self, d_model, num_heads, attn_window=None):
         super(mha_SMC, self).__init__()
         self.d_model = d_model
