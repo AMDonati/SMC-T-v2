@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-
 # ----- scaled_dot_product_attention_function & mha function ------------
 
 class Self_Attention_SMC(tf.keras.layers.Layer):
