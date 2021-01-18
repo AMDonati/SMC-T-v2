@@ -48,6 +48,7 @@ def get_parser():
     parser.add_argument("-rnn_units", type=int, default=8, help="number of rnn units")
     parser.add_argument("-p_drop", type=float, default=0., help="dropout on output layer")
     parser.add_argument("-rnn_drop", type=float, default=0.0, help="dropout on rnn layer")
+    # Bayesian LSTM.
     parser.add_argument("-prior_sigma_1", type=float, default=0.1, help="prior sigma param for Bayesian LSTM.")
     parser.add_argument("-prior_sigma_2", type=float, default=0.002, help="prior sigma param for Bayesian LSTM.")
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
@@ -71,6 +72,7 @@ def get_parser():
     parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
     # misc:
+    parser.add_argument("-lambda_QD", type=float, default=15.0, help="lambda parameter for loss QD.")
     parser.add_argument("-save_distrib", type=str2bool, default=True, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
     parser.add_argument("-save_particles", type=str2bool, default=True, help="save predicted particles on test set.")
@@ -114,7 +116,7 @@ def run(args):
         print("skipping training...")
 
     if not args.cv:
-        _ = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
+       algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
                                  save_particles=args.save_particles, plot=args.save_plot,
                                  save_distrib=args.save_distrib, save_metrics=True)
     else:

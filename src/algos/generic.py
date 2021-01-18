@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from src.utils.utils_train import write_to_csv, create_config_file
 import json
+import math
+
 
 class Algo:
     def __init__(self, dataset, args):
@@ -23,6 +25,7 @@ class Algo:
         self.test_predictive_distribution = None
         self.test_predictive_distribution_multistep = None
         self.distribution = False
+        self.lambda_QD = args.lambda_QD
 
     def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path):
         pass
@@ -44,7 +47,7 @@ class Algo:
         config_path = os.path.join(self.out_folder, "config.json")
         with open(config_path, 'w') as fp:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
-        #create_config_file(os.path.join(self.out_folder, "config.ini"), args)
+        # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
     def load_datasets(self, num_dim=4):
         if not self.cv:
@@ -94,11 +97,12 @@ class Algo:
         if self.distribution:
             for (inp, _) in self.test_dataset:
                 if self.output_size < self.num_features:
-                    future_input_features = inp[:,self.past_len:,len(self.dataset.target_features):]
+                    future_input_features = inp[:, self.past_len:, len(self.dataset.target_features):]
                 else:
                     future_input_features = None
                 mc_samples_multi = self.stochastic_forward_pass_multistep(inp_model=inp[:, :self.past_len, :],
-                                                              save_path=save_path, future_inp_features=future_input_features)
+                                                                          save_path=save_path,
+                                                                          future_inp_features=future_input_features)
                 print("shape of predictive distribution multistep", mc_samples_multi.shape)
             self.test_predictive_distribution_multistep = mc_samples_multi
 
@@ -117,17 +121,18 @@ class Algo:
         std_distrib = tf.math.reduce_std(predictive_distribution, axis=1)
         lower_bounds = mean_distrib - std_multiplier * std_distrib  # shape(B,S,F)
         upper_bounds = mean_distrib + std_multiplier * std_distrib
-        piw = upper_bounds - lower_bounds
+        piw = upper_bounds - lower_bounds  # (B,S,F)
         MPIW = tf.reduce_mean(piw)
-        MPIW_per_timestep = tf.reduce_mean(piw, axis=[0,2])
+        MPIW_per_timestep = tf.reduce_mean(piw, axis=[0, 2])
         if save_path is not None:
             np.save(os.path.join(save_path, "MPIW_per_timestep.npy"), MPIW_per_timestep)
         return lower_bounds, upper_bounds, MPIW, MPIW_per_timestep.numpy()
 
     def compute_PICP_MPIW(self, predictive_distribution, past_len=0, save_path=None):
-        inside_pi, inside_pi_mean = 0, 0
-        PICP_per_timestep, PICP_per_timestep_mean = [], []
-        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution, save_path=save_path)
+        inside_pi, MPIW_captured = 0, 0
+        PICP_per_timestep, MPIW_captured_per_timestep = [], []
+        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution,
+                                                                                               save_path=save_path)
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
         num_features = lower_bounds.shape[-1]
@@ -135,31 +140,40 @@ class Algo:
         for (inp, _) in self.test_dataset:
             if len(tf.shape(inp)) == 4:
                 inp = tf.squeeze(inp, axis=1)
-            inp = inp[:,past_len:,:len(self.dataset.target_features)] # taking only the target features.
+            inp = inp[:, past_len:, :len(self.dataset.target_features)]  # taking only the target features.
             for t in range(seq_len):
                 item = inp[:, t, :]  # shape (B,F)
                 low_b = lower_bounds[:, t, :]  # (B,F)
                 upper_b = upper_bounds[:, t, :]
-                bool_low = tf.math.greater_equal(item, low_b)# (B,F)
+                bool_low = tf.math.greater_equal(item, low_b)  # (B,F)
                 bool_up = tf.math.greater_equal(upper_b, item)  # (B,F)
-                bool_low_all = tf.math.reduce_all(bool_low, axis=1)  # B
-                bool_up_all = tf.math.reduce_all(bool_up, axis=1)  # B
-                prod_bool = tf.math.multiply(tf.cast(bool_up_all, dtype=tf.float32), tf.cast(bool_low_all, dtype=tf.float32)) # (B) equal to True only if both are True.
-                prod_bool_mean = tf.math.multiply(tf.cast(bool_up, dtype=tf.float32), tf.cast(bool_low, dtype=tf.float32)) # (B,F)
+                prod_bool = tf.math.multiply(tf.cast(bool_up, dtype=tf.float32),
+                                             tf.cast(bool_low, dtype=tf.float32))  # (B,F)
+                # compute of PICP and MPIW captured.
                 num_inside_pi = tf.reduce_sum(prod_bool)
-                num_inside_pi_mean = tf.reduce_sum(prod_bool_mean)
-                PICP_per_timestep.append(num_inside_pi.numpy() / num_samples)
-                PICP_per_timestep_mean.append(num_inside_pi_mean.numpy() / (num_samples * num_features))
+                mpiw_capt = tf.reduce_sum(prod_bool * (upper_b - low_b))
+                PICP_per_timestep.append(num_inside_pi.numpy() / (num_samples * num_features))
+                MPIW_captured_per_timestep.append(mpiw_capt.numpy() / num_inside_pi)
                 inside_pi += num_inside_pi
-                inside_pi_mean += num_inside_pi_mean
-        PICP = inside_pi / (seq_len * num_samples)
-        PICP_mean = inside_pi_mean / (seq_len * num_samples * num_features)
-        PICP_per_timestep = np.stack(PICP_per_timestep) # shape S.
-        PICP_per_timestep_mean = np.stack(PICP_per_timestep_mean)  # shape S.
+                MPIW_captured += mpiw_capt
+
+        PICP = inside_pi.numpy() / (seq_len * num_samples * num_features)
+        MPIW_captured = MPIW_captured.numpy() / inside_pi.numpy()
+        PICP_per_timestep = np.stack(PICP_per_timestep)  # shape S.
+        MPIW_captured_per_timestep = np.stack(MPIW_captured_per_timestep)  # shape S.
+        N = (num_features * num_samples * seq_len)
+        loss_QD = self.compute_loss_QD(mpiw_captured=MPIW_captured, PICP=PICP, N=N, lambd=self.lambda_QD)
         if save_path is not None:
-            np.save(os.path.join(save_path, "PICP_per_timestep.npy"), PICP_per_timestep)
-            np.save(os.path.join(save_path, "PICP_per_timestep_mean.npy"), PICP_per_timestep_mean)
-        return (PICP, PICP_mean), MPIW, (PICP_per_timestep, PICP_per_timestep_mean), MPIW_per_timestep
+            np.save(os.path.join(save_path, "PICP_per_timestep_mean.npy"), PICP_per_timestep)
+            np.save(os.path.join(save_path, "MPIW_capt_per_timestep.npy"), MPIW_captured_per_timestep)
+        return (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (
+            MPIW_captured, MPIW_captured_per_timestep), loss_QD
+
+    def compute_loss_QD(self, mpiw_captured, PICP, N, lambd=15., alpha=0.05):
+        picp_term = max(0., (1 - alpha) - PICP)
+        ratio = N / (alpha * (1 - alpha))
+        loss_QD = mpiw_captured + lambd * ratio * math.pow(picp_term, 2)
+        return loss_QD
 
     def plot_preds_targets(self, predictions_test):
         for (inputs, targets) in self.test_dataset:
@@ -191,9 +205,11 @@ class Algo:
             self.logger.info("-" * 20 + "Testing for test split number {}".format(num_train + 1) + "-" * 20)
             self._load_ckpt(num_train=num_train + 1)
             if num_train == 0:
-                test_metrics = self.test(**kwargs, save_particles=True, plot=True, save_metrics=False, save_distrib=True)
+                test_metrics = self.test(**kwargs, save_particles=True, plot=True, save_metrics=False,
+                                         save_distrib=True)
             else:
-                test_metrics = self.test(**kwargs, save_particles=False, plot=False, save_metrics=False, save_distrib=False)
+                test_metrics = self.test(**kwargs, save_particles=False, plot=False, save_metrics=False,
+                                         save_distrib=False)
             self.logger.info("-" * 60)
             for key, metric in test_metrics.items():
                 test_metrics_cv[key + '{}'.format(num_train + 1)] = metric
@@ -212,9 +228,10 @@ class Algo:
         return test_metrics_cv
 
     def test(self, **kwargs):
-        test_metrics = {}
+        test_metrics_unistep = {}
+        test_metrics_multistep = {}
         test_loss, predictions_test = self.compute_test_loss(kwargs["save_particles"])
-        test_metrics["test_loss"] = test_loss.numpy()
+        test_metrics_unistep["test_loss"] = test_loss.numpy()
         self.logger.info("test loss at the end of training: {}".format(test_loss.numpy()))
         if self.distribution:
             if kwargs["save_distrib"]:
@@ -229,39 +246,43 @@ class Algo:
                     mse_2 = self.compute_mse_predictive_distribution(alpha=kwargs["beta"])
                     mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
                 self.logger.info("mse predictive distribution: {}".format(mse.numpy()))
-                test_metrics["mse"] = mse.numpy()
+                test_metrics_unistep["mse"] = mse.numpy()
             else:
                 self.logger.info("computing MPIW on test set...")
-                (PICP, PICP_mean), MPIW, (PICP_per_t, PICP_per_t_mean), _ = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution)
-                test_metrics["PICP"] = PICP.numpy()
-                test_metrics["PICP_mean"] = PICP_mean.numpy()
-                test_metrics["MPIW"] = MPIW.numpy()
-                self.logger.info("PICP 0.95 on test set: {}".format(PICP))
-                self.logger.info("PICP (mean) 0.95 on test set: {}".format(PICP_mean))
-                self.logger.info("PICP per timestep: {}".format(PICP_per_t))
-                self.logger.info("PICP (mean) per timestep: {}".format(PICP_per_t_mean))
-                self.logger.info("MPIW on test set: {}".format(MPIW))
+                (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (
+                    MPIW_capt, MPIW_capt_per_timestep), loss_QD = self.compute_PICP_MPIW(
+                    predictive_distribution=self.test_predictive_distribution)
+                test_metrics_unistep["PICP"] = round(PICP, 4)
+                test_metrics_unistep["MPIW"] = np.round(MPIW.numpy(), 4)
+                test_metrics_unistep["MPIW_capt"] = round(MPIW_capt, 4)
+                test_metrics_unistep["loss_QD"] = round(loss_QD, 4)
+                self.logger.info("---------------------TEST METRICS UNISTEP -----------------------------------")
+                self.logger.info(test_metrics_unistep)
                 self.logger.info('-' * 60)
                 if kwargs["multistep"]:
-                    self.logger.info("computing multistep MPIW on test set...")
+                    self.logger.info("computing multistep uncertainty metrics on test set...")
                     self.get_predictive_distribution_multistep(save_path=distrib_multistep_path)
-                    (PICP_multi, PICP_multi_mean), MPIW_multi, (PICP_per_timestep, PICP_per_timestep_mean), MPIW_per_timestep = self.compute_PICP_MPIW(predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len, save_path=self.inference_path)
-                    test_metrics["PICP_multistep"] = PICP_multi.numpy()
-                    test_metrics["PICP_multistep_mean"] = PICP_multi_mean.numpy()
-                    test_metrics["MPIW_multistep"] = MPIW_multi.numpy()
-                    test_metrics["PICP_per_timestep_multistep"] = PICP_per_timestep
-                    test_metrics["PICP_per_timestep_multistep_mean"] = PICP_per_timestep_mean
-                    test_metrics["MPIW_per_timestep_multistep"] = MPIW_per_timestep
-                    self.logger.info("PICP multistep 0.95 on test set: {}".format(PICP_multi))
-                    self.logger.info("PICP (mean) multistep 0.95 on test set: {}".format(PICP_multi_mean))
-                    self.logger.info("MPIW multistep on test set: {}".format(MPIW_multi))
-                    self.logger.info("PICP per timestep multistep 0.95 on test set: {}".format(PICP_per_timestep))
-                    self.logger.info("PICP (mean) per timestep multistep 0.95 on test set: {}".format(PICP_per_timestep_mean))
-                    self.logger.info("MPIW per timestep multistep on test set: {}".format(MPIW_per_timestep))
+                    (PICP_m, PICP_m_per_timestep), (MPIW_m, MPIW_m_per_timestep), (
+                        MPIW_m_capt, MPIW_m_capt_per_timestep), loss_QD_m = self.compute_PICP_MPIW(
+                        predictive_distribution=self.test_predictive_distribution_multistep, past_len=self.past_len,
+                        save_path=self.inference_path)
+                    test_metrics_multistep["PICP_multistep"] = round(PICP_m,4)
+                    test_metrics_multistep["MPIW_multistep"] = np.round(MPIW_m.numpy(), 4)
+                    test_metrics_multistep["loss_QD_multistep"] = round(loss_QD_m, 4)
+                    test_metrics_multistep["MPIW_capt_multistep"] = round(MPIW_m_capt, 4)
+                    test_metrics_multistep["PICP_per_timestep_multistep"] = np.round(PICP_m_per_timestep, 4)
+                    test_metrics_multistep["MPIW_per_timestep_multistep"] = np.round(MPIW_m_per_timestep, 4)
+                    test_metrics_multistep["MPIW_capt_per_timestep_multistep"] = np.round(MPIW_m_capt_per_timestep, 4)
+                    self.logger.info("----------------------TEST METRICS MULTISTEP --------------------------")
+                    for (k, v) in test_metrics_multistep.items():
+                        self.logger.info(k + ": {}".format(v))
+                    self.logger.info('-' * 60)
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):
                 self.plot_preds_targets(predictions_test=predictions_test)
         if kwargs["save_metrics"]:
-            write_to_csv(dic=test_metrics, output_dir=os.path.join(self.out_folder, "test_metrics.csv"))
-        return test_metrics
+            write_to_csv(dic=test_metrics_unistep, output_dir=os.path.join(self.out_folder, "test_metrics_unistep.csv"))
+            if test_metrics_multistep:
+                write_to_csv(dic=test_metrics_unistep,
+                             output_dir=os.path.join(self.out_folder, "test_metrics_multistep.csv"))
