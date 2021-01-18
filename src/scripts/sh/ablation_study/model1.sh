@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+echo "---------------------------- full model = False ---------------------------------------"
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -full_model False -bs 32 -ep 50 -particles 1 -smc False -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -full_model False -bs 32 -ep 50 -particles 1 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -full_model False -bs 32 -ep 50 -particles 10 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+echo "---------------------------- full model = True ---------------------------------------"
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32  -bs 32 -ep 50 -particles 1 -smc False -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32  -bs 32 -ep 50 -particles 1 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -bs 32 -ep 50 -particles 10 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000
+echo "--------------------------- multi-head / multi-layer -----------------------------------"
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -bs 32 -ep 50 -particles 10 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000 -num_heads 4
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -bs 32 -ep 50 -particles 10 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000 -num_heads 4 -num_layers 2
+python src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/synthetic_model_1" -algo "smc_t" -d_model 32 -dff 32 -bs 32 -ep 50 -particles 30 -smc True -output_path "output/ablation_study/exp_synthetic_model_1" -mc_samples 1000 -num_heads 4 -num_layers 2
