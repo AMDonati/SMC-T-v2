@@ -46,7 +46,7 @@ class Decoder(tf.keras.layers.Layer):
   '''Class Decoder with the Decoder architecture
   -args
     '''
-  def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, maximum_position_encoding, rate,
+  def __init__(self, num_layers, d_model, num_heads, dff, maximum_position_encoding, rate,
                full_model):
     super(Decoder, self).__init__()
     self.d_model = d_model
@@ -54,7 +54,6 @@ class Decoder(tf.keras.layers.Layer):
     self.num_layers = num_layers
     self.maximum_position_encoding = maximum_position_encoding
     self.rate = rate
-    self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     self.input_dense_projection = tf.keras.layers.Dense(d_model) # for regression case (multivariate > to be able to have a d_model > F).
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
@@ -92,7 +91,7 @@ class Transformer(tf.keras.Model):
                full_model):
     super(Transformer, self).__init__()
     self.decoder = Decoder(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
-                           target_vocab_size=target_vocab_size, maximum_position_encoding=maximum_position_encoding,
+                           maximum_position_encoding=maximum_position_encoding,
                            rate=rate, full_model=full_model)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 

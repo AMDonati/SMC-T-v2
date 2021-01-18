@@ -28,7 +28,8 @@ class SMCTAlgo(Algo):
                                                seq_len=self.seq_len,
                                                full_model=args.full_model,
                                                dff=args.dff,
-                                               attn_window=args.attn_w)
+                                               maximum_position_encoding=args.pe,
+                                               attn_window=args.attn_w, num_layers=args.num_layers)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -41,9 +42,9 @@ class SMCTAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            #out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
-                                                                                            #self.bs, args.full_model,
-                                                                                            #args.dff, args.attn_w)
+            # out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
+            # self.bs, args.full_model,
+            # args.dff, args.attn_w)
             out_file = '{}_d{}_{}p'.format(args.algo, args.d_model, args.particles)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             # if args.smc:
@@ -79,7 +80,8 @@ class SMCTAlgo(Algo):
     def train(self):
         self.logger.info('hparams...')
         self.logger.info(
-            'd_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
+            'num layers: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
+                self.smc_transformer.num_layers,
                 self.smc_transformer.d_model, self.bs,
                 self.smc_transformer.full_model, self.smc_transformer.dff,
                 self.smc_transformer.cell.attention_smc.attn_window))
@@ -255,7 +257,7 @@ class SMCTAlgo(Algo):
                                                           len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
 
-    def get_predictive_distribution(self, save_path): #TODO: add option to save_distrib.
+    def get_predictive_distribution(self, save_path):  # TODO: add option to save_distrib.
         if self.distribution:
             for (inp, tar) in self.test_dataset:
                 particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inp,
@@ -273,12 +275,15 @@ class SMCTAlgo(Algo):
     def get_predictive_distribution_multistep(self, save_path):
         if self.distribution:
             for (inputs, targets) in self.test_dataset:
-                inp, tar = inputs[:,:,:self.past_len,:], targets[:,:,:self.past_len,:]
+                inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
                 if self.output_size < self.num_features:
-                    future_input_features = inputs[:,:,self.past_len:,len(self.dataset.target_features):]
+                    future_input_features = inputs[:, :, self.past_len:, len(self.dataset.target_features):]
                 else:
                     future_input_features = None
-                particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp, targets=tar, past_len=self.past_len, future_len=self.future_len, future_input_features=future_input_features)
+                particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
+                                                            targets=tar, past_len=self.past_len,
+                                                            future_len=self.future_len,
+                                                            future_input_features=future_input_features)
                 sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
                 distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
                                                                  P=self.smc_transformer.cell.num_particles,
@@ -287,17 +292,6 @@ class SMCTAlgo(Algo):
                                                                  len_future=self.future_len)
                 distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
             self.test_predictive_distribution_multistep = distrib_per_timestep
-
-    # def _get_inference_paths(self, index):
-    #     save_path_means = os.path.join(self.inference_path, 'mean_preds_sample_{}.npy'.format(index))
-    #     save_path_means_multi = os.path.join(self.inference_path, 'mean_preds_sample_{}_multi.npy'.format(index))
-    #     save_path_preds_multi = os.path.join(self.inference_path, 'particules_sample_{}_multi.npy'.format(index))
-    #     save_path_distrib = os.path.join(self.inference_path,
-    #                                      'distrib_future_timesteps_sample_{}.npy'.format(
-    #                                          index))
-    #     save_path_distrib_multi = os.path.join(self.inference_path,
-    #                                            'distrib_future_timesteps_sample_{}_multi.npy'.format(index))
-    #     return save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi
 
     def compute_test_loss(self, save_particles=True):
         for (inp, tar) in self.test_dataset:
