@@ -72,7 +72,7 @@ def get_parser():
     parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
     # misc:
-    parser.add_argument("-lambda_QD", type=float, default=15.0, help="lambda parameter for loss QD.")
+    parser.add_argument("-lambda_QD", type=float, default=1.0, help="lambda parameter for loss QD.")
     parser.add_argument("-save_distrib", type=str2bool, default=True, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
     parser.add_argument("-save_particles", type=str2bool, default=True, help="save predicted particles on test set.")
