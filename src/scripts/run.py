@@ -5,6 +5,7 @@ from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
+from src.algos.run_ARIMA import ARIMAAlgo
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -19,7 +20,7 @@ def str2bool(v):
 
 
 algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo,
-         "bayesian_lstm": BayesianRNNAlgo}
+         "bayesian_lstm": BayesianRNNAlgo, "arima": ARIMAAlgo}
 
 
 def get_parser():
@@ -36,7 +37,7 @@ def get_parser():
     parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
-                        help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm)")
+                        help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), ARIMA(arima), Bayesian LSTM (bayesian_lstm)")
     parser.add_argument("-num_layers", type=int, default=1, help="number of layers in the network")
     parser.add_argument("-num_heads", type=int, default=1, help="number of attention heads for Transformer networks")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
@@ -53,6 +54,9 @@ def get_parser():
     parser.add_argument("-prior_sigma_2", type=float, default=0.002, help="prior sigma param for Bayesian LSTM.")
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
     parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
+    # ARIMA
+    parser.add_argument("-d", type=int, default=1, help="d parameter in ARIMA model's order")
+    parser.add_argument("-q", type=int, default=0, help= "q parameter in ARIMA model's order")
     # training params.
     parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
