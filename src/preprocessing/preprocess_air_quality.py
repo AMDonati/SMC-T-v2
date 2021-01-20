@@ -43,6 +43,7 @@ def preprocess_dataframe(csv_path, save_path=None):
         path = os.path.join(save_path, "air_quality")
         if not os.path.isdir(path):
             os.makedirs(path)
+        df_process.to_csv(os.path.join(path, "raw_data.csv"))
         np.save(os.path.join(path, "raw_data.npy"), df_process.values)
     return df_process, df_process.values
 

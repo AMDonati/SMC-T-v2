@@ -54,7 +54,8 @@ def get_parser():
     parser.add_argument("-prior_sigma_2", type=float, default=0.002, help="prior sigma param for Bayesian LSTM.")
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
     parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
-    # ARIMA
+    # ARIMA / VARMA
+    parser.add_argument("-p", type=int, default=1, help="p parameter for VARMA model")
     parser.add_argument("-d", type=int, default=1, help="d parameter in ARIMA model's order")
     parser.add_argument("-q", type=int, default=0, help= "q parameter in ARIMA model's order")
     # training params.

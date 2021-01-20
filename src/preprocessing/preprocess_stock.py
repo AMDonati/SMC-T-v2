@@ -19,6 +19,7 @@ def preprocess_dataframe(csv_path, save_path=None):
         if not os.path.isdir(path):
             os.makedirs(path)
         df.to_csv(os.path.join(path, "raw_data.csv"))
+        np.save(os.path.join(path, "raw_data.npy"), df.values)
     return df
 
 

@@ -8,7 +8,7 @@ from src.preprocessing.utils import split_dataset_into_seq
 import argparse
 
 def split_weather_dataset(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT, VAL_SPLIT=0.5,
-                          VAL_SPLIT_cv=0.9, cv=False, max_samples=None, save_path=None):
+                          VAL_SPLIT_cv=0.9, cv=False, save_path=None):
 
     zip_path = tf.keras.utils.get_file(
         origin=file_path,
@@ -21,8 +21,14 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
     print('length of original dataset: {}'.format(len(uni_data_df)))
 
     uni_data = uni_data_df.values
-    if max_samples is not None:
-        uni_data = uni_data[:max_samples, :]
+
+    if save_path is not None:
+        path = os.path.join(save_path, "weather")
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        uni_data_df.to_csv(os.path.join(path, "raw_data.csv"))
+        np.save(os.path.join(path, "raw_data.npy"), uni_data)
+
 
     # normalization
     data_mean = uni_data.mean(axis=0)
@@ -110,5 +116,4 @@ if __name__ == '__main__':
                                                                                   history=args.history,
                                                                                   step=args.step,
                                                                                   cv=False,
-                                                                                  max_samples=None,
                                                                                   save_path=args.data_path)
