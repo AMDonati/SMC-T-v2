@@ -37,15 +37,6 @@ class OneHeadAttention(tf.keras.layers.Layer):
     self.dense = tf.keras.layers.Dense(d_model)
     self.noise = False
 
-  def add_SMC_parameters(self, dict_sigmas):
-    self.dict_sigmas = dict_sigmas
-    self.dec_timestep = 0 #TODO: increment it.
-    self.noise = True
-
-  def add_noise_state(self, state, sigma):
-    state = state + tf.random.normal(shape=tf.shape(state), stddev=sigma)
-    return state
-
   def call(self, inputs, mask):
 
     q = inputs[0]
@@ -56,27 +47,10 @@ class OneHeadAttention(tf.keras.layers.Layer):
     k = self.wk(k)  # (B, S, D)
     v = self.wv(v)  # (B, S, D)
 
-    if self.noise:
-      k = k + self.add_noise_state(k, sigma=self.dict_sigmas['k'])
-      q = q + self.add_noise_state(q, sigma=self.dict_sigmas['q'])
-      v = v + self.add_noise_state(v, sigma=self.dict_sigmas['v'])
-
-      if self.dec_timestep == 0:
-        self.K, self.V = k, v
-      else:
-        self.K = tf.concat([self.K, k], axis=-2)
-        self.V = tf.concat([self.V, v], axis=-2)
-      assert tf.shape(self.K)[-2] == self.dec_timestep + 1
-      assert tf.shape(self.V)[-2] == self.dec_timestep + 1
-
-    else:
-      self.K, self.V = k, v
+    self.K, self.V = k, v
 
     scaled_attention, attention_weights = scaled_dot_product_attention(q=q, k=self.K, v=self.V, mask=mask) # (B,P,S,D)
-
     z = self.dense(scaled_attention)  # (B,S,D)
-    if self.noise:
-      z = z + self.add_noise_state(z, sigma=self.dict_sigmas['z'])
 
     return z, attention_weights
 

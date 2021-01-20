@@ -24,7 +24,7 @@ class SMC_Transformer(tf.keras.Model):
         self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
-                                                            rate=rate)
+                                                            rate=rate, dim=4)
         # for pre_processing words in the one_layer case.
         self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts')  # for regression case.
         self.final_layer = self.cell.output_layer
@@ -59,21 +59,16 @@ class SMC_Transformer(tf.keras.Model):
         return total_loss
 
     def get_encoded_input(self, inputs):
-        if self.decoder is None:
-            if tf.shape(inputs)[1] == 1:
-                inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1,
-                                                    1])  # tiling inputs if needed on the particles dimensions.
+        if tf.shape(inputs)[1] == 1:
+            inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
+        if self.decoder is None:                                             # tiling inputs if needed on the particles dimensions.
             input_tensor_processed = self.input_dense_projection(inputs)  # (B,P,S,D)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         else:
-            inputs = tf.squeeze(inputs, axis=1)  # shape (B,S,F)
-            assert len(tf.shape(inputs)) == 3, "ERROR IN INPUTS SHAPE FOR MULTI-LAYER CASE"
-            seq_len = tf.shape(inputs)[1]
+            seq_len = tf.shape(inputs)[-2]
             look_ahead_mask = create_look_ahead_mask(seq_len)
             input_tensor_processed, _ = self.decoder(inputs, training=False, look_ahead_mask=look_ahead_mask)  # (B,S,D)
-            input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)  # (B,1,S,D)
-            input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1,
-                                                                                1])  # (B,P,S,D)
+
         return input_tensor_processed
 
     def call(self, inputs, targets):
@@ -171,15 +166,8 @@ if __name__ == "__main__":
     print("..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  num_layers=2, num_heads=2)
+                                  num_layers=2, num_heads=1)
     print("Decoder num layers:", transformer.decoder.num_layers)
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
-
-    print('predictions', predictions.shape)
-    print('K', K.shape)
-    print('attention weights', attn_weights.shape)
-
-    # ---------------------------------------------test when adding SMC during inference----------------------------------------------------------
 
     print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")
     num_particles = 20
@@ -190,11 +178,13 @@ if __name__ == "__main__":
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         sigma_obs=sigma_obs,
                                         num_particles=num_particles)
-    (pred, pred_resampl), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
-    print('predictions', pred.shape)
-    print('predictions resampled', pred_resampl.shape)
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+
+    print('predictions', predictions.shape)
     print('K', K.shape)
     print('attention weights', attn_weights.shape)
+
+    # ---------------------------------------------test when adding SMC during inference----------------------------------------------------------
 
     print('TESTING NOT RESAMPLING FOR INFERENCE....')
     transformer.cell.add_stop_resampling(5)

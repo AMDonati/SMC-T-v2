@@ -47,7 +47,7 @@ class Decoder(tf.keras.layers.Layer):
   -args
     '''
   def __init__(self, num_layers, d_model, num_heads, dff, maximum_position_encoding, rate,
-               full_model):
+               full_model, dim=3):
     super(Decoder, self).__init__()
     self.d_model = d_model
     self.dff = dff
@@ -56,7 +56,7 @@ class Decoder(tf.keras.layers.Layer):
     self.rate = rate
     self.input_dense_projection = tf.keras.layers.Dense(d_model) # for regression case (multivariate > to be able to have a d_model > F).
     if maximum_position_encoding is not None:
-      self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
+      self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model, dim=dim)
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate, full_model=full_model) for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(self.rate)
     self.full_model = full_model
@@ -65,11 +65,14 @@ class Decoder(tf.keras.layers.Layer):
     seq_len = tf.shape(inputs)[1]
     attention_weights = {}
     inputs = self.input_dense_projection(inputs)
-    inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32)) #TODO: add this on the SMC_Transformer as well?
+    inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
       assert self.maximum_position_encoding >= seq_len
-      inputs += self.pos_encoding[:, :seq_len, :]
+      if len(inputs.shape) == 3:
+        inputs += self.pos_encoding[:, :seq_len, :] #TODO: adapt this for the 4D case.
+      elif len(inputs.shape) == 4:
+        inputs += self.pos_encoding[:, :, seq_len, :]
 
     inputs = self.dropout(inputs, training=training)
 
