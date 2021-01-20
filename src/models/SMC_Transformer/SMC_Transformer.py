@@ -163,10 +163,32 @@ if __name__ == "__main__":
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
 
-    print("..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
+    print("..............................TEST MULTI-LAYER / ONE-HEAD CASE ...............................................")
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
                                   num_layers=2, num_heads=1)
+    print("Decoder num layers:", transformer.decoder.num_layers)
+
+    print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")
+    num_particles = 20
+    sigma = 0.1
+    sigma_obs = 0.5
+    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
+
+    transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                        sigma_obs=sigma_obs,
+                                        num_particles=num_particles)
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+
+    print('predictions', predictions.shape)
+    print('K', K.shape)
+    print('attention weights', attn_weights.shape)
+
+    print(
+        "..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
+
+    transformer = SMC_Transformer(d_model=8, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  num_layers=2, num_heads=4)
     print("Decoder num layers:", transformer.decoder.num_layers)
 
     print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")
