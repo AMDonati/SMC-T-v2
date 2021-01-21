@@ -16,8 +16,11 @@ def convert_col_into_float64(df, list_cols):
 def split_array_per_sequences(array, history=12):
     new_array = np.zeros(shape=(int(array.shape[0] / history), history, array.shape[-1]))
     for i, j in enumerate(list(range(0, array.shape[0], history))):
+        if j + history >= array.shape[0]:
+            break
         new_array[i] = array[j:j + history, :]
         print(j)
+    return new_array
 
 def getIndexes(dfObj, value):
     ''' Get index positions of value in dataframe i.e. dfObj.'''

@@ -6,6 +6,7 @@ from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 from src.algos.run_ARIMA import ARIMAAlgo
+from src.algos.run_VARMA import VARMAAlgo
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -20,7 +21,7 @@ def str2bool(v):
 
 
 algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo,
-         "bayesian_lstm": BayesianRNNAlgo, "arima": ARIMAAlgo}
+         "bayesian_lstm": BayesianRNNAlgo, "arima": ARIMAAlgo, "varma": VARMAAlgo}
 
 
 def get_parser():
@@ -55,9 +56,10 @@ def get_parser():
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
     parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
     # ARIMA / VARMA
-    parser.add_argument("-p", type=int, default=1, help="p parameter for VARMA model")
+    parser.add_argument("-p_model", type=int, default=1, help="p parameter for VARMA model")
     parser.add_argument("-d", type=int, default=1, help="d parameter in ARIMA model's order")
     parser.add_argument("-q", type=int, default=0, help= "q parameter in ARIMA model's order")
+    parser.add_argument("-exog", type=int, default=0, help="VARMA vs VARMAX (with exogenous var.)")
     # training params.
     parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
