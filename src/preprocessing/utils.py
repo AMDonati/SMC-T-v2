@@ -71,8 +71,8 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
 
 def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
     if not cv:
-        train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True)
-        val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True)
+        train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT, shuffle=True, random_state=123)
+        val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT, shuffle=True, random_state=123)
         if save_path is not None:
             train_data_path = os.path.join(save_path, "train")
             val_data_path = os.path.join(save_path, "val")

@@ -50,8 +50,8 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
                 os.makedirs(path)
 
         # split between validation dataset and test set:
-        train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
-        val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True)
+        train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True, random_state=123)
+        val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True, random_state=123)
 
         # reshaping arrays to have a (future shape) of (B,S,1):
         if len(col_name) == 1:

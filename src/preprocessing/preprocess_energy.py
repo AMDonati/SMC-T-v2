@@ -39,8 +39,8 @@ def split_dataset(data, TRAIN_SPLIT, VAL_SPLIT=0.5, save_path=None):
             if not os.path.isdir(path):
                 os.makedirs(path)
     # split between validation dataset and test set:
-    train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
-    val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True)
+    train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True, random_state=123)
+    val_data, test_data = train_test_split(val_data, train_size=VAL_SPLIT, shuffle=True, random_state=123)
 
     # save datasets:
     if save_path is not None:
