@@ -32,7 +32,11 @@ class VARMAAlgo(Algo):
                 os.makedirs(output_folder)
             return output_folder
 
-    def split_dataset(self, data, TRAIN_SPLIT=0.7, VAL_SPLIT=0.5):
+    def split_dataset(self, data, TRAIN_SPLIT=0.7, VAL_SPLIT=0.5, normalize=True):
+        if normalize:
+            data_mean = data.mean(axis=0)
+            data_std = data.std(axis=0)
+            data = (data - data_mean) / data_std
         num_samples = len(data)
         train_split = int(num_samples * TRAIN_SPLIT)
         val_split = train_split + int((num_samples - train_split) * VAL_SPLIT)
