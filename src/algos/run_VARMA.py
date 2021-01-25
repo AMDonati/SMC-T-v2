@@ -4,7 +4,7 @@ import numpy as np
 import datetime
 import statsmodels.api as sm
 from src.utils.utils_train import write_to_csv
-from src.preprocessing.utils import split_array_per_sequences, split_dataset_into_seq
+from src.preprocessing.utils import split_array_per_sequences, split_dataset_into_seq, get_array_per_step
 
 
 class VARMAAlgo(Algo):
@@ -33,6 +33,8 @@ class VARMAAlgo(Algo):
             return output_folder
 
     def split_dataset(self, data, TRAIN_SPLIT=0.7, VAL_SPLIT=0.5, normalize=True):
+        if self.dataset.name == "weather":
+            data = get_array_per_step(data, step=24)
         if normalize:
             data_mean = data.mean(axis=0)
             data_std = data.std(axis=0)
@@ -55,6 +57,7 @@ class VARMAAlgo(Algo):
         self.logger.info('num samples in training dataset: {}'.format(train_data.shape[0]))
         self.logger.info('number of timeteps: {}'.format(self.seq_len))
         self.logger.info('number of features: {}'.format(len(self.dataset.target_features)))
+        self.logger.info('seq len (past dependency): {}'.format(self.seq_len))
         return train_data, val_data, test_data
 
     def get_endog_exog_data(self, data):

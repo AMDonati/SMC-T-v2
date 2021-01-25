@@ -13,3 +13,4 @@ echo "-------- VARMA ---------------------------------------------"
 #python src/scripts/run.py -dataset "energy" -data_path "data/energy" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 6
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 6
 python src/scripts/run.py -dataset "stock" -data_path "data/stock" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 20
+python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 12

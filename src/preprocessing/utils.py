@@ -6,12 +6,14 @@ from sklearn.model_selection import KFold
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
+
 def convert_col_into_float64(df, list_cols):
     for col in list_cols:
         df[col] = df[col].astype(str)
-        df[col]=df[col].str.replace(',', '.')
-        df[col]=df[col].astype(float)
+        df[col] = df[col].str.replace(',', '.')
+        df[col] = df[col].astype(float)
     return df
+
 
 def split_array_per_sequences(array, history=12):
     new_array = np.zeros(shape=(int(array.shape[0] / history), history, array.shape[-1]))
@@ -21,6 +23,12 @@ def split_array_per_sequences(array, history=12):
         new_array[i] = array[j:j + history, :]
         print(j)
     return new_array
+
+def get_array_per_step(array, step=1):
+    selected_index = list(range(0, array.shape[0], step))
+    new_array = array[selected_index]
+    return new_array
+
 
 def getIndexes(dfObj, value):
     ''' Get index positions of value in dataframe i.e. dfObj.'''
@@ -40,6 +48,7 @@ def getIndexes(dfObj, value):
     list_cols = [c for (_, c) in listOfPos]
     return listOfPos, list_rows, list_cols
 
+
 def fill_missing_values(df, list_cols, value=-200):
     reduced_list_of_pos, rows_reduced, _ = getIndexes(df[list_cols], value=value)
     rows_reduced = list(set(rows_reduced))
@@ -48,6 +57,7 @@ def fill_missing_values(df, list_cols, value=-200):
         mean = np.mean(df_tmp)
         df[col].iloc[rows_reduced] = mean
     return df, rows_reduced
+
 
 def get_rows_nan_values(df):
     rows_with_nan = []
@@ -68,6 +78,7 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
         data.append(dataset[indices])
     print("final i", i)
     return np.array(data)
+
 
 def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
     if not cv:
@@ -107,6 +118,6 @@ def preprocess_m5_dataset(csv_path):
     array = np.zeros(shape=(num_samples, 10, len(df.columns) - 1))
     for i, item in enumerate(list(df['item_id'].unique())):
         df_item = df[df["item_id"] == item]
-        array[i] = df_item.iloc[:, 1:].values # shape (num_samples, 10, 1941)
-    array = np.transpose(array, axes=[0,2,1])
+        array[i] = df_item.iloc[:, 1:].values  # shape (num_samples, 10, 1941)
+    array = np.transpose(array, axes=[0, 2, 1])
     return array
