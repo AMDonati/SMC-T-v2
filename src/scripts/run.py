@@ -36,6 +36,7 @@ def get_parser():
     parser.add_argument('-p', type=float, default=0.7, help="p value for synthetic model 2.")
     parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
     parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
+    parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), ARIMA(arima), Bayesian LSTM (bayesian_lstm)")
@@ -92,28 +93,28 @@ def run(args):
     BUFFER_SIZE = 500
     if args.dataset == 'synthetic':
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
-                          model=args.dataset_model)
+                          model=args.dataset_model, max_samples=args.max_samples)
 
     elif args.dataset == 'covid':
         BUFFER_SIZE = 50
         dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
-                               model=None)
+                               model=None, max_samples=args.max_samples)
     elif args.dataset == 'air_quality':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, target_features=list(range(5)))
+                                      name=args.dataset, target_features=list(range(5)), max_samples=args.max_samples)
 
     elif args.dataset == 'energy':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, target_features=list(range(20)))
+                                      name=args.dataset, target_features=list(range(20)), max_samples=args.max_samples)
 
     elif args.dataset == 'stock':
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset)
+                                      name=args.dataset, max_samples=args.max_samples)
 
     elif args.dataset == 'weather':
         BUFFER_SIZE = 5000
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset)
+                                      name=args.dataset, max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

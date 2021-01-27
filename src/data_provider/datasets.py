@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import h5py
 
 class Dataset:
-    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None, max_size_test=3000):
+    def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None, max_size_test=3000, max_samples=None):
         self.data_path = data_path
         self.data_arr = np.load(os.path.join(data_path, "raw_data.npy")) #TODO: ADAPT FOR SYNTHETIC.
         self.train_path = os.path.join(data_path, "train")
@@ -16,6 +16,7 @@ class Dataset:
         self.BATCH_SIZE = BATCH_SIZE
         self.name = name
         self.model = model
+        self.max_samples = max_samples
         self.target_features = list(range(self.data_arr.shape[-1])) if target_features is None else target_features
         self.max_size_test = max_size_test
 
@@ -43,6 +44,10 @@ class Dataset:
         val_data = self.get_data_from_folder(self.val_path)
         val_data = val_data.astype(type)
         test_data = self.get_data_from_folder(self.test_path)
+        if self.max_samples is not None:
+            if train_data.shape[0] > self.max_samples:
+                train_data = train_data[:self.max_samples] # to avoid memory issues at test time.
+                print("reducing train dataset size to {} samples...".format(self.max_samples))
         if test_data.shape[0] > self.max_size_test:
             test_data = test_data[:self.max_size_test] # to avoid memory issues at test time.
             print("reducing test dataset size to {} samples...".format(self.max_size_test))
@@ -152,8 +157,8 @@ class Dataset:
         return inputs, targets, lengths, train_mean
 
 class CovidDataset(Dataset):
-    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None, target_features=None):
-        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features)
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="covid", model=None, target_features=None, max_samples=None):
+        super(CovidDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features, max_samples=max_samples)
         # load stats in memory.
         stats_hf = h5py.File(os.path.join(data_path, "stats.h5"), 'r')
         self.train_mean = self.load_data_from_h5(stats_hf.get('train_mean'))
@@ -188,8 +193,8 @@ class CovidDataset(Dataset):
         return inputs, targets, test_sample
 
 class StandardizedDataset(Dataset):
-    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="weather", model=None, target_features=None):
-        super(StandardizedDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features)
+    def __init__(self, data_path, BATCH_SIZE, BUFFER_SIZE=50, name="weather", model=None, target_features=None, max_samples=None):
+        super(StandardizedDataset, self).__init__(data_path=data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, name=name, model=model, target_features=target_features, max_samples=max_samples)
         self.means = np.load(os.path.join(data_path, "means.npy"))
         self.stds = np.load(os.path.join(data_path, "stds.npy"))
 
