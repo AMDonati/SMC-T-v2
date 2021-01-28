@@ -270,7 +270,7 @@ class SMCTAlgo(Algo):
                                                                  save_path_distrib=save_path,
                                                                  N_est=self.mc_samples,
                                                                  len_future=self.seq_len)
-                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float16)
             self.test_predictive_distribution = distrib_per_timestep
 
     def get_predictive_distribution_multistep(self, save_path):
@@ -291,7 +291,7 @@ class SMCTAlgo(Algo):
                                                                  save_path_distrib=save_path,
                                                                  N_est=self.mc_samples,
                                                                  len_future=self.future_len)
-                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float16)
             self.test_predictive_distribution_multistep = distrib_per_timestep
 
     def compute_test_loss(self, save_particles=True):
