@@ -51,7 +51,7 @@ def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, N_est=10, 
         mean_NP = preds[:,:,t,:]
         emp_distrib = get_empirical_distrib(mean_NP, sigma_obs=sigma_obs, N_est=N_est, P=P)
         distrib_future_timesteps.append(emp_distrib)
-    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0, dtype=np.float16) # shape (S,N_est,B,F)
+    distrib_future_timesteps = np.stack(distrib_future_timesteps, axis=0) # shape (S,N_est,B,F)
     distrib_future_timesteps = np.transpose(distrib_future_timesteps, axes=[2,1,0,3]) # shape (B,N_est,S,F)
     print('distrib future timesteps', distrib_future_timesteps.shape)
     if save_path_distrib is not None:
@@ -65,5 +65,5 @@ def get_empirical_distrib(mean_NP, sigma_obs, N_est, P):
         sampled_mean = mean_NP[:, ind_p, :]
         sample = sampled_mean + tf.random.normal(shape=sampled_mean.shape, stddev=sigma_obs)
         emp_distrib.append(sample)
-    emp_distrib = np.stack(emp_distrib, axis=0)
+    emp_distrib = np.stack(emp_distrib, axis=0).astype(np.float16)
     return emp_distrib
