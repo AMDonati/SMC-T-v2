@@ -5,5 +5,3 @@ python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_airquality" -particles 10 -smc True
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_airquality" -particles 30 -smc True
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_airquality" -particles 80 -smc True
-
-python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -output_path "output/exp_airquality" -particles 10 -smc True -multistep 1 -past_len 6 -num_layers 2 -num_heads 4
