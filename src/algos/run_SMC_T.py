@@ -237,7 +237,7 @@ class SMCTAlgo(Algo):
             preds_NP, mean_preds = inference_onestep(smc_transformer=self.smc_transformer,
                                                      test_sample=test_sample,
                                                      save_path=save_path_means,
-                                                     past_len=1)  # TODO: check here after refacto.
+                                                     past_len=1)
             if kwargs["multistep"]:
                 preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
                                                                     save_path=save_path_means_multi,
@@ -258,54 +258,56 @@ class SMCTAlgo(Algo):
                                                           len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
 
-    def get_predictive_distribution(self, save_path):  # TODO: add option to save_distrib.
+    def get_predictive_distribution(self, inputs, targets, save_path=None):
         if self.distribution:
-            for (inp, tar) in self.test_dataset:
-                particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inp,
-                                                          targets=tar,
+            particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inputs,
+                                                          targets=targets,
                                                           save_path=None, past_len=0)
-                sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
-                distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
+            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
+            distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
                                                                  P=self.smc_transformer.cell.num_particles,
                                                                  save_path_distrib=save_path,
                                                                  N_est=self.mc_samples,
                                                                  len_future=self.seq_len)
-                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float16)
-            self.test_predictive_distribution = distrib_per_timestep
+            distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+            return distrib_per_timestep
 
-    def get_predictive_distribution_multistep(self, save_path):
+    def get_predictive_distribution_multistep(self, inputs, targets, save_path=None):
         if self.distribution:
-            for (inputs, targets) in self.test_dataset:
-                inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
-                if self.output_size < self.num_features:
-                    future_input_features = inputs[:, :, self.past_len:, len(self.dataset.target_features):]
-                else:
-                    future_input_features = None
-                particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
-                                                            targets=tar, past_len=self.past_len,
-                                                            future_len=self.future_len,
-                                                            future_input_features=future_input_features)
-                sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
-                distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
-                                                                 P=self.smc_transformer.cell.num_particles,
-                                                                 save_path_distrib=save_path,
-                                                                 N_est=self.mc_samples,
-                                                                 len_future=self.future_len)
-                distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float16)
-            self.test_predictive_distribution_multistep = distrib_per_timestep
+            inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
+            if self.output_size < self.num_features:
+                future_input_features = inputs[:, :, self.past_len:, len(self.dataset.target_features):]
+            else:
+                future_input_features = None
+            particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
+                                                        targets=tar, past_len=self.past_len,
+                                                        future_len=self.future_len,
+                                                        future_input_features=future_input_features)
+            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
+            distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
+                                                             P=self.smc_transformer.cell.num_particles,
+                                                             save_path_distrib=save_path,
+                                                             N_est=self.mc_samples,
+                                                             len_future=self.future_len)
+            distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
+            return distrib_per_timestep
 
-    def compute_test_loss(self, save_particles=True):
+    def compute_test_loss(self, save_particles=False):
+        test_loss, MEAN_PREDS = [], []
         for (inp, tar) in self.test_dataset:
             (preds_test, preds_test_resampl), _, _ = self.smc_transformer(inputs=inp,
                                                                           targets=tar)  # predictions test are the ones not resampled.
             test_metric_avg_pred = tf.keras.losses.MSE(tar,
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
-            test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred)
+            test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred).numpy()
             mean_preds = tf.reduce_mean(preds_test, axis=1)
+            test_loss.append(test_metric_avg_pred)
+            MEAN_PREDS.append(mean_preds)
         if save_particles:
             np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
             np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
             print('preds particles shape', preds_test.shape)
             print('preds particles resampled shape', preds_test_resampl.shape)
             self.logger.info("saving predicted particles on test set...")
-        return test_metric_avg_pred, mean_preds
+        MEAN_PREDS = tf.stack(MEAN_PREDS, axis=0)
+        return np.mean(test_loss), MEAN_PREDS

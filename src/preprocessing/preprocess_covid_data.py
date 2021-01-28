@@ -50,7 +50,7 @@ def split_covid_data(covid_data, normalize=True, split=0.8):
     folder_path = os.path.join("data", "covid")
     if not os.path.isdir(folder_path):
         os.makedirs(folder_path)
-    np.save(os.path.join(folder_path, "covid_data.npy"), covid_data)
+    np.save(os.path.join(folder_path, "raw_data.npy"), covid_data)
     train_data_path = os.path.join(folder_path, "train")
     val_data_path = os.path.join(folder_path, "val")
     test_data_path = os.path.join(folder_path, "test")
