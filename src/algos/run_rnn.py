@@ -125,8 +125,12 @@ class RNNAlgo(Algo):
                 self.logger.info('-' * 60)
 
     def compute_test_loss(self, save_particles=True):
+        TEST_LOSS, PREDS_TEST = [], []
         for inp, tar in self.test_dataset:
             test_preds = self.lstm(inp)
             test_loss = tf.keras.losses.MSE(test_preds, tar)
             test_loss = tf.reduce_mean(test_loss)
-        return test_loss, test_preds
+            TEST_LOSS.append(test_loss)
+            PREDS_TEST.append(test_preds)
+        PREDS_TEST = tf.stack(PREDS_TEST, axis=0)
+        return np.mean(TEST_LOSS), PREDS_TEST

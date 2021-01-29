@@ -265,6 +265,7 @@ class Algo:
                 test_metrics_unistep["mse"] = np.mean(MSE)
                 self.logger.info("mse of predictive distribution: {}".format(np.mean(MSE)))
             else:
+                self._get_inference_paths()
                 PICP = np.mean(np.stack(PICP, axis=0))
                 MPIW = np.mean(np.stack(MPIW, axis=0))
                 PICP_per_timestep = np.mean(np.stack(PICP_per_timestep, axis=0), axis=0)
@@ -273,6 +274,8 @@ class Algo:
                 test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
                 test_metrics_unistep["PICP_per_timestep"] = np.round(PICP_per_timestep, 4)
                 test_metrics_unistep["MPIW_per_timestep"] = np.round(MPIW_per_timestep, 4)
+                np.save(os.path.join(self.inference_path, "PICP_per_timestep.npy"), PICP_per_timestep)
+                np.save(os.path.join(self.inference_path, "MPIW_per_timestep.npy"), MPIW_per_timestep)
                 self.logger.info("---------------------TEST METRICS UNISTEP -----------------------------------")
                 self.logger.info(test_metrics_unistep)
                 self.logger.info('-' * 60)
@@ -285,6 +288,8 @@ class Algo:
                     test_metrics_multistep["MPIW_multistep"] = np.round(MPIW_m, 4)
                     test_metrics_multistep["PICP_per_timestep_multistep"] = np.round(PICP_m_per_timestep, 4)
                     test_metrics_multistep["MPIW_per_timestep_multistep"] = np.round(MPIW_m_per_timestep, 4)
+                    np.save(os.path.join(self.inference_path, "PICP_per_timestep_multistep.npy"), PICP_m_per_timestep)
+                    np.save(os.path.join(self.inference_path, "MPIW_per_timestep_multistep.npy"), MPIW_m_per_timestep)
                     self.logger.info("----------------------TEST METRICS MULTISTEP --------------------------")
                     for (k, v) in test_metrics_multistep.items():
                         self.logger.info(k + ": {}".format(v))
