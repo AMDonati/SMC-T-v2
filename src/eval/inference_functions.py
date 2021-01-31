@@ -65,5 +65,5 @@ def get_empirical_distrib(mean_NP, sigma_obs, N_est, P):
         sampled_mean = mean_NP[:, ind_p, :]
         sample = sampled_mean + tf.random.normal(shape=sampled_mean.shape, stddev=sigma_obs)
         emp_distrib.append(sample)
-    emp_distrib = np.stack(emp_distrib, axis=0).astype(np.float16)
+    emp_distrib = np.stack(emp_distrib, axis=0)
     return emp_distrib
