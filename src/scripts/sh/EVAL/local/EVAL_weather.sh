@@ -6,3 +6,5 @@ python src/scripts/run.py -dataset "weather" -data_path "data/weather_vm5" -algo
 #python src/scripts/run.py -dataset "weather" -data_path "data/weather_vm5" -algo "lstm" -rnn_units 32 -bs 64 -ep 0 -output_path "output/exp_weather" -p_drop 0.2 -mc_samples 1000 -save_path "output/exp_weather/lstm/lstm_d32_p0.2/1" -multistep 1 -past_len 12
 python src/scripts/run.py -dataset "weather" -data_path "data/weather_vm5" -algo "lstm" -rnn_units 32 -bs 64 -ep 0 -output_path "output/exp_weather" -p_drop 0.5 -mc_samples 1000 -save_path "output/exp_weather/lstm/lstm_d32_p0.5/1" -multistep 1 -past_len 12
 python src/scripts/run.py -dataset "weather" -data_path "data/weather_vm3" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 0 -output_path "output/exp_weather" -particles 10 -smc True -save_path "output/exp_weather/smc_t_d32_p10/1" -mc_samples 1000 -past_len 12 -multistep 1
+
+python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 0 -output_path "output/exp_weather" -particles 10 -smc True -save_path "output/exp_weather/smc_t_l1_h1_d32_10p/1" -mc_samples 1000 -past_len 12 -multistep 1
