@@ -4,3 +4,5 @@ python src/preprocessing/create_synthetic_dataset.py -model 2 -alpha 0.9 -varian
 python src/preprocessing/preprocess_covid_data.py
 python src/preprocessing/preprocess_weather_dataset.py
 python src/preprocessing/preprocess_air_quality.py
+python src/preprocessing/preprocess_stock.py
+python src/preprocessing/preprocess_energy.py
