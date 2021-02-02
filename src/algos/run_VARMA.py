@@ -93,13 +93,17 @@ class VARMAAlgo(Algo):
         CI = CI[past_len:]
         lower_bounds = CI[:, :len(self.dataset.target_features)]  # (B*S,F) #TODO: check conf_int function.
         upper_bounds = CI[:, len(self.dataset.target_features):]  # (B*S, F)
+        #print("upper bounds", upper_bounds)
+        #print("lower bounds", lower_bounds)
         piw = upper_bounds - lower_bounds
+
         MPIW = np.mean(piw)
         MPIW_per_timestep = np.mean(piw, axis=-1)
         return lower_bounds, upper_bounds, MPIW, MPIW_per_timestep
 
     def compute_PICP_MPIW(self, test_preds, past_len=0, save_path=None):
         lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(test_preds)
+        #print("MPIW per timestep", MPIW_per_timestep)
         test_endog, _ = self.get_endog_exog_data(self.test_data)
         bool_low = np.greater_equal(test_endog, lower_bounds)  # (B*S,F)
         bool_up = np.greater_equal(upper_bounds, test_endog)  # (B*S,F)
@@ -110,18 +114,22 @@ class VARMAAlgo(Algo):
         return (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (None, None), None
 
     def compute_PICP_MPIW_multistep(self, test_data_in_seq, save_path=None):
-        inside_pi = 0
+        inside_pi, inside_pi_2 = 0, 0
         MPIW, MPIW_per_timestep, PICP_per_timestep = [], [], []
         for i in range(test_data_in_seq.shape[0]): # loop over samples.
             sample = test_data_in_seq[i]  # (S,F)
             model = self.model_fit.apply(sample)
             preds = model.get_prediction(dynamic=self.past_len)
+            #print("preds mean", preds.predicted_mean)
             lower_bounds, upper_bounds, mpiw, mpiw_per_timestep = self.compute_predictive_interval(preds, past_len=self.past_len,
                                                                                                    save_path=save_path)
             bool_low = np.greater_equal(test_data_in_seq[i, self.past_len:], lower_bounds)  # (S,F)
             bool_up = np.greater_equal(upper_bounds, test_data_in_seq[i, self.past_len:])  # (S,F)
             prod_bool = np.multiply(bool_low, bool_up)
             num_inside_pi = np.sum(prod_bool)
+            #print("INSIDE PI", inside_pi_2)
+            #print("mpiw", mpiw)
+            #print("mpiw per timestep", mpiw_per_timestep)
             inside_pi += num_inside_pi
             PICP_per_timestep.append(np.mean(prod_bool, axis=-1))
             MPIW.append(mpiw)
@@ -139,6 +147,9 @@ class VARMAAlgo(Algo):
         self.logger.info("test loss:{}".format(self.model_test.mse))
         test_metrics_unistep["test_loss"] = self.model_test.mse
         test_preds = self.model_test.get_prediction()
+        test_endog, _ = self.get_endog_exog_data(self.test_data)
+        mse_2 = np.mean(np.square(test_endog - test_preds.predicted_mean))
+        test_metrics_unistep["test_loss_2"] = mse_2
         (PICP, _), (MPIW, _), _, _ = self.compute_PICP_MPIW(test_preds)
         test_metrics_unistep["PICP"] = np.round(PICP, 4)
         test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
