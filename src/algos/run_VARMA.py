@@ -8,10 +8,12 @@ from src.preprocessing.utils import split_array_per_sequences, split_dataset_int
 
 
 class VARMAAlgo(Algo):
-    def __init__(self, dataset, args):
+    def __init__(self, dataset, args, max_size_test=3000):
         super(VARMAAlgo, self).__init__(dataset=dataset, args=args)
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
+        self.max_samples = args.max_samples
+        self.max_size_test = max_size_test
         self.train_data, self.val_data, self.test_data = self.load_datasets()
         self.distribution = True
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
@@ -47,13 +49,16 @@ class VARMAAlgo(Algo):
         test_data = data[val_split:]
         return train_data, val_data, test_data
 
-    def load_datasets(self, max_samples=None, num_dim=3):
+    def load_datasets(self, num_dim=3):
         self.seq_len = self.dataset.get_datasets()[0].shape[1] - 1
         self.num_features = self.dataset.get_datasets()[0].shape[-1]
         data = self.dataset.data_arr
-        if max_samples is not None:
-            data = data[:max_samples]
         train_data, val_data, test_data = self.split_dataset(data)
+        if self.max_samples is not None:
+            train_data = train_data[:self.max_samples]
+        if test_data.shape[0] > self.max_size_test:
+            test_data = test_data[:self.max_size_test]
+            print("reducing test dataset to {} samples...", self.max_size_test)
         self.logger.info('num samples in training dataset: {}'.format(train_data.shape[0]))
         self.logger.info('number of timeteps: {}'.format(self.seq_len))
         self.logger.info('number of features: {}'.format(len(self.dataset.target_features)))
@@ -74,7 +79,7 @@ class VARMAAlgo(Algo):
         # fit model
         endog, exog = self.get_endog_exog_data(self.train_data)
         model = sm.tsa.VARMAX(endog, order=(self.p, self.q), trend='n',
-                              exog=exog)  # TODO: WHICH TREND FACTOR ? (NO TREND EXCEPT IN COVID AND MAYBE STOCK ?
+                              exog=exog)
         model_fit = model.fit(maxiter=self.EPOCHS, disp=False)
         print(model_fit.summary())
         self.logger.info("train loss:{}".format(model_fit.mse))
