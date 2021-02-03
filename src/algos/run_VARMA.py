@@ -101,7 +101,6 @@ class VARMAAlgo(Algo):
         #print("upper bounds", upper_bounds)
         #print("lower bounds", lower_bounds)
         piw = upper_bounds - lower_bounds
-
         MPIW = np.mean(piw)
         MPIW_per_timestep = np.mean(piw, axis=-1)
         return lower_bounds, upper_bounds, MPIW, MPIW_per_timestep
@@ -155,9 +154,10 @@ class VARMAAlgo(Algo):
         test_endog, _ = self.get_endog_exog_data(self.test_data)
         mse_2 = np.mean(np.square(test_endog - test_preds.predicted_mean))
         test_metrics_unistep["test_loss_2"] = mse_2
-        (PICP, _), (MPIW, _), _, _ = self.compute_PICP_MPIW(test_preds)
-        test_metrics_unistep["PICP"] = np.round(PICP, 4)
-        test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
+        if self.dataset.name != "synthetic":
+            (PICP, _), (MPIW, _), _, _ = self.compute_PICP_MPIW(test_preds)
+            test_metrics_unistep["PICP"] = np.round(PICP, 4)
+            test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
         self.logger.info("---------------------TEST METRICS UNISTEP -----------------------------------")
         self.logger.info(test_metrics_unistep)
         self.logger.info('-' * 60)
@@ -166,7 +166,6 @@ class VARMAAlgo(Algo):
     def test_multistep(self):
         test_metrics_multistep = {}
         test_data, _ = self.get_endog_exog_data(self.test_data)
-        #test_data_in_seq = split_array_per_sequences(test_data, self.seq_len)
         test_data_in_seq = split_dataset_into_seq(test_data, start_index=0, end_index=None, history_size=self.seq_len, step=1)
         (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), _, _ = self.compute_PICP_MPIW_multistep(test_data_in_seq=test_data_in_seq)
         test_metrics_multistep["PICP_multistep"] = np.round(PICP, 4)
@@ -181,7 +180,7 @@ class VARMAAlgo(Algo):
 
     def test(self, **kwargs):
         self.test_unistep()
-        if kwargs["multistep"]:
+        if kwargs["multistep"] and self.dataset.name != "synthetic":
             self.test_multistep()
 
 
