@@ -155,9 +155,11 @@ class VARMAAlgo(Algo):
         mse_2 = np.mean(np.square(test_endog - test_preds.predicted_mean))
         test_metrics_unistep["test_loss_2"] = mse_2
         if self.dataset.name != "synthetic":
-            (PICP, _), (MPIW, _), _, _ = self.compute_PICP_MPIW(test_preds)
+            (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), _, _ = self.compute_PICP_MPIW(test_preds)
             test_metrics_unistep["PICP"] = np.round(PICP, 4)
             test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
+            np.save(os.path.join(self.inference_path, "PICP_per_timestep.npy"), PICP_per_timestep)
+            np.save(os.path.join(self.inference_path, "MPIW_per_timestep.npy"), MPIW_per_timestep)
         self.logger.info("---------------------TEST METRICS UNISTEP -----------------------------------")
         self.logger.info(test_metrics_unistep)
         self.logger.info('-' * 60)
@@ -171,6 +173,8 @@ class VARMAAlgo(Algo):
         test_metrics_multistep["PICP_multistep"] = np.round(PICP, 4)
         test_metrics_multistep["MPIW_multistep"] = np.round(MPIW, 4)
         test_metrics_multistep["PICP_per_timestep_multistep"] = np.round(PICP_per_timestep, 4)
+        np.save(os.path.join(self.inference_path, "PICP_per_timestep_multistep.npy"), PICP_per_timestep)
+        np.save(os.path.join(self.inference_path, "MPIW_per_timestep_multistep.npy"), MPIW_per_timestep)
         test_metrics_multistep["MPIW_per_timestep_multistep"] = np.round(MPIW_per_timestep, 4)
         self.logger.info("----------------------TEST METRICS MULTISTEP --------------------------")
         for (k, v) in test_metrics_multistep.items():
@@ -179,6 +183,7 @@ class VARMAAlgo(Algo):
         write_to_csv(dic=test_metrics_multistep, output_dir=os.path.join(self.out_folder, "test_metrics_multistep.csv"))
 
     def test(self, **kwargs):
+        _, _ = self._get_inference_paths()
         self.test_unistep()
         if kwargs["multistep"] and self.dataset.name != "synthetic":
             self.test_multistep()
