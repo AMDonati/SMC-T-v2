@@ -127,12 +127,12 @@ class Algo:
         MPIW_per_timestep = tf.reduce_mean(piw, axis=[0, 2])
         if save_path is not None:
             np.save(os.path.join(save_path, "MPIW_per_timestep.npy"), MPIW_per_timestep)
-        return lower_bounds, upper_bounds, MPIW.numpy(), MPIW_per_timestep.numpy()
+        return lower_bounds, upper_bounds, MPIW.numpy(), MPIW_per_timestep.numpy(), (mean_distrib, std_distrib)
 
     def compute_PICP_MPIW(self, predictive_distribution, inp, past_len=0, save_path=None):
         inside_pi, MPIW_captured = 0, 0
         PICP_per_timestep, MPIW_captured_per_timestep = [], []
-        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution,
+        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep, (mean_distrib, std_distrib) = self.compute_predictive_interval(predictive_distribution,
                                                                                                save_path=save_path)
         seq_len = lower_bounds.shape[1]
         num_samples = lower_bounds.shape[0]
@@ -161,13 +161,13 @@ class Algo:
         MPIW_captured = MPIW_captured.numpy() / inside_pi.numpy()
         PICP_per_timestep = np.stack(PICP_per_timestep)  # shape S.
         MPIW_captured_per_timestep = np.stack(MPIW_captured_per_timestep)  # shape S.
-        N = (num_features * num_samples * seq_len)
-        loss_QD = self.compute_loss_QD(mpiw_captured=MPIW_captured, PICP=PICP, N=N, lambd=self.lambda_QD)
+        mse = tf.keras.losses.MSE(mean_distrib, inp)
+        mse = tf.reduce_mean(mse)
         if save_path is not None:
             np.save(os.path.join(save_path, "PICP_per_timestep_mean.npy"), PICP_per_timestep)
             np.save(os.path.join(save_path, "MPIW_capt_per_timestep.npy"), MPIW_captured_per_timestep)
         return (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (
-        MPIW_captured, MPIW_captured_per_timestep), loss_QD
+        MPIW_captured, MPIW_captured_per_timestep), mse.numpy()
 
     def compute_loss_QD(self, mpiw_captured, PICP, N, lambd=15., alpha=0.05):
         picp_term = max(0., (1 - alpha) - PICP)
@@ -234,8 +234,8 @@ class Algo:
         test_metrics_unistep["test_loss"] = test_loss
         self.logger.info("test loss at the end of training: {}".format(test_loss))
         if self.distribution:
-            PICP, MPIW, PICP_per_timestep, MPIW_per_timestep = [], [], [], []
-            PICP_m, PICP_m_per_timestep, MPIW_m, MPIW_m_per_timestep = [], [], [], []
+            PICP, MPIW, PICP_per_timestep, MPIW_per_timestep, MSE_uni = [], [], [], [], []
+            PICP_m, PICP_m_per_timestep, MPIW_m, MPIW_m_per_timestep, MSE_multi = [], [], [], [], []
             MSE = []
             for (inputs, targets) in self.test_dataset:
                 distrib_unistep = self.get_predictive_distribution(inputs=inputs, targets=targets)
@@ -244,23 +244,25 @@ class Algo:
                     if self.dataset.model == 2:
                         mse_2 = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["beta"])
                         mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
-                    MSE.append(mse)
+                    MSE.append(mse.numpy())
                     test_metrics_unistep["mse"] = mse.numpy()
                 else:
-                    (picp, picp_per_timestep), (mpiw, mpiw_per_timestep), _, _ = self.compute_PICP_MPIW(
+                    (picp, picp_per_timestep), (mpiw, mpiw_per_timestep), _, mse_uni = self.compute_PICP_MPIW(
                         predictive_distribution=distrib_unistep, inp=inputs)
                     PICP.append(picp)
                     MPIW.append(mpiw)
                     PICP_per_timestep.append(picp_per_timestep)
                     MPIW_per_timestep.append(mpiw_per_timestep)
+                    MSE_uni.append(mse_uni)
                     if kwargs["multistep"]:
                         distrib_multistep = self.get_predictive_distribution_multistep(inputs=inputs, targets=targets)
-                        (picp_m, picp_m_per_timestep), (mpiw_m, mpiw_m_per_timestep), _, _ = self.compute_PICP_MPIW(
+                        (picp_m, picp_m_per_timestep), (mpiw_m, mpiw_m_per_timestep), _, mse_multi = self.compute_PICP_MPIW(
                             predictive_distribution=distrib_multistep, inp=inputs, past_len=self.past_len)
                         PICP_m.append(picp_m)
                         MPIW_m.append(mpiw_m)
                         PICP_m_per_timestep.append(picp_m_per_timestep)
                         MPIW_m_per_timestep.append(mpiw_m_per_timestep)
+                        MSE_multi.append(mse_multi)
             if self.dataset.name == "synthetic":
                 test_metrics_unistep["mse"] = np.mean(MSE)
                 self.logger.info("mse of predictive distribution: {}".format(np.mean(MSE)))
@@ -268,10 +270,12 @@ class Algo:
                 self._get_inference_paths()
                 PICP = np.mean(np.stack(PICP, axis=0))
                 MPIW = np.mean(np.stack(MPIW, axis=0))
+                MSE_uni = np.mean(MSE_uni)
                 PICP_per_timestep = np.mean(np.stack(PICP_per_timestep, axis=0), axis=0)
                 MPIW_per_timestep = np.mean(np.stack(MPIW_per_timestep, axis=0), axis=0)
                 test_metrics_unistep["PICP"] = np.round(PICP, 4)
                 test_metrics_unistep["MPIW"] = np.round(MPIW, 4)
+                test_metrics_unistep["mse_uni"] = np.round(MSE_uni, 4)
                 test_metrics_unistep["PICP_per_timestep"] = np.round(PICP_per_timestep, 4)
                 test_metrics_unistep["MPIW_per_timestep"] = np.round(MPIW_per_timestep, 4)
                 np.save(os.path.join(self.inference_path, "PICP_per_timestep.npy"), PICP_per_timestep)
@@ -284,8 +288,10 @@ class Algo:
                     MPIW_m = np.mean(np.stack(MPIW_m, axis=0))
                     PICP_m_per_timestep = np.mean(np.stack(PICP_m_per_timestep, axis=0), axis=0)
                     MPIW_m_per_timestep = np.mean(np.stack(MPIW_m_per_timestep, axis=0), axis=0)
+                    MSE_multi = np.mean(MSE_multi)
                     test_metrics_multistep["PICP_multistep"] = np.round(PICP_m, 4)
                     test_metrics_multistep["MPIW_multistep"] = np.round(MPIW_m, 4)
+                    test_metrics_multistep["mse_multi"] = np.round(MSE_multi, 4)
                     test_metrics_multistep["PICP_per_timestep_multistep"] = np.round(PICP_m_per_timestep, 4)
                     test_metrics_multistep["MPIW_per_timestep_multistep"] = np.round(MPIW_m_per_timestep, 4)
                     np.save(os.path.join(self.inference_path, "PICP_per_timestep_multistep.npy"), PICP_m_per_timestep)

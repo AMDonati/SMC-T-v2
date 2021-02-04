@@ -44,7 +44,7 @@ class BayesianRNNAlgo(Algo):
         val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
         dataloader_val = torch.utils.data.DataLoader(val_dataset, batch_size=args.bs)
         test_dataset = torch.utils.data.TensorDataset(X_test, y_test)
-        dataloader_test = torch.utils.data.DataLoader(test_dataset, batch_size=test_data.shape[0])
+        dataloader_test = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs)
         self.seq_len = X_train.shape[1]
         self.output_size = y_train.shape[-1]
         self.num_features = X_train.shape[-1]
@@ -77,16 +77,6 @@ class BayesianRNNAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            # out_file = '{}_BayesianLSTM_units_{}_bs_{}_lr_{}_nbr_{}_sigma1_{}_sigma2_{}_pi_{}_rho_{}_cv_{}'.format(
-            #     args.dataset,
-            #     args.rnn_units,
-            #     self.bs, self.lr,
-            #     self.sample_nbr,
-            #     args.prior_sigma_1,
-            #     args.prior_sigma_2,
-            #     args.prior_pi,
-            #     args.posterior_rho,
-            #     args.cv)
             out_file = '{}_d{}'.format(args.algo, args.rnn_units)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(args.output_path, out_file, datetime_folder)
@@ -137,17 +127,16 @@ class BayesianRNNAlgo(Algo):
         test_loss, preds = self.get_mse(dataset=self.test_dataset)
         return torch.tensor(test_loss).float(), preds.cpu().detach().numpy()
 
-    def get_predictive_distribution(self, save_path):
+    def get_predictive_distribution(self, inputs, targets=None, save_path=None):
         self.bayesian_lstm.eval()
         with torch.no_grad():
-            for (X_test, y_test) in self.test_dataset:
-                preds = [self.bayesian_lstm(X_test) for _ in range(self.mc_samples)]
+            preds = [self.bayesian_lstm(inputs) for _ in range(self.mc_samples)]
         preds = torch.stack(preds, dim=1).cpu()  # (B,N,S,F)
         if save_path is not None:
             np.save(save_path, preds)
-        self.test_predictive_distribution = preds
+        return preds
 
-    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path):
+    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path=None):
         list_predictions = []
         with torch.no_grad():
             for i in range(self.mc_samples):
@@ -177,49 +166,46 @@ class BayesianRNNAlgo(Algo):
         mpiw_per_timestep = (ci_upper - ci_lower).mean(dim=[0,2]).cpu().numpy()
         if save_path is not None:
             np.save(os.path.join(save_path, "MPIW_per_timestep.npy"), mpiw_per_timestep)
-        return ci_lower, ci_upper, mpiw, mpiw_per_timestep
+        return ci_lower, ci_upper, mpiw, mpiw_per_timestep, (means, stds)
 
-    def compute_PICP_MPIW(self, predictive_distribution, past_len=0, save_path=None):
+    def compute_PICP_MPIW(self, predictive_distribution, inp, past_len=0, save_path=None):
         inside_pi, MPIW_captured = 0, 0
-        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep = self.compute_predictive_interval(predictive_distribution, save_path=save_path)
+        lower_bounds, upper_bounds, MPIW, MPIW_per_timestep, (means, stds) = self.compute_predictive_interval(predictive_distribution, save_path=save_path)
         seq_len = lower_bounds.size(1)
         num_samples = lower_bounds.size(0)
         num_features = lower_bounds.size(-1)
         PICP_per_timestep, MPIW_captured_per_timestep = [], []
-        for (inp, _) in self.test_dataset:
-            inp = inp[:, past_len:, :len(self.dataset.target_features)]  # taking only the target features.
-            for t in range(seq_len):
-                item = inp[:, t, :]  # shape (B,F)
-                low_b = lower_bounds[:, t, :]  # (B,F)
-                upper_b = upper_bounds[:, t, :]
-                bool_low = (low_b <= item) # (B,F)
-                bool_up = (upper_b >= item) # (B,F)
-                prod_bool = bool_low * bool_up # (B,F)
-                ic_acc = prod_bool.float().sum()
-                mpiw_capt = (prod_bool * (upper_b - low_b)).sum()
-                PICP_per_timestep.append(ic_acc.numpy() / (num_samples * num_features))
-                MPIW_captured_per_timestep.append(mpiw_capt.numpy() / ic_acc.numpy())
-                inside_pi += ic_acc
-                MPIW_captured += mpiw_capt
+        inp = inp[:, past_len:, :len(self.dataset.target_features)]  # taking only the target features.
+        for t in range(seq_len):
+            item = inp[:, t, :]  # shape (B,F)
+            low_b = lower_bounds[:, t, :]  # (B,F)
+            upper_b = upper_bounds[:, t, :]
+            bool_low = (low_b <= item)  # (B,F)
+            bool_up = (upper_b >= item)  # (B,F)
+            prod_bool = bool_low * bool_up  # (B,F)
+            ic_acc = prod_bool.float().sum()
+            mpiw_capt = (prod_bool * (upper_b - low_b)).sum()
+            PICP_per_timestep.append(ic_acc.numpy() / (num_samples * num_features))
+            MPIW_captured_per_timestep.append(mpiw_capt.numpy() / ic_acc.numpy())
+            inside_pi += ic_acc
+            MPIW_captured += mpiw_capt
         PICP = inside_pi.numpy() / (seq_len * num_samples * num_features)
         MPIW_captured = MPIW_captured.numpy() / inside_pi.numpy()
         PICP_per_timestep = np.stack(PICP_per_timestep)
         MPIW_captured_per_timestep = np.stack(MPIW_captured_per_timestep)
-        # compute loss_QD
-        N = (num_features * num_samples * seq_len)
-        loss_QD = self.compute_loss_QD(mpiw_captured=MPIW_captured, PICP=PICP, N=N, lambd=self.lambda_QD)
+        # compute mse
+        mse = self.criterion(means, inp)
         if save_path is not None:
             np.save(os.path.join(save_path, "PICP_per_timestep_mean.npy"), PICP_per_timestep)
             np.save(os.path.join(save_path, "MPIW_capt_per_timestep.npy"), MPIW_captured_per_timestep)
-        return (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (MPIW_captured, MPIW_captured_per_timestep), loss_QD
+        return (PICP, PICP_per_timestep), (MPIW, MPIW_per_timestep), (MPIW_captured, MPIW_captured_per_timestep), mse.numpy()
 
-    def compute_mse_predictive_distribution(self, alpha):
+    def compute_mse_predictive_distribution(self, inputs, test_predictive_distribution, alpha):
         self.bayesian_lstm.eval()
         with torch.no_grad():
-            for (X_test, _) in self.test_dataset:
-                X_test = torch.unsqueeze(X_test, dim=1)
-                X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1, 1]).to(self.device)
-                mse = self.criterion(self.test_predictive_distribution.to(self.device), alpha * X_test_tiled).cpu()
+            X_test = torch.unsqueeze(inputs, dim=1)
+            X_test_tiled = X_test.repeat(repeats=[1, self.mc_samples, 1, 1]).to(self.device)
+            mse = self.criterion(test_predictive_distribution.to(self.device), alpha * X_test_tiled).cpu()
         return mse
 
     def _train(self, train_dataset, val_dataset, num_train=1):

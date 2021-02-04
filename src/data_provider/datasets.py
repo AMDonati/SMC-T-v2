@@ -8,7 +8,7 @@ import h5py
 class Dataset:
     def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None, max_size_test=3000, max_samples=None):
         self.data_path = data_path
-        self.data_arr = np.load(os.path.join(data_path, "raw_data.npy")) #TODO: ADAPT FOR SYNTHETIC.
+        self.data_arr = np.load(os.path.join(data_path, "raw_data.npy")) if os.path.exists(os.path.join(data_path, "raw_data.npy")) else None
         self.train_path = os.path.join(data_path, "train")
         self.val_path = os.path.join(data_path, "val")
         self.test_path = os.path.join(data_path, "test")
