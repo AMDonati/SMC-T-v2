@@ -17,7 +17,7 @@ class Dataset:
         self.name = name
         self.model = model
         self.max_samples = max_samples
-        self.target_features = list(range(self.data_arr.shape[-1])) if target_features is None else target_features
+        self.target_features = list(range(self.get_data_from_folder(self.train_path).shape[-1])) if target_features is None else target_features
         self.max_size_test = max_size_test
 
     def split_fn(self, chunk):
