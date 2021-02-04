@@ -29,7 +29,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
-            self.ffn = point_wise_feed_forward_network(d_model, dff)  # TODO: remove this one.
+            self.ffn = point_wise_feed_forward_network(d_model, dff)
 
         # initializing smc parameters for training
         self.num_particles = 1

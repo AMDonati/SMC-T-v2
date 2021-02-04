@@ -98,8 +98,8 @@ class VARMAAlgo(Algo):
         CI = CI[past_len:]
         lower_bounds = CI[:, :len(self.dataset.target_features)]  # (B*S,F) #TODO: check conf_int function.
         upper_bounds = CI[:, len(self.dataset.target_features):]  # (B*S, F)
-        #print("upper bounds", upper_bounds)
-        #print("lower bounds", lower_bounds)
+        print("upper bounds", upper_bounds)
+        print("lower bounds", lower_bounds)
         piw = upper_bounds - lower_bounds
         MPIW = np.mean(piw)
         MPIW_per_timestep = np.mean(piw, axis=-1)
