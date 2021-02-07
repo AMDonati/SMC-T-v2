@@ -156,8 +156,10 @@ class BaselineTAlgo(Algo):
                                                    training=False,
                                                    mask=create_look_ahead_mask(seq_len))  # (B,S,F)
             loss_test = tf.keras.losses.MSE(tar, predictions_test)  # (B,S)
+            #loss_test = tf.keras.losses.MSE(inp, predictions_test)  # (B,S)
             loss_test = tf.reduce_mean(loss_test)
             LOSS_TEST.append(loss_test)
             PREDS_TEST.append(predictions_test)
         PREDS_TEST = tf.stack(PREDS_TEST, axis=0)
+        #print("TEST LOSS", LOSS_TEST)
         return np.mean(LOSS_TEST), PREDS_TEST

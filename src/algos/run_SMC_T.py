@@ -299,6 +299,8 @@ class SMCTAlgo(Algo):
                                                                           targets=tar)  # predictions test are the ones not resampled.
             test_metric_avg_pred = tf.keras.losses.MSE(tar,
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
+            #test_metric_avg_pred = tf.keras.losses.MSE(inp,
+                                                       #tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred).numpy()
             mean_preds = tf.reduce_mean(preds_test, axis=1)
             test_loss.append(test_metric_avg_pred)

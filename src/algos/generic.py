@@ -183,7 +183,6 @@ class Algo:
             index = np.random.randint(inputs.shape[0])
             inp, tar = inputs[index], targets[index]
             mean_pred = predictions_test[index, :, 0].numpy()
-            # tar = tar[:, 0].numpy()
             inp = inp[:, 0].numpy()
         if self.test_predictive_distribution is not None:
             sample = self.test_predictive_distribution[index, :, :, 0].numpy()  # (mc_samples, seq_len, F)
@@ -270,6 +269,7 @@ class Algo:
                 self._get_inference_paths()
                 PICP = np.mean(np.stack(PICP, axis=0))
                 MPIW = np.mean(np.stack(MPIW, axis=0))
+                #print("MSE uni", MSE_uni)
                 MSE_uni = np.mean(MSE_uni)
                 PICP_per_timestep = np.mean(np.stack(PICP_per_timestep, axis=0), axis=0)
                 MPIW_per_timestep = np.mean(np.stack(MPIW_per_timestep, axis=0), axis=0)
