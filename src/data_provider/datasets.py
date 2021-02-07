@@ -8,7 +8,7 @@ import h5py
 class Dataset:
     def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, target_features=None, max_size_test=3000, max_samples=None):
         self.data_path = data_path
-        self.data_arr = np.load(os.path.join(data_path, "raw_data.npy")) #TODO: ADAPT FOR SYNTHETIC.
+        self.data_arr = np.load(os.path.join(data_path, "raw_data.npy")) if os.path.exists(os.path.join(data_path, "raw_data.npy")) else None
         self.train_path = os.path.join(data_path, "train")
         self.val_path = os.path.join(data_path, "val")
         self.test_path = os.path.join(data_path, "test")
@@ -17,7 +17,7 @@ class Dataset:
         self.name = name
         self.model = model
         self.max_samples = max_samples
-        self.target_features = list(range(self.data_arr.shape[-1])) if target_features is None else target_features
+        self.target_features = list(range(self.get_data_from_folder(self.train_path).shape[-1])) if target_features is None else target_features
         self.max_size_test = max_size_test
 
     def split_fn(self, chunk):
@@ -98,10 +98,10 @@ class Dataset:
         train_dataset = train_dataset.cache().shuffle(self.BUFFER_SIZE).batch(self.BATCH_SIZE, drop_remainder=True)
         val_dataset = tf.data.Dataset.from_tensor_slices(val_tuple)
         val_dataset = val_dataset.batch(self.BATCH_SIZE, drop_remainder=True)
-        BATCH_SIZE_test = test_data.shape[0] if not with_lengths else self.BATCH_SIZE
+        BATCH_SIZE_test = self.BATCH_SIZE
         test_tuple = (x_test, y_test) if not with_lengths else (x_test, y_test, lengths_test)
         test_dataset = tf.data.Dataset.from_tensor_slices(test_tuple) #TODO: could use from tensor instead.
-        test_dataset = test_dataset.batch(BATCH_SIZE_test)
+        test_dataset = test_dataset.batch(BATCH_SIZE_test, drop_remainder=True)
 
         return train_dataset, val_dataset, test_dataset
 

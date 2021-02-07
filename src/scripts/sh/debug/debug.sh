@@ -9,6 +9,10 @@ python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "baseli
 python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "lstm" -rnn_units 8 -bs 32 -ep 1 -output_path "output/temp" -p_drop 0.1 -mc_samples 5
 python src/scripts/run.py -dataset "covid" -dataset_model 1 -data_path "data/covid" -algo "bayesian_lstm" -rnn_units 8 -bs 32 -ep 1 -output_path "output/temp" -mc_samples 5 -particles 3
 python src/scripts/run.py -dataset "covid" -data_path "data/covid" -algo "smc_t" -d_model 8 -dff 8 -num_heads 4 -bs 64 -ep 1 -output_path "output/temp" -particles 2 -smc True -multistep 1 -past_len 40 -mc_samples 5 -num_layers 2
+echo "-------- energy ---------------------------------------------"
+python src/scripts/run.py -dataset "energy" -data_path "data/energy" -algo "smc_t" -d_model 16 -dff 16 -bs 64 -ep 1 -output_path "output/temp" -particles 5 -smc True -multistep 1 -past_len 6 -mc_samples 5 -num_layers 2
+echo "-------- air quality ---------------------------------------------"
+python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "smc_t" -d_model 8 -dff 8 -bs 64 -ep 1 -output_path "output/temp" -particles 2 -smc True -multistep 1 -past_len 6 -mc_samples 5 -num_layers 2
 echo "-------- VARMA ---------------------------------------------"
 #python src/scripts/run.py -dataset "energy" -data_path "data/energy" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 6
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 1 -q 0 -ep 1 -output_path "output/temp" -multistep 1 -past_len 6
