@@ -1,5 +1,5 @@
 numpy==1.19.5
-tensorflow==2.2.0
+tensorflow==2.5.0
 torch==1.7.1
 matplotlib==3.3.3
 blitz-bayesian-pytorch==0.2.7
