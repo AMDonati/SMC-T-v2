@@ -108,6 +108,8 @@ class Algo:
         else:
             pass
 
+    
+
     def compute_mse_predictive_distribution(self, inputs, test_predictive_distribution, alpha):
         if len(tf.shape(inputs)) == 3:
             inp = tf.expand_dims(inputs, axis=1)
@@ -239,6 +241,7 @@ class Algo:
             for (inputs, targets) in self.test_dataset:
                 distrib_unistep = self.get_predictive_distribution(inputs=inputs, targets=targets)
                 if self.dataset.name == "synthetic":
+                    #TODO: adapt this for arima model.
                     mse = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["alpha"])
                     if self.dataset.model == 2:
                         mse_2 = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["beta"])

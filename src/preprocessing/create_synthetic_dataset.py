@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
   X_data = generate_synthetic_dataset(A=A, std_matrix=std_matrix, num_samples=args.num_samples, num_features=args.num_features, model=args.model)
 
-  out_path = os.path.join(args.data_path, "synthetic_model_{}".format(str(args.model)))
+  out_path = os.path.join(args.data_path, "synthetic_model_{}_{}var".format(str(args.model), args.variance))
   if not os.path.isdir(out_path):
       os.makedirs(out_path)
   out_file = os.path.join(out_path, "synthetic_dataset_{}_feat.npy".format(args.num_features))
