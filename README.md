@@ -7,7 +7,10 @@ The libraries needed to run the code are provided in the file requirements.txt.
 ### Preprocessing the datasets
 #### Synthetic datasets
 * `python src/preprocessing/create_synthetic_dataset.py -model 1 -num_samples 1000 -seq_len 24 -num_features 1`
+* `python src/preprocessing/create_synthetic_dataset.py -model 1 -num_samples 1000 -seq_len 24 -num_features 1 -variance 0.00001`
 * `python src/preprocessing/create_synthetic_dataset.py -model 2 -alpha 0.9 -variance 0.3 -num_samples 1000 -seq_len 24 -num_features 1`
+* `python src/preprocessing/create_synthetic_dataset.py -model 2 -alpha 0.9 -variance 0.00001 -num_samples 1000 -seq_len 24 -num_features 1`
+* `python src/preprocessing/create_arima_model.py -num_samples 1000 -seq_len 25`
 #### Real-world datasets
 * To preprocess all the real-world datasets, please run: `sh preprocess_datasets.sh`
 
