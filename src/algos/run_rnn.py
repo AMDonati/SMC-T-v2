@@ -133,4 +133,5 @@ class RNNAlgo(Algo):
             TEST_LOSS.append(test_loss)
             PREDS_TEST.append(test_preds)
         PREDS_TEST = tf.stack(PREDS_TEST, axis=0)
+        #PREDS_TEST = tf.reshape(PREDS_TEST, shape=(PREDS_TEST.shape[0]* PREDS_TEST.shape[1], PREDS_TEST.shape[-2], PREDS_TEST.shape[-1]))
         return np.mean(TEST_LOSS), PREDS_TEST

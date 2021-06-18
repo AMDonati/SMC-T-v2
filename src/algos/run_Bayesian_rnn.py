@@ -258,5 +258,5 @@ class BayesianRNNAlgo(Algo):
                     "training of a Bayesian LSTM for train/val split number {} done...".format(num_train + 1))
             self.logger.info('-' * 60)
 
-    def plot_preds_targets(self, predictions_test):
+    def plot_preds_targets(self, predictions_test, predictive_distribution=None):
         pass

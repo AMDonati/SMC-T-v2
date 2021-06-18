@@ -103,9 +103,11 @@ def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, 
         for train_index, val_index in kf.split(train_val_data):
             train_data = train_val_data[train_index, :, :]
             val_data = train_val_data[val_index, :, :]
+            train_data = train_data.astype('float32')
+            val_data = val_data.astype('float32')
             list_train_data.append(train_data)
             list_val_data.append(val_data)
-
+        test_data = test_data.astype('float32')
         return list_train_data, list_val_data, test_data
 
 

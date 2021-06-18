@@ -7,6 +7,7 @@ from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 from src.algos.run_ARIMA import ARIMAAlgo
 from src.algos.run_VARMA import VARMAAlgo
+import numpy as np
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -28,7 +29,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     # data parameters:
     parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
-    parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 for the synthetic dataset.")
+    parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 or ARIMA for the synthetic dataset.")
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
     parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic models 1 & 2.")
@@ -82,7 +83,7 @@ def get_parser():
     # misc:
     parser.add_argument("-lambda_QD", type=float, default=1.0, help="lambda parameter for loss QD.")
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
-    parser.add_argument("-save_plot", type=str2bool, default=False, help="save plots on test set.")
+    parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
     parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
 
     return parser
@@ -91,6 +92,11 @@ def run(args):
 
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
     BUFFER_SIZE = 500
+
+    # parameters for ARIMA synthetic model:
+    arparams = np.array([.75, -.25, 0.095, -0.07, 0.05, -0.015, 0.01, 0.0075])
+    maparams = np.array([.65, .35, -0.1, 0.08])
+
     if args.dataset == 'synthetic':
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
                           model=args.dataset_model, max_samples=args.max_samples)
@@ -124,11 +130,11 @@ def run(args):
         print("skipping training...")
 
     if not args.cv:
-       algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
+       _ = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
                                  save_particles=args.save_particles, plot=args.save_plot,
-                                 save_distrib=args.save_distrib, save_metrics=True)
+                                 save_distrib=args.save_distrib, save_metrics=True, arparams=arparams, maparams=maparams)
     else:
-        _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep)
+        _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, arparams=arparams, maparams=maparams)
 
 
 if __name__ == '__main__':

@@ -108,7 +108,30 @@ class Algo:
         else:
             pass
 
-    
+    def compute_mse_predictive_distribution_arima(self, ar_coeff, inputs, test_predictive_distribution):
+        if len(tf.shape(inputs)) == 3:
+            inputs = tf.expand_dims(inputs, axis=1)
+        test_data_tiled = tf.tile(inputs, multiples=[1, self.mc_samples, 1, 1])
+        residuals = []
+        for t in range(test_predictive_distribution.shape[-2]):
+            pred = test_predictive_distribution[:, :, t, :]
+            past = test_data_tiled[:,:,:t+1,:]
+            curr_ar_coeff = np.zeros(test_data_tiled.shape[-2])
+            curr_ar_coeff[:len(ar_coeff)] = ar_coeff
+            curr_ar_coeff = tf.constant(curr_ar_coeff[:t+1], shape=(1,1,len(curr_ar_coeff[:t+1]),1), dtype=tf.float32)
+            target = tf.math.multiply(past, curr_ar_coeff)
+            res = pred - tf.reduce_sum(target, axis=-2) #TODO: add a tf.sum here ?
+            residuals.append(res)
+        residuals = tf.stack(residuals, axis=-2)
+        mse = np.square(residuals.numpy())
+        mse = np.mean(mse)
+        return mse
+
+    def compute_true_mse_distrib_arima(self, ma_params):
+        square_params = np.square(ma_params)
+        mse = np.sum(square_params)
+        return 1 + mse
+
 
     def compute_mse_predictive_distribution(self, inputs, test_predictive_distribution, alpha):
         if len(tf.shape(inputs)) == 3:
@@ -177,23 +200,22 @@ class Algo:
         loss_QD = mpiw_captured + lambd * ratio * math.pow(picp_term, 2)
         return loss_QD
 
-    def plot_preds_targets(self, predictions_test):
-        for (inputs, targets) in self.test_dataset:
+    def plot_preds_targets(self, predictions_test, predictive_distribution=None):
+        for i, (inputs, targets) in enumerate(self.test_dataset):
             if len(tf.shape(inputs)) == 4:
                 inputs = tf.squeeze(inputs, axis=1)
                 targets = tf.squeeze(targets, axis=1)
             index = np.random.randint(inputs.shape[0])
             inp, tar = inputs[index], targets[index]
-            mean_pred = predictions_test[index, :, 0].numpy()
+            mean_pred = predictions_test[i, index, :, 0].numpy()
             inp = inp[:, 0].numpy()
-        if self.test_predictive_distribution is not None:
-            sample = self.test_predictive_distribution[index, :, :, 0].numpy()  # (mc_samples, seq_len, F)
+        if predictive_distribution is not None:
+            sample = predictive_distribution[index, :, :, 0].numpy()  # (mc_samples, seq_len, F)
             mean_pred = np.mean(sample, axis=0)
         x = np.linspace(1, self.seq_len, self.seq_len)
         plt.plot(x, mean_pred, 'red', lw=2, label='predictions for sample: {}'.format(index))
-        # plt.plot(x, tar, 'blue', lw=2, label='targets for sample: {}'.format(index))
         plt.plot(x, inp, 'cyan', lw=2, label='ground-truth for sample: {}'.format(index))
-        if self.test_predictive_distribution is not None:
+        if predictive_distribution is not None:
             for i in range(sample.shape[0]):
                 plt.scatter(x, sample[i], c='orange')
         plt.legend(fontsize=10)
@@ -241,13 +263,16 @@ class Algo:
             for (inputs, targets) in self.test_dataset:
                 distrib_unistep = self.get_predictive_distribution(inputs=inputs, targets=targets)
                 if self.dataset.name == "synthetic":
-                    #TODO: adapt this for arima model.
-                    mse = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["alpha"])
-                    if self.dataset.model == 2:
-                        mse_2 = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["beta"])
-                        mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
-                    MSE.append(mse.numpy())
-                    test_metrics_unistep["mse"] = mse.numpy()
+                    if self.dataset.model == 3:
+                        mse = self.compute_mse_predictive_distribution_arima(inputs=inputs, ar_coeff=kwargs["arparams"], test_predictive_distribution=distrib_unistep)
+                        MSE.append(mse)
+                    else:
+                        mse = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["alpha"])
+                        if self.dataset.model == 2:
+                            mse_2 = self.compute_mse_predictive_distribution(inputs=inputs, test_predictive_distribution=distrib_unistep, alpha=kwargs["beta"])
+                            mse = kwargs["p"] * mse + (1 - kwargs["p"]) * mse_2
+                        MSE.append(mse.numpy())
+                    test_metrics_unistep["mse"] = mse
                 else:
                     (picp, picp_per_timestep), (mpiw, mpiw_per_timestep), _, mse_uni = self.compute_PICP_MPIW(
                         predictive_distribution=distrib_unistep, inp=inputs)
@@ -268,11 +293,12 @@ class Algo:
             if self.dataset.name == "synthetic":
                 test_metrics_unistep["mse"] = np.mean(MSE)
                 self.logger.info("mse of predictive distribution: {}".format(np.mean(MSE)))
+                if self.dataset.model == 3:
+                    self.logger.info("True distrib mse: {}".format(self.compute_true_mse_distrib_arima(ma_params=kwargs["maparams"])))
             else:
                 self._get_inference_paths()
                 PICP = np.mean(np.stack(PICP, axis=0))
                 MPIW = np.mean(np.stack(MPIW, axis=0))
-                #print("MSE uni", MSE_uni)
                 MSE_uni = np.mean(MSE_uni)
                 PICP_per_timestep = np.mean(np.stack(PICP_per_timestep, axis=0), axis=0)
                 MPIW_per_timestep = np.mean(np.stack(MPIW_per_timestep, axis=0), axis=0)
@@ -306,9 +332,13 @@ class Algo:
         # plot targets versus preds for test samples:
         if kwargs["plot"]:
             for _ in range(4):
-                self.plot_preds_targets(predictions_test=predictions_test)
+                if self.distribution:
+                    self.plot_preds_targets(predictions_test=predictions_test, predictive_distribution=distrib_unistep)
+                else:
+                    self.plot_preds_targets(predictions_test=predictions_test)
         if kwargs["save_metrics"]:
             write_to_csv(dic=test_metrics_unistep, output_dir=os.path.join(self.out_folder, "test_metrics_unistep.csv"))
             if test_metrics_multistep:
                 write_to_csv(dic=test_metrics_multistep,
                              output_dir=os.path.join(self.out_folder, "test_metrics_multistep.csv"))
+        return test_metrics_unistep
