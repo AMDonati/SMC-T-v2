@@ -21,7 +21,7 @@ def generate_arima_model(num_samples, seq_len):
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("-data_path", type=str, default="../../data", help="data folder to save synthetic dataset.")
+  parser.add_argument("-data_path", type=str, default="data", help="data folder to save synthetic dataset.")
   parser.add_argument('-seq_len', type=int, default=25, help="number of timesteps in the time-series dataset.")
   parser.add_argument('-num_samples', type=int, default=1000, help="number of samples in the generated synthetic dataset.")
   parser.add_argument("-TRAIN_SPLIT", type=float, default=0.8, help="train split for splitting between train and validation sets.")

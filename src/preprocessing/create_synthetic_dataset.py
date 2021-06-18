@@ -13,15 +13,6 @@ def generate_onesample_model_1(A, std_matrix, seq_len, num_features):
   X_obs = tf.stack(list_X, axis=1)
   return X_obs
 
-def generate_arima_model(A, std_matrix, seq_len, num_features):
-  X = tf.random.normal(shape=(1, num_features))
-  list_X=[X]
-  for s in range(seq_len):
-    X = tf.matmul(X,A) + tf.random.normal(stddev=std_matrix, shape=(1, num_features))
-    list_X.append(X)
-  X_obs = tf.stack(list_X, axis=1)
-  return X_obs
-
 def generate_onesample_model_2(A, std_matrix, seq_len, num_features):
    X = tf.random.normal(shape=(1, num_features))
    list_X=[X]
