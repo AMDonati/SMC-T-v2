@@ -63,7 +63,7 @@ if __name__ == "__main__":
   out_path = os.path.join(args.data_path, "synthetic_model_{}_{}var".format(str(args.model), args.variance))
   if not os.path.isdir(out_path):
       os.makedirs(out_path)
-  out_file = os.path.join(out_path, "synthetic_dataset_{}_feat.npy".format(args.num_features))
+  out_file = os.path.join(out_path, "raw_data.npy".format(args.num_features))
 
   print("saving synthetic dataset into a .npy file...")
   np.save(out_file, X_data)
