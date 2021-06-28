@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 echo "-------- air quality ---------------------------------------------"
-#python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 1 -q 0 -ep 500 -output_path "output/exp_air_quality" -multistep 1 -past_len 6
+#python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 1 -q 0 -ep 00 -output_path "output/exp_air_quality" -multistep 1 -past_len 6
 #python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 1 -q 0 -ep 1000 -output_path "output/exp_air_quality" -multistep 1 -past_len 6
 #python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 3 -q 0 -ep 1000 -output_path "output/exp_air_quality" -multistep 1 -past_len 6
 python src/scripts/run.py -dataset "air_quality" -data_path "data/air_quality" -algo "varma" -p_model 5 -q 0 -ep 1000 -output_path "output/exp_air_quality" -multistep 1 -past_len 6

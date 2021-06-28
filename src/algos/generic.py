@@ -108,20 +108,46 @@ class Algo:
         else:
             pass
 
+    def get_true_predictive_distribution_arima(self, ma_coeff, ar_coeff, inputs):
+        if len(tf.shape(inputs)) == 3:
+            inputs = tf.expand_dims(inputs, axis=1)
+        test_data_tiled = tf.tile(inputs, multiples=[1, self.mc_samples, 1, 1])
+        residuals = []
+        for t in range(inputs.shape[-2]):
+            input = test_data_tiled[:,:,t,:]
+            past = test_data_tiled[:,:,:t+1,:]
+            curr_ar_coeff = np.zeros(test_data_tiled.shape[-2])
+            curr_ar_coeff[:len(ar_coeff)] = ar_coeff
+            curr_ar_coeff = tf.constant(curr_ar_coeff[:t+1], shape=(1,1,len(curr_ar_coeff[:t+1]),1), dtype=tf.float32)
+            target = tf.math.multiply(past, curr_ar_coeff)
+            ar_part = tf.reduce_sum(target, axis=-2)
+            curr_ma_coeff = np.zeros(test_data_tiled.shape[-2])
+            curr_ma_coeff[:len(ma_coeff)] = ma_coeff
+            curr_ma_coeff = tf.constant(curr_ma_coeff[:t+1], shape=(1,self.mc_samples,len(ma_coeff[:t+1]),1), dtype=tf.float32)
+            ma_part = curr_ma_coeff[:t+1] * tf.random.normal(size=(self.mc_samples, len(ma_coeff[:t+1])))
+            true_pred = ar_part + ma_part
+            res = true_pred - input
+            residuals.append(res)
+        residuals = tf.stack(residuals, axis=-2)
+        mse = np.square(residuals.numpy())
+        mse = np.mean(mse)
+        return mse
+
     def compute_mse_predictive_distribution_arima(self, ar_coeff, inputs, test_predictive_distribution):
         if len(tf.shape(inputs)) == 3:
             inputs = tf.expand_dims(inputs, axis=1)
         test_data_tiled = tf.tile(inputs, multiples=[1, self.mc_samples, 1, 1])
         residuals = []
         for t in range(test_predictive_distribution.shape[-2]):
-            pred = test_predictive_distribution[:, :, t, :]
-            past = test_data_tiled[:,:,:t+1,:]
-            curr_ar_coeff = np.zeros(test_data_tiled.shape[-2])
-            curr_ar_coeff[:len(ar_coeff)] = ar_coeff
-            curr_ar_coeff = tf.constant(curr_ar_coeff[:t+1], shape=(1,1,len(curr_ar_coeff[:t+1]),1), dtype=tf.float32)
-            target = tf.math.multiply(past, curr_ar_coeff)
-            res = pred - tf.reduce_sum(target, axis=-2) #TODO: add a tf.sum here ?
-            residuals.append(res)
+            if t >= len(ar_coeff) - 1:
+                pred = test_predictive_distribution[:, :, t, :]
+                past = test_data_tiled[:,:,:t+1,:]
+                curr_ar_coeff = np.zeros(test_data_tiled.shape[-2])
+                curr_ar_coeff[:len(ar_coeff)] = ar_coeff
+                curr_ar_coeff = tf.constant(curr_ar_coeff[:t+1], shape=(1,1,len(curr_ar_coeff[:t+1]),1), dtype=tf.float32)
+                target = tf.math.multiply(past, curr_ar_coeff)
+                res = pred - tf.reduce_sum(target, axis=-2)
+                residuals.append(res)
         residuals = tf.stack(residuals, axis=-2)
         mse = np.square(residuals.numpy())
         mse = np.mean(mse)
