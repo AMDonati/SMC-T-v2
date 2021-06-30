@@ -161,8 +161,8 @@ class Algo:
 
     def compute_mse_predictive_distribution(self, inputs, test_predictive_distribution, alpha):
         if len(tf.shape(inputs)) == 3:
-            inp = tf.expand_dims(inputs, axis=1)
-        test_data_tiled = tf.tile(inp, multiples=[1, self.mc_samples, 1, 1])
+            inputs = tf.expand_dims(inputs, axis=1)
+        test_data_tiled = tf.tile(inputs, multiples=[1, self.mc_samples, 1, 1])
         mse = tf.keras.losses.MSE(test_predictive_distribution, alpha * test_data_tiled)
         mse = tf.reduce_mean(mse)
         return mse
