@@ -15,18 +15,21 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None):
+                 rate=0., attn_window=None, task="classification"):
         super(SMC_Transformer, self).__init__()
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, task=task)
 
         self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate, dim=4)
+        self.task = task
         # for pre_processing words in the one_layer case.
-        self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts')  # for regression case.
+        self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts') # for regression case.
+        self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
+        # for regression case.
         self.final_layer = self.cell.output_layer
         self.output_size = output_size
         self.d_model = d_model
@@ -50,19 +53,86 @@ class SMC_Transformer(tf.keras.Model):
         smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
         smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
 
-        # "classic loss" part:
-        diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32)  # shape (B,P,S,F_y)
-        classic_loss = 1 / 2 * (1 / self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
-        classic_loss = tf.reduce_mean(classic_loss)
+        classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions)
 
         total_loss = smc_loss + classic_loss
         return total_loss
 
+    # def categorical_ce_with_particules(real, pred, sampling_weights):
+    #     '''
+    #     :param real: targets tensor > shape (B,S)
+    #     :param pred: predictions (particules logits) > shape (B,P,S,V)
+    #     :param sampling_weights: re-sampling weights for last timestep > shape (B,P)
+    #     :return:
+    #     '''
+    #     # tiling the targets to have a shape (B,P,S)
+    #     num_particles = tf.shape(pred)[1]
+    #
+    #     if len(tf.shape(real)) < 3:
+    #         real = tf.expand_dims(real, axis=1)
+    #         real = tf.tile(real, multiples=[1, num_particles, 1])
+    #
+    #     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+    #     loss_ = loss_object(real, pred)  # shape (B,P,S)
+    #
+    #     # mean over sequence elements
+    #     loss_ = tf.reduce_mean(loss_, axis=-1)  # shape (B,P)
+    #     # weighted sum over number of particles
+    #     loss_ = tf.reduce_sum(sampling_weights * loss_, axis=-1)
+    #     # mean over batch elements
+    #     loss = tf.reduce_mean(loss_, axis=0)
+    #     return loss
+
+    def compute_classic_loss(self, targets, predictions):
+        if self.task == "regression":
+            # "classic loss" part:
+            diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32)  # shape (B,P,S,F_y)
+            classic_loss = 1 / 2 * (1 / self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
+            classic_loss = tf.reduce_mean(classic_loss)
+        elif self.task == "classification":
+            targets = tf.tile(targets, multiples=[1,self.cell.num_particles, 1, 1])
+            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+            classic_loss = ce(y_true=targets, y_pred=predictions)
+            classic_loss = tf.reduce_mean(classic_loss)
+        return classic_loss
+
+    def preprocess_words(self, x, dec_timestep, training):
+        '''add words embeddings and positional encodings:
+            -Args:
+              -x: 2D tensor of sequence of words id > dim (B, S)
+              -training: boolean for dropout
+            -Returns:
+              - A 3D tensor of pre-processed words sequence > dim (B, S, D)
+        '''
+        if self.num_layers > 1:
+            x = self.encoder.embedding(x)  # (batch_size, target_seq_len, d_model)
+            x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
+            # addition of the positional encoding to the input x for the current decoding step
+            if self.maximum_position_encoding is not None:
+                x += self.encoder.pos_encoding[:, dec_timestep,
+                     :]  # dim of positional encoding (1, num_positions, d_model)
+            x = self.encoder.dropout(x, training=training)
+
+        elif self.num_layers == 1:
+            x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
+            x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
+            # addition of the positional encoding to the input x for the current decoding step:
+            if self.maximum_position_encoding is not None:
+                x += self.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
+            x = self.dropout(x, training=training)
+
+        return tf.reshape(x, shape=[tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1], tf.shape(x)[-1]])
+
     def get_encoded_input(self, inputs):
+        if self.task == "regression":
+            embedding_layer = self.input_dense_projection
+        elif self.task == "classification":
+            embedding_layer = self.embedding
         if tf.shape(inputs)[1] == 1:
             inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
         if self.decoder is None:                                             # tiling inputs if needed on the particles dimensions.
-            input_tensor_processed = self.input_dense_projection(inputs)  # (B,P,S,D)
+            input_tensor_processed = embedding_layer(inputs)  # (B,P,S,D)
+            input_tensor_processed = tf.squeeze(input_tensor_processed, axis=-2)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         else:
             seq_len = tf.shape(inputs)[-2]
@@ -106,7 +176,7 @@ class SMC_Transformer(tf.keras.Model):
         self.cell.cell_count = 0  # additional counter to avoid duplicate of first timestep.
 
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-        outputs = [tf.squeeze(out, axis=-2) for out in outputs]
+        outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
         R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
         attn_weights = outputs[1]
         if len(tf.shape(attn_weights)) == 4: # one-head case
@@ -125,7 +195,7 @@ class SMC_Transformer(tf.keras.Model):
         if self.cell.noise:
             self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
             self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
-            self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z]
+            self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z] #TODO: resampled also the other noises.
 
         return (pred, pred_resampl), (K, V, R_resampl), attn_weights
 
@@ -137,28 +207,42 @@ if __name__ == "__main__":
     d_model = 6
     full_model = True
     dff = 24
+    num_particles = 2
+    sigma = 0.1
+    sigma_obs = 0.5
+    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
+
+    print("test NLP / classification case....")
 
     inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]], shape=(1, seq_len, F),
-                         dtype=tf.float32)  # ok works with len(tf.shape(inputs)==3.
+                         dtype=tf.int32)  # ok works with len(tf.shape(inputs)==3.
     inputs = tf.tile(inputs, multiples=[b, 1, 1])
     inputs = tf.expand_dims(inputs, axis=1)
     print('inputs', inputs.shape)
 
     targets = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11]]], shape=(1, seq_len, F),
-                          dtype=tf.float32)  # ok works with len(tf.shape(inputs)==3.
+                          dtype=tf.int32)  # ok works with len(tf.shape(inputs)==3.
     targets = tf.tile(targets, multiples=[b, 1, 1])
     targets = tf.expand_dims(targets, axis=1)
     print('targets', targets.shape)
 
     print("..............................TEST ONE LAYER CASE ...........................................")
 
-    transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4)
+    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  attn_window=4, task="classification")
+
+    transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                        sigma_obs=sigma_obs,
+                                        num_particles=num_particles)
+
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 
     print('predictions', predictions.shape)
     print('K', K.shape)
     print('attention weights', attn_weights.shape)
+
+    print("....................test of computing SMC loss.....................................")
+    smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=predictions)
 
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
@@ -167,28 +251,6 @@ if __name__ == "__main__":
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
                                   num_layers=2, num_heads=1)
-    print("Decoder num layers:", transformer.decoder.num_layers)
-
-    print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")
-    num_particles = 20
-    sigma = 0.1
-    sigma_obs = 0.5
-    dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
-
-    transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                        sigma_obs=sigma_obs,
-                                        num_particles=num_particles)
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
-
-    print('predictions', predictions.shape)
-    print('K', K.shape)
-    print('attention weights', attn_weights.shape)
-
-    print(
-        "..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
-
-    transformer = SMC_Transformer(d_model=8, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  num_layers=2, num_heads=4)
     print("Decoder num layers:", transformer.decoder.num_layers)
 
     print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")

@@ -121,3 +121,28 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         arg2 = step * (self.warmup_steps ** -1.5)
 
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+
+def categorical_ce_with_particules(real, pred, sampling_weights):
+  '''
+  :param real: targets tensor > shape (B,S)
+  :param pred: predictions (particules logits) > shape (B,P,S,V)
+  :param sampling_weights: re-sampling weights for last timestep > shape (B,P)
+  :return:
+  '''
+  # tiling the targets to have a shape (B,P,S)
+  num_particles = tf.shape(pred)[1]
+
+  if len(tf.shape(real)) < 3:
+    real = tf.expand_dims(real, axis=1)
+    real = tf.tile(real, multiples=[1, num_particles, 1])
+
+  loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+  loss_ = loss_object(real, pred)  # shape (B,P,S)
+
+  # mean over sequence elements
+  loss_ = tf.reduce_mean(loss_, axis=-1)  # shape (B,P)
+  # weighted sum over number of particles
+  loss_ = tf.reduce_sum(sampling_weights * loss_, axis=-1)
+  # mean over batch elements
+  loss = tf.reduce_mean(loss_, axis=0)
+  return loss

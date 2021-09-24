@@ -52,9 +52,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             k = self.add_noise(k_, self.sigma_k)
             q = self.add_noise(q_, self.sigma_q)
             v = self.add_noise(v_, self.sigma_v)
-            self.noise_k = k - k_  # TODO: remove this one because we need resampled noise.
+            self.noise_k = k - k_
             self.noise_q = q - q_
-            self.noise_v = v - v_  # TODO: remove this one, because we need resampled noise.
+            self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
 
@@ -86,7 +86,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
         if self.noise:
             z = self.add_noise(z_, self.sigma_z)
-            self.noise_z = z - z_
+            self.noise_z = z - z_ # TODO: remove this one, because we need resampled noise.
         else:
             z = z_
         return (z, K, V), attention_weights

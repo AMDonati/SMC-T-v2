@@ -11,7 +11,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, task="classification", **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -26,6 +26,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.seq_len = seq_len
         self.full_model = full_model
 
+        self.task = task
+
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
@@ -37,7 +39,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.len_resampling = None
 
         # output layer for computing the weights
-        self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
+        if self.task == "regression":
+            self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
+        elif self.task == "classification":
+            self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
+
         # internal states: K,V,R. size without batch_dim.
         self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                       V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
@@ -77,6 +83,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         assert has_nan == False
         assert len(tf.shape(w)) == 2
         return w
+
+    def compute_w_classification(self, predictions, y):
+      # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
+      probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
+      w = tf.gather(tf.squeeze(probas), tf.squeeze(y), axis=-1, batch_dims=2) # shape (B,P)
+      w_norm = tf.nn.softmax(w, axis=-1) # shape (B,P)
+      return w_norm  # shape (B,P)
 
     def call_inference(self, inputs, states, timestep):
         K, V = states
@@ -125,7 +138,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         # -------- SMC Algo ---------------------------------------------------------------------------------------------------------
         if self.noise:
-            w = self.compute_w_regression(predictions=predictions, y=y)
+            if self.task == "regression":
+                w = self.compute_w_regression(predictions=predictions, y=y)
+            elif self.task == "classification":
+                w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
             self.list_weights.append(w.numpy())

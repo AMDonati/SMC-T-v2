@@ -131,8 +131,8 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
         print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
         print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
-        print('first element and first dim of predictions - t24', temp_preds[0, :, -1, 0].numpy())
-        print('first element and first dim of predictions resampled - t24', temp_preds_resampl[0, :, -1, 0].numpy())
+        print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
+        print('first element and first dim of predictions resampled - last timestep', temp_preds_resampl[0, :, -1, 0].numpy())
 
     if start_epoch > 0:
         if start_epoch > EPOCHS:
@@ -173,7 +173,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             if smc_transformer.cell.noise:
                 tar_tiled = tf.tile(tar, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
                 val_loss_batch = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
-                val_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_val, axis=1, keepdims=True))
+                val_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_val, axis=1, keepdims=True)) #TODO: change loss for NLP case.
                 val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)
                 val_loss[0] += val_loss_batch
                 val_loss[1] += val_metric_avg_pred
