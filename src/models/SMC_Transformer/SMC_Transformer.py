@@ -56,32 +56,7 @@ class SMC_Transformer(tf.keras.Model):
         classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions)
 
         total_loss = smc_loss + classic_loss
-        return total_loss
-
-    # def categorical_ce_with_particules(real, pred, sampling_weights):
-    #     '''
-    #     :param real: targets tensor > shape (B,S)
-    #     :param pred: predictions (particules logits) > shape (B,P,S,V)
-    #     :param sampling_weights: re-sampling weights for last timestep > shape (B,P)
-    #     :return:
-    #     '''
-    #     # tiling the targets to have a shape (B,P,S)
-    #     num_particles = tf.shape(pred)[1]
-    #
-    #     if len(tf.shape(real)) < 3:
-    #         real = tf.expand_dims(real, axis=1)
-    #         real = tf.tile(real, multiples=[1, num_particles, 1])
-    #
-    #     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-    #     loss_ = loss_object(real, pred)  # shape (B,P,S)
-    #
-    #     # mean over sequence elements
-    #     loss_ = tf.reduce_mean(loss_, axis=-1)  # shape (B,P)
-    #     # weighted sum over number of particles
-    #     loss_ = tf.reduce_sum(sampling_weights * loss_, axis=-1)
-    #     # mean over batch elements
-    #     loss = tf.reduce_mean(loss_, axis=0)
-    #     return loss
+        return total_loss, classic_loss
 
     def compute_classic_loss(self, targets, predictions):
         if self.task == "regression":
@@ -95,33 +70,6 @@ class SMC_Transformer(tf.keras.Model):
             classic_loss = ce(y_true=targets, y_pred=predictions)
             classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
-
-    def preprocess_words(self, x, dec_timestep, training):
-        '''add words embeddings and positional encodings:
-            -Args:
-              -x: 2D tensor of sequence of words id > dim (B, S)
-              -training: boolean for dropout
-            -Returns:
-              - A 3D tensor of pre-processed words sequence > dim (B, S, D)
-        '''
-        if self.num_layers > 1:
-            x = self.encoder.embedding(x)  # (batch_size, target_seq_len, d_model)
-            x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
-            # addition of the positional encoding to the input x for the current decoding step
-            if self.maximum_position_encoding is not None:
-                x += self.encoder.pos_encoding[:, dec_timestep,
-                     :]  # dim of positional encoding (1, num_positions, d_model)
-            x = self.encoder.dropout(x, training=training)
-
-        elif self.num_layers == 1:
-            x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
-            x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
-            # addition of the positional encoding to the input x for the current decoding step:
-            if self.maximum_position_encoding is not None:
-                x += self.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
-            x = self.dropout(x, training=training)
-
-        return tf.reshape(x, shape=[tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1], tf.shape(x)[-1]])
 
     def get_encoded_input(self, inputs):
         if self.task == "regression":

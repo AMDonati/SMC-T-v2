@@ -1,13 +1,10 @@
 import argparse
-from src.data_provider.datasets import Dataset, CovidDataset, StandardizedDataset
+from src.data_provider.datasets import Dataset
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
-from src.algos.run_ARIMA import ARIMAAlgo
-from src.algos.run_VARMA import VARMAAlgo
-import numpy as np
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -22,21 +19,14 @@ def str2bool(v):
 
 
 algos = {"smc_t": SMCTAlgo, "lstm": RNNAlgo, "baseline_t": BaselineTAlgo, "fivo": FIVOAlgo,
-         "bayesian_lstm": BayesianRNNAlgo, "arima": ARIMAAlgo, "varma": VARMAAlgo}
+         "bayesian_lstm": BayesianRNNAlgo}
 
 
 def get_parser():
     parser = argparse.ArgumentParser()
     # data parameters:
-    parser.add_argument("-dataset", type=str, default='synthetic', help='dataset selection')
-    parser.add_argument("-dataset_model", type=int, default=1, help="model 1 or 2 or ARIMA for the synthetic dataset.")
+    parser.add_argument("-dataset", type=str, default='dummy_nlp', help='dataset selection')
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
-    parser.add_argument("-cv", type=int, default=0, help="do cross-validation training or not.")
-    parser.add_argument("-alpha", type=float, default=0.8, help="alpha value in synthetic models 1 & 2.")
-    parser.add_argument("-beta", type=float, default=0.54, help="beta value for synthetic model 2")
-    parser.add_argument('-p', type=float, default=0.7, help="p value for synthetic model 2.")
-    parser.add_argument("-standardize", type=str2bool, default=False, help="standardize data for FIVO or not.")
-    parser.add_argument("-split_fivo", type=str, default="test", help="dataset to evaluate fivo on.")
     parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
@@ -57,11 +47,6 @@ def get_parser():
     parser.add_argument("-prior_sigma_2", type=float, default=0.002, help="prior sigma param for Bayesian LSTM.")
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
     parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
-    # ARIMA / VARMA
-    parser.add_argument("-p_model", type=int, default=1, help="p parameter for VARMA model")
-    parser.add_argument("-d", type=int, default=1, help="d parameter in ARIMA model's order")
-    parser.add_argument("-q", type=int, default=0, help= "q parameter in ARIMA model's order")
-    parser.add_argument("-exog", type=int, default=0, help="VARMA vs VARMAX (with exogenous var.)")
     # training params.
     parser.add_argument("-bs", type=int, default=32, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
@@ -93,34 +78,10 @@ def run(args):
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
     BUFFER_SIZE = 500
 
-    # parameters for ARIMA synthetic model:
-    arparams = np.array([.75, -.25, 0.095, -0.07, 0.05, -0.015, 0.01, 0.0075])
-    maparams = np.array([.65, .35, -0.1, 0.08])
 
-    if args.dataset == 'synthetic':
+    if args.dataset == "dummy_nlp":
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
-                          model=args.dataset_model, max_samples=args.max_samples)
-
-    elif args.dataset == 'covid':
-        BUFFER_SIZE = 50
-        dataset = CovidDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
-                               model=None, max_samples=args.max_samples)
-    elif args.dataset == 'air_quality':
-        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, target_features=list(range(5)), max_samples=args.max_samples)
-
-    elif args.dataset == 'energy':
-        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, target_features=list(range(20)), max_samples=args.max_samples)
-
-    elif args.dataset == 'stock':
-        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, max_samples=args.max_samples)
-
-    elif args.dataset == 'weather':
-        BUFFER_SIZE = 5000
-        dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
-                                      name=args.dataset, max_samples=args.max_samples)
+                          max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 
@@ -129,12 +90,12 @@ def run(args):
     else:
         print("skipping training...")
 
-    if not args.cv:
-       _ = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
-                                 save_particles=args.save_particles, plot=args.save_plot,
-                                 save_distrib=args.save_distrib, save_metrics=True, arparams=arparams, maparams=maparams)
-    else:
-        _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, arparams=arparams, maparams=maparams)
+    # if not args.cv:
+    #    _ = algo.test(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep,
+    #                              save_particles=args.save_particles, plot=args.save_plot,
+    #                              save_distrib=args.save_distrib, save_metrics=True, arparams=arparams, maparams=maparams)
+    # else:
+    #     _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, arparams=arparams, maparams=maparams)
 
 
 if __name__ == '__main__':

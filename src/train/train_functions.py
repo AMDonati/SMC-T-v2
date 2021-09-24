@@ -172,14 +172,16 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar)  # shape (B,1,S,F_y)
             if smc_transformer.cell.noise:
                 tar_tiled = tf.tile(tar, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
-                val_loss_batch = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
-                val_metric_avg_pred = tf.keras.losses.MSE(tar, tf.reduce_mean(preds_val, axis=1, keepdims=True)) #TODO: change loss for NLP case.
+                val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
+                ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+                val_metric_avg_pred = ce(y_true=tar, y_pred=tf.reduce_mean(preds_val, axis=1, keepdims=True))  # (B,1,S)
                 val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)
                 val_loss[0] += val_loss_batch
                 val_loss[1] += val_metric_avg_pred
             else:
-                val_loss_batch = tf.keras.losses.MSE(tar, preds_val_resampl)  # (B,1,S)
-                val_loss_batch = tf.reduce_mean(val_loss_batch)  # mean over all dims.
+                ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+                val_loss_batch = ce(y_true=tar, y_pred=tf.reduce_mean(preds_val, axis=1, keepdims=True))  # (B,1,S)
+                val_loss_batch = tf.reduce_mean(val_loss_batch)
                 val_loss[0] += val_loss_batch
 
         train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]
