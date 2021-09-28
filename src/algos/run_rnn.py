@@ -22,7 +22,7 @@ class RNNAlgo(Algo):
         self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2) # num_dim = 2 for classification lstm.
 
-        self.lstm = build_LSTM_for_classification(batch_size=args.bs, seq_len=self.seq_len, emb_size=args.d_model,
+        self.lstm = build_LSTM_for_classification(seq_len=None, emb_size=args.d_model,
                                                   shape_output=self.output_size, rnn_units=args.rnn_units,
                                                   dropout_rate=args.p_drop,
                                                   rnn_drop_rate=args.rnn_drop,
@@ -79,7 +79,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
-    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features=None, save_path=None):
+    def stochastic_forward_pass_multistep(self, inp_model):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -92,16 +92,10 @@ class RNNAlgo(Algo):
             for t in range(self.future_len + 1):
                 preds_test = self.lstm(inputs=inp)  # (B,S,1)
                 last_pred = preds_test[:, -1, :]
-                if t < self.future_len:
-                    if future_inp_features is not None:
-                        last_pred = tf.concat([last_pred, future_inp_features[:, t, :]], axis=-1)
-                    last_pred = tf.expand_dims(last_pred, axis=-2)
-                    inp = tf.concat([inp, last_pred], axis=1)
-            list_predictions.append(preds_test[:,self.past_len:, :])
-        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1)
-        print('mc dropout LSTM multistep done')
-        if save_path is not None:
-            np.save(save_path, preds_test_MC_Dropout.numpy())
+                last_pred = tf.random.categorical(logits=last_pred, num_samples=1, dtype=tf.int32)
+                inp = tf.concat([inp, last_pred], axis=1)
+            list_predictions.append(inp)
+        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # shape (B, mc_samples, seq_len)
         return preds_test_MC_Dropout
 
     def train(self):
@@ -116,7 +110,22 @@ class RNNAlgo(Algo):
                        num_train=1)
 
     def test(self, **kwargs):
-        pass
+        self.logger.info(
+            "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
+        for (inputs, _) in self.test_dataset.take(kwargs["test_samples"]):
+            inp = inputs[:, :self.past_len]
+            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
+            particles = self.stochastic_forward_pass_multistep(inp_model=inp)
+            if self.distribution:
+                for p in range(particles.shape[1]):
+                    decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
+                    self.logger.info("DECODED TEXT SEQUENCE - mc sample{}:{}".format(p, decoded_particle))
+                    self.logger.info("-------------------------------------------------------------------")
+            else:
+                self.logger.info("DECODED TEXT SEQUENCE: {}".format(
+                    self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())))
+            self.logger.info(
+                "----------------------------------------------------------------------------------------------------------")
 
 
     def compute_test_loss(self, save_particles=True):

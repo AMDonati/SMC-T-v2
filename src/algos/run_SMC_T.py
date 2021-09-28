@@ -80,7 +80,7 @@ class SMCTAlgo(Algo):
     def train(self):
         self.logger.info('hparams...')
         self.logger.info(
-            'num layers: {} - num_heads: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
+            'num layers: {} - num_heads: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
                 self.smc_transformer.num_layers,
                 self.smc_transformer.num_heads,
                 self.smc_transformer.d_model, self.bs,
@@ -189,42 +189,6 @@ class SMCTAlgo(Algo):
         write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
                      dic=dict_sigmas)
 
-    def launch_inference(self, **kwargs):
-        # create inference folder
-        self.inference_path = os.path.join(self.out_folder, "inference_results")
-        if not os.path.isdir(self.inference_path):
-            os.makedirs(self.inference_path)
-        for index in kwargs["list_samples"]:
-            inputs, targets, test_sample = self.dataset.get_data_sample_from_index(index, past_len=self.past_len)
-            self.smc_transformer.seq_len = self.past_len
-            self._EM_after_training(inputs=inputs, targets=targets, index=index)
-            save_path_means, save_path_means_multi, save_path_preds_multi, save_path_distrib, save_path_distrib_multi = self._get_inference_paths(
-                index=index)
-            self.smc_transformer.seq_len = self.seq_len
-            preds_NP, mean_preds = inference_onestep(smc_transformer=self.smc_transformer,
-                                                     test_sample=test_sample,
-                                                     save_path=save_path_means,
-                                                     past_len=1)
-            if kwargs["multistep"]:
-                preds_multi, mean_preds_multi = inference_multistep(self.smc_transformer, test_sample,
-                                                                    save_path=save_path_means_multi,
-                                                                    past_len=self.past_len,
-                                                                    future_len=self.seq_len - self.past_len)
-
-            # preds multi shape: (B,mc_samples, len_future, F)
-            # mean_preds_multi shape (B,seq_len, F)
-            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
-
-            _ = get_distrib_all_timesteps(preds_NP, sigma_obs=sigma_obs, P=self.smc_transformer.cell.num_particles,
-                                          save_path_distrib=save_path_distrib,
-                                          len_future=self.seq_len - 1)
-            if kwargs["multistep"]:
-                distrib_multi = get_distrib_all_timesteps(preds_multi, sigma_obs=sigma_obs,
-                                                          P=self.smc_transformer.cell.num_particles,
-                                                          save_path_distrib=save_path_distrib_multi,
-                                                          len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
-            self._reinit_sigmas()
-
     def test(self, **kwargs):
         self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
         # smc_transformer_no_noise = tf.keras.models.clone_model(model=self.smc_transformer)
@@ -253,41 +217,6 @@ class SMCTAlgo(Algo):
                     self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())))
             self.logger.info("----------------------------------------------------------------------------------------------------------")
 
-
-
-    def get_predictive_distribution(self, inputs, targets, save_path=None):
-        if self.distribution:
-            particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inputs,
-                                                          targets=targets,
-                                                          save_path=None, past_len=0)
-            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
-            distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
-                                                                 P=self.smc_transformer.cell.num_particles,
-                                                                 save_path_distrib=save_path,
-                                                                 N_est=self.mc_samples,
-                                                                 len_future=self.seq_len)
-            distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
-            return distrib_per_timestep
-
-    def get_predictive_distribution_multistep(self, inputs, targets, save_path=None):
-        if self.distribution:
-            inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
-            if self.output_size < self.num_features:
-                future_input_features = inputs[:, :, self.past_len:, len(self.dataset.target_features):]
-            else:
-                future_input_features = None
-            particles, mean_preds = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
-                                                        targets=tar, past_len=self.past_len,
-                                                        future_len=self.future_len,
-                                                        future_input_features=future_input_features)
-            sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
-            distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
-                                                             P=self.smc_transformer.cell.num_particles,
-                                                             save_path_distrib=save_path,
-                                                             N_est=self.mc_samples,
-                                                             len_future=self.future_len)
-            distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
-            return distrib_per_timestep
 
     def compute_test_loss(self, save_particles=False):
         test_loss, MEAN_PREDS = [], []

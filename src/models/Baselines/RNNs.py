@@ -21,8 +21,8 @@ def build_LSTM_for_regression(shape_input_1, shape_input_2, shape_output, rnn_un
 
   return lstm_model
 
-def build_LSTM_for_classification(batch_size, seq_len, emb_size, shape_output, rnn_units, dropout_rate, rnn_drop_rate=0.0, training=True):
-  inputs = tf.keras.Input(shape=(seq_len,), batch_size=batch_size) #TODO: resolve this problem here. Use tf.keras.Sequential instead (cf SMC-T code.)
+def build_LSTM_for_classification(seq_len, emb_size, shape_output, rnn_units, dropout_rate, rnn_drop_rate=0.0, training=True):
+  inputs = tf.keras.Input(shape=(seq_len,)) #TODO: resolve this problem here. Use tf.keras.Sequential instead (cf SMC-T code.)
   embedding = tf.keras.layers.Embedding(input_dim=shape_output, output_dim=emb_size)(inputs)
   h = tf.keras.layers.LSTM(rnn_units, recurrent_dropout=rnn_drop_rate, return_sequences=True)(embedding, training=training)
   outputs = tf.keras.layers.Dropout(rate=dropout_rate)(h, training=training)
