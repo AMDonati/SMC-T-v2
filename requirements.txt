@@ -1,7 +1,10 @@
-tensorflow==2.2.0
+tensorflow==2.6.0
 torch==1.7.1
 matplotlib==3.3.3
 blitz-bayesian-pytorch==0.2.7
 h5py==3.1.0
 scikit-learn==0.24.1
 statsmodels==0.12.1
+tensorflow-probability==0.14.0
+transformers==4.10.3
+nltk=3.6.3
