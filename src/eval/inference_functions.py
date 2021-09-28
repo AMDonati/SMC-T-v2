@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 def split_input_target(data):
     inp = data[:, :, :-1, :]
@@ -16,34 +17,27 @@ def inference_onestep(smc_transformer, inputs, targets, save_path, past_len=40):
         np.save(save_path, mean_preds)
     return preds_future, mean_preds
 
-def inference_multistep(smc_transformer, inputs, targets, future_input_features=None, past_len=40, future_len=20, save_path=None, save_path_preds=None):
+def inference_multistep(smc_transformer, inputs, targets, past_len=40, future_len=20):
     P = smc_transformer.cell.num_particles
-    sigma_obs = tf.math.sqrt(smc_transformer.cell.Sigma_obs)
     # forward pass on test_sample_past
     smc_transformer.seq_len = past_len
-    smc_transformer.cell.add_stop_resampling(past_len)
+    if smc_transformer.cell.noise:
+        smc_transformer.cell.add_stop_resampling(past_len)
     for i in range(future_len+1):
         (preds, _), _, _ = smc_transformer(inputs, targets)  # K,V shape (1, P, 40, D)
         last_pred = preds[:,:,-1,:]
-        last_pred = last_pred + tf.random.normal(shape=last_pred.shape, stddev=sigma_obs)
+        last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
         if i == 0:
             inputs = tf.tile(inputs, multiples=[1,P,1,1])
             targets = tf.tile(targets, multiples=[1,P,1,1])
-        if i < future_len:
-            if future_input_features is not None:
-                input_features = tf.tile(future_input_features[:,:,i,:], multiples=[1,P,1])
-                last_pred = tf.concat([last_pred, input_features], axis=-1)
-            last_pred = tf.expand_dims(last_pred, axis=-2)
-            inputs = tf.concat([inputs, last_pred], axis=-2)
-            targets = tf.concat([targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]))], axis=-2) # dummy target (not used when resampling is stopped.)
+        if i < future_len:# dummy target (not used when resampling is stopped.)
             smc_transformer.seq_len += 1
-    mean_preds = tf.reduce_mean(preds, axis=1)
-    preds_future = preds[:,:,past_len:,:]
-    if save_path is not None:
-        np.save(save_path, mean_preds)
-    if save_path_preds is not None:
-        np.save(save_path_preds, preds_future)
-    return preds_future, mean_preds
+        last_pred = tf.expand_dims(last_pred, axis=-2)
+        last_pred = tf.expand_dims(last_pred, axis=0)
+        inputs = tf.concat([inputs, last_pred], axis=-2)
+        targets = tf.concat([targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
+                            axis=-2)
+    return inputs
 
 def get_distrib_all_timesteps(preds, sigma_obs, P, save_path_distrib, N_est=10, len_future=20):
     distrib_future_timesteps = []

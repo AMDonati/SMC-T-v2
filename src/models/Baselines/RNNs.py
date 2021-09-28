@@ -21,7 +21,24 @@ def build_LSTM_for_regression(shape_input_1, shape_input_2, shape_output, rnn_un
 
   return lstm_model
 
+def build_LSTM_for_classification(batch_size, seq_len, emb_size, shape_output, rnn_units, dropout_rate, rnn_drop_rate=0.0, training=True):
+  inputs = tf.keras.Input(shape=(seq_len,), batch_size=batch_size) #TODO: resolve this problem here. Use tf.keras.Sequential instead (cf SMC-T code.)
+  embedding = tf.keras.layers.Embedding(input_dim=shape_output, output_dim=emb_size)(inputs)
+  h = tf.keras.layers.LSTM(rnn_units, recurrent_dropout=rnn_drop_rate, return_sequences=True)(embedding, training=training)
+  outputs = tf.keras.layers.Dropout(rate=dropout_rate)(h, training=training)
+  outputs = tf.keras.layers.Dense(shape_output)(outputs)
+  lstm_model = tf.keras.Model(outputs=outputs, inputs=inputs, name='lstm_for_classification')
+
+  return lstm_model
+
 if __name__ == '__main__':
+    import numpy as np
+    print("test LSTM for classification")
+    X = tf.constant(np.random.randint(0, 50, size=(8, 30)))
+    #X = tf.expand_dims(X, axis=-1)
+    lstm_classif = build_LSTM_for_classification(seq_len=30, emb_size=8, shape_output=50, rnn_units=16, dropout_rate=0.0)
+    outputs = lstm_classif(X)
+
 
     train_dataset = tf.random.uniform(shape=(8, 25, 3))
     train_data = train_dataset[:, :-1, :]

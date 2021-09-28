@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
 from src.train.train_functions import train_LSTM
-from src.models.Baselines.RNNs import build_LSTM_for_regression
+from src.models.Baselines.RNNs import build_LSTM_for_regression, build_LSTM_for_classification
 from src.algos.generic import Algo
 import numpy as np
 import datetime
@@ -20,14 +20,20 @@ class RNNAlgo(Algo):
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path()
         self.save_hparams(args)
-        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=3)
-        self.lstm = build_LSTM_for_regression(shape_input_1=self.seq_len,
-                                              shape_input_2=self.num_features,
-                                              shape_output=self.output_size,
-                                              rnn_units=args.rnn_units,
-                                              dropout_rate=args.p_drop,
-                                              rnn_drop_rate=args.rnn_drop,
-                                              training=True)
+        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2) # num_dim = 2 for classification lstm.
+
+        self.lstm = build_LSTM_for_classification(batch_size=args.bs, seq_len=self.seq_len, emb_size=args.d_model,
+                                                  shape_output=self.output_size, rnn_units=args.rnn_units,
+                                                  dropout_rate=args.p_drop,
+                                                  rnn_drop_rate=args.rnn_drop,
+                                                  training=True)
+        # self.lstm = build_LSTM_for_regression(shape_input_1=self.seq_len,
+        #                                       shape_input_2=self.num_features,
+        #                                       shape_output=self.output_size,
+        #                                       rnn_units=args.rnn_units,
+        #                                       dropout_rate=args.p_drop,
+        #                                       rnn_drop_rate=args.rnn_drop,
+        #                                       training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.distribution = True if self.p_drop > 0 else False
         self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
@@ -99,8 +105,7 @@ class RNNAlgo(Algo):
         return preds_test_MC_Dropout
 
     def train(self):
-        if not self.cv:
-            train_LSTM(model=self.lstm,
+        train_LSTM(model=self.lstm,
                        optimizer=self.optimizer,
                        EPOCHS=self.EPOCHS,
                        train_dataset=self.train_dataset,
@@ -109,20 +114,10 @@ class RNNAlgo(Algo):
                        output_path=self.out_folder,
                        logger=self.logger,
                        num_train=1)
-        else:
-            for num_train, (train_dataset, val_dataset) in enumerate(zip(self.train_dataset, self.val_dataset)):
-                train_LSTM(model=self.lstm,
-                           optimizer=self.optimizer,
-                           EPOCHS=self.EPOCHS,
-                           train_dataset=train_dataset,
-                           val_dataset=val_dataset,
-                           checkpoint_path=self.ckpt_path,
-                           output_path=self.out_folder,
-                           logger=self.logger,
-                           num_train=num_train + 1)
-                self.logger.info(
-                    "training of a LSTM for train/val split number {} done...".format(num_train + 1))
-                self.logger.info('-' * 60)
+
+    def test(self, **kwargs):
+        pass
+
 
     def compute_test_loss(self, save_particles=True):
         TEST_LOSS, PREDS_TEST = [], []

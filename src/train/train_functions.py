@@ -20,7 +20,7 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
             verbose=1)
     ]
     model.compile(optimizer=optimizer,
-                  loss='mse')
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True))
 
     print(model.summary())
 
@@ -171,8 +171,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         for batch_val, (inp, tar) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar)  # shape (B,1,S,F_y)
             if smc_transformer.cell.noise:
-                tar_tiled = tf.tile(tar, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
-                val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar_tiled, predictions=preds_val_resampl)
+                val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
                 ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
                 val_metric_avg_pred = ce(y_true=tar, y_pred=tf.reduce_mean(preds_val, axis=1, keepdims=True))  # (B,1,S)
                 val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)

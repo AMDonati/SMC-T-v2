@@ -48,11 +48,9 @@ class Algo:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
         # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
-    def load_datasets(self, num_dim=4, output_size=50):
+    def load_datasets(self, num_dim=4):
         train_data, val_data, test_data = self.dataset.get_datasets()
-        self.logger.info('num samples in training dataset: {}'.format(train_data.shape[0]))
-        self.logger.info('number of timeteps: {}'.format(train_data.shape[1] - 1))
-        self.logger.info('number of features: {}'.format(train_data.shape[-1]))
+        self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
@@ -61,10 +59,11 @@ class Algo:
         self.dataset.check_dataset(val_dataset)
         self.dataset.check_dataset(test_dataset)
         for (inp, tar) in train_dataset.take(1):
-            self.output_size = tf.shape(tar)[-1].numpy() if output_size is None else output_size
-            self.logger.info("number of target features: {}".format(self.output_size))
-            self.num_features = tf.shape(inp)[-1].numpy()
-            self.seq_len = tf.shape(inp)[-2].numpy()
+            self.output_size = self.dataset.output_size
+            self.logger.info("output size: {}".format(self.output_size))
+            self.num_features = 1
+            self.seq_len = self.dataset.seq_len
+            self.logger.info('number of timeteps: {}'.format(self.seq_len))
         return train_dataset, val_dataset, test_dataset
 
     def _get_inference_paths(self):

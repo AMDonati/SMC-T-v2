@@ -1,5 +1,8 @@
 import argparse
-from src.data_provider.datasets import Dataset
+from datasets import load_from_disk
+from src.data_provider.class_datasets import Dataset
+from src.data_provider.sst_sentiment import SSTDataset
+from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
@@ -48,7 +51,7 @@ def get_parser():
     parser.add_argument("-prior_pi", type=float, default=1.0, help="prior pi param for Bayesian LSTM.")
     parser.add_argument("-posterior_rho", type=float, default=-6.0, help="posterior rho init param for Bayesian LSTM.")
     # training params.
-    parser.add_argument("-bs", type=int, default=32, help="batch size")
+    parser.add_argument("-bs", type=int, default=128, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     # smc params.
@@ -82,6 +85,10 @@ def run(args):
     if args.dataset == "dummy_nlp":
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
                           max_samples=args.max_samples)
+    elif args.dataset == "sst":
+        dataset = load_from_disk(args.data_path)
+        sst_tokenizer = SSTTokenizer(dataset=dataset)
+        dataset = SSTDataset(tokenizer=sst_tokenizer, batch_size=args.bs, max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 
@@ -96,6 +103,7 @@ def run(args):
     #                              save_distrib=args.save_distrib, save_metrics=True, arparams=arparams, maparams=maparams)
     # else:
     #     _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, arparams=arparams, maparams=maparams)
+    algo.test(test_samples=3)
 
 
 if __name__ == '__main__':

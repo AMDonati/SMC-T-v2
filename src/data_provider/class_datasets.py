@@ -33,9 +33,6 @@ class Dataset:
         data = np.load(file_path)
         return data
 
-    def get_data_sample_from_index(self, index):
-        pass
-
     def get_datasets(self):
         type = np.int32
         train_data = self.get_data_from_folder(self.train_path)
@@ -82,6 +79,9 @@ class Dataset:
             x_test = x_test[:, np.newaxis, :, :]
             y_test = y_test[:, np.newaxis, :, :]
 
+        self.output_size = y_train.shape[-1]
+        self.seq_len = y_train.shape[-2]
+
         train_tuple = (x_train, y_train)
         val_tuple = (x_val, y_val)
         train_dataset = tf.data.Dataset.from_tensor_slices(train_tuple)
@@ -101,23 +101,9 @@ class Dataset:
                 assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
             elif inp.shape == 3:
                 assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
+            elif inp.shape == 2:
+                assert inp[:, 1:] == tar[:, :-1], "error in inputs/targets of dataset"
 
-    def get_data_splits_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9):
-        list_train_data, list_val_data, test_data = split_synthetic_dataset(x_data=self.data_arr,
-                                                                            TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                            VAL_SPLIT_cv=VAL_SPLIT_cv, cv=True)
-        list_test_data = [test_data] * len(list_train_data)
-        return list_train_data, list_val_data, list_test_data
-
-    def get_datasets_for_crossvalidation(self, TRAIN_SPLIT=0.8, VAL_SPLIT_cv=0.9, num_dim=4):
-        list_train_data, list_val_data, list_test_data = self.get_data_splits_for_crossvalidation(TRAIN_SPLIT=TRAIN_SPLIT, VAL_SPLIT_cv=VAL_SPLIT_cv)
-        train_datasets, val_datasets, test_datasets = [], [], []
-        for train_data, val_data, test_data in zip(list_train_data, list_val_data, list_test_data):
-            train_dataset, val_dataset, test_dataset = self.data_to_dataset(train_data=train_data, val_data=val_data, test_data=test_data, num_dim=num_dim)
-            train_datasets.append(train_dataset)
-            val_datasets.append(val_dataset)
-            test_datasets.append(test_dataset)
-        return train_datasets, val_datasets, test_datasets[0]
 
 if __name__ == '__main__':
 

@@ -225,6 +225,36 @@ class SMCTAlgo(Algo):
                                                           len_future=self.seq_len - self.past_len)  # shape (B,mc_samples,len_future, F)
             self._reinit_sigmas()
 
+    def test(self, **kwargs):
+        self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
+        # smc_transformer_no_noise = tf.keras.models.clone_model(model=self.smc_transformer)
+        # smc_transformer_no_noise.cell.num_particles = 1
+        # smc_transformer_no_noise.cell.noise = False
+        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
+            inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
+            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
+            particles = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
+                                        targets=tar, past_len=self.past_len,
+                                        future_len=self.future_len)  # shape (1,P,len,1)
+            if self.distribution:
+                # particles_no_noise = inference_multistep(smc_transformer=smc_transformer_no_noise, inputs=inp,
+                #                                      targets=tar, past_len=self.past_len,
+                #                                      future_len=self.future_len)  # shape (1,P,len,1)
+                for p in range(particles.shape[1]):
+                    decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
+                    self.logger.info("DECODED TEXT SEQUENCE - particle{}:{}".format(p, decoded_particle))
+                    self.logger.info("-------------------------------------------------------------------")
+                # self.logger.info(
+                # "-------------------- generating text with NO NOISE TRANSFORMER-----------------------------")
+                # self.logger.info("DECODED TEXT SEQUENCE: {}".format(
+                # self.dataset.tokenizer.decode(tf.squeeze(particles_no_noise).numpy())))
+            else:
+                self.logger.info("DECODED TEXT SEQUENCE: {}".format(
+                    self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())))
+            self.logger.info("----------------------------------------------------------------------------------------------------------")
+
+
+
     def get_predictive_distribution(self, inputs, targets, save_path=None):
         if self.distribution:
             particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inputs,
