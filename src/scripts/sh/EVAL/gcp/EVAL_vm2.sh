@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-echo "--------------------weather---------------------------------------------------------------------------"
-python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "smc_t" -d_model 32 -dff 32 -bs 64 -ep 50 -num_layers 2 -num_heads 4 -output_path "output/exp_weather" -particles 10 -smc True -save_path "output/exp_weather/smc_t_l2_h4_d32_10p/1" -multistep 1 -past_len 12 -mc_samples 1000 -max_samples 50000

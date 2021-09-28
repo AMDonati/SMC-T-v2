@@ -64,7 +64,7 @@ def get_parser():
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
     parser.add_argument("-past_len", type=int, default=10, help="number of timesteps for past timesteps at inference")
-    parser.add_argument("-future_len", type=int, help="number of predicted timesteps for multistep forecast.")
+    parser.add_argument("-future_len", type=int, default=20, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
     parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
@@ -103,7 +103,7 @@ def run(args):
     #                              save_distrib=args.save_distrib, save_metrics=True, arparams=arparams, maparams=maparams)
     # else:
     #     _ = algo.test_cv(alpha=args.alpha, beta=args.beta, p=args.p, multistep=args.multistep, arparams=arparams, maparams=maparams)
-    algo.test(test_samples=3)
+    algo.test(test_samples=10)
 
 
 if __name__ == '__main__':

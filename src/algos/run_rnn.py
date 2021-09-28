@@ -27,13 +27,6 @@ class RNNAlgo(Algo):
                                                   dropout_rate=args.p_drop,
                                                   rnn_drop_rate=args.rnn_drop,
                                                   training=True)
-        # self.lstm = build_LSTM_for_regression(shape_input_1=self.seq_len,
-        #                                       shape_input_2=self.num_features,
-        #                                       shape_output=self.output_size,
-        #                                       rnn_units=args.rnn_units,
-        #                                       dropout_rate=args.p_drop,
-        #                                       rnn_drop_rate=args.rnn_drop,
-        #                                       training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.distribution = True if self.p_drop > 0 else False
         self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)

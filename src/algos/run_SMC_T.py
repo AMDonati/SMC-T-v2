@@ -45,7 +45,7 @@ class SMCTAlgo(Algo):
             # out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
             # self.bs, args.full_model,
             # args.dff, args.attn_w)
-            out_file = '{}_l{}_h{}_d{}_{}p'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles)
+            out_file = '{}_l{}_h{}_d{}_{}p_sigmas{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles, args.sigmas)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             # if args.smc:
             #     out_file = out_file + '__p_{}'.format(args.particles)

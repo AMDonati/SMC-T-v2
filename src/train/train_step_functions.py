@@ -64,6 +64,8 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
             smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets)
             loss = smc_loss
             ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+            #resampling_weights = smc_transformer.cell.list_weights[-1] #TODO: add comparison with best particle.
+            #best_particles = tf.math.argmax(resampling_weights)
             ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
             ce_metric_avg_pred = tf.reduce_mean(ce_metric_avg_pred)
         else:

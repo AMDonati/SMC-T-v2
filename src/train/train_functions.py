@@ -5,6 +5,7 @@ from src.train.train_step_functions import train_step_SMC_T
 import time
 import os
 from src.utils.utils_train import saving_training_history, write_to_csv, restoring_checkpoint
+import numpy as np
 
 
 def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):
@@ -37,8 +38,10 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path
 
     train_loss_history_rnn = rnn_history.history['loss']
     val_loss_history_rnn = rnn_history.history['val_loss']
-    keys = ['train_loss', 'val_loss']
-    values = [train_loss_history_rnn, val_loss_history_rnn]
+    keys = ['train_loss', 'val_loss', 'train_ppl', 'val_ppl']
+    train_ppl_history = np.exp(train_loss_history_rnn)
+    val_ppl_history = np.exp(val_loss_history_rnn)
+    values = [train_loss_history_rnn, val_loss_history_rnn, train_ppl_history, val_ppl_history]
     csv_fname = 'rnn_history_{}.csv'.format(num_train)
     dict_hist = dict(zip(keys, values))
     write_to_csv(output_dir=os.path.join(output_path, csv_fname), dic=dict_hist)
@@ -120,7 +123,7 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
 def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, ckpt_manager, logger,
                           start_epoch, num_train):
 
-    losses_history = {"train_loss":[], "train_mse_metric":[], "val_loss":[], "val_mse_metric": []}
+    losses_history = {"train_loss":[], "train_mse_metric":[], "train_ppl":[], "val_loss":[], "val_mse_metric": [], "val_ppl":[]}
 
     # check the pass forward.
     for input_example_batch, target_example_batch in train_dataset.take(1):
@@ -192,11 +195,16 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                     train_loss[1].numpy(), val_loss[1].numpy()))
             losses_history["train_mse_metric"].append(train_loss[1].numpy())
             losses_history["val_mse_metric"].append(val_loss[1].numpy())
+            losses_history["train_ppl"] = np.exp(losses_history["train_mse_metric"])
+            losses_history["val_ppl"] = np.exp(losses_history["val_mse_metric"])
             logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
                 smc_transformer.cell.attention_smc.sigma_k,
                 smc_transformer.cell.attention_smc.sigma_q,
                 smc_transformer.cell.attention_smc.sigma_v,
                 smc_transformer.cell.attention_smc.sigma_z))
+        else:
+            losses_history["train_ppl"] = np.exp(losses_history["train_loss"])
+            losses_history["val_ppl"]= np.exp(losses_history["val_loss"])
 
         ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
