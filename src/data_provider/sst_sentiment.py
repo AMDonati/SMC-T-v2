@@ -69,9 +69,9 @@ class SSTDataset():
         plt.savefig(os.path.join(out_path, "sst_{}_dataset_review_size_distribution.png".format(split)))
 
     def get_datasets(self):
-        train_set = load_from_disk("cache/sst/train")
-        val_set = load_from_disk("cache/sst/val")
-        test_set = load_from_disk("cache/sst/test")
+        train_set = load_from_disk("data/sst/train")
+        val_set = load_from_disk("data/sst/val")
+        test_set = load_from_disk("data/sst/test")
         train_set = self.preprocess_dataset(train_set)
         val_set = self.preprocess_dataset(val_set)
         test_set = self.preprocess_dataset(test_set)
