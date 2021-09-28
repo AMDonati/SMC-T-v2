@@ -54,11 +54,6 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
             err_z = smc_transformer.noise_z * smc_transformer.noise_z
             err_z = tf.reduce_mean(err_z, axis=[1,2,3])
 
-            # smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v
-            # smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k
-            # smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q
-            # smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z
-
 
             for j in range(err_v.shape[0]):
                 smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]

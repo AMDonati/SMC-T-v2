@@ -15,17 +15,16 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None, task="classification"):
+                 rate=0., attn_window=None):
         super(SMC_Transformer, self).__init__()
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads, task=task)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
 
         self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate, dim=4)
-        self.task = task
         # for pre_processing words in the one_layer case.
         self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts') # for regression case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
@@ -59,27 +58,17 @@ class SMC_Transformer(tf.keras.Model):
         return total_loss, classic_loss
 
     def compute_classic_loss(self, targets, predictions):
-        if self.task == "regression":
-            # "classic loss" part:
-            diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32)  # shape (B,P,S,F_y)
-            classic_loss = 1 / 2 * (1 / self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
-            classic_loss = tf.reduce_mean(classic_loss)
-        elif self.task == "classification":
-            targets = tf.tile(targets, multiples=[1,self.cell.num_particles, 1, 1])
-            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-            classic_loss = ce(y_true=targets, y_pred=predictions)
-            classic_loss = tf.reduce_mean(classic_loss)
+        targets = tf.tile(targets, multiples=[1,self.cell.num_particles, 1, 1])
+        ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+        classic_loss = ce(y_true=targets, y_pred=predictions)
+        classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
     def get_encoded_input(self, inputs):
-        if self.task == "regression":
-            embedding_layer = self.input_dense_projection
-        elif self.task == "classification":
-            embedding_layer = self.embedding
         if tf.shape(inputs)[1] == 1:
             inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
-        if self.decoder is None:                                             # tiling inputs if needed on the particles dimensions.
-            input_tensor_processed = embedding_layer(inputs)  # (B,P,S,D)
+        if self.decoder is None:
+            input_tensor_processed = self.embedding(inputs)  # (B,P,S,D)
             input_tensor_processed = tf.squeeze(input_tensor_processed, axis=-2)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         else:
@@ -157,7 +146,6 @@ if __name__ == "__main__":
     dff = 24
     num_particles = 2
     sigma = 0.1
-    sigma_obs = 0.5
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
     print("test NLP / classification case....")
@@ -177,10 +165,9 @@ if __name__ == "__main__":
     print("..............................TEST ONE LAYER CASE ...........................................")
 
     transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4, task="classification")
+                                  attn_window=4)
 
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                        sigma_obs=sigma_obs,
                                         num_particles=num_particles)
 
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
@@ -204,11 +191,9 @@ if __name__ == "__main__":
     print("...........................TESTING THE ADDITION OF THE SMC ALGORITHM ............................")
     num_particles = 20
     sigma = 0.1
-    sigma_obs = 0.5
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                        sigma_obs=sigma_obs,
                                         num_particles=num_particles)
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 

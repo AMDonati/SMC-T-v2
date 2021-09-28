@@ -160,8 +160,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             train_loss[0] += train_loss_batch
 
             if smc_transformer.cell.noise:
-                print('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                    smc_transformer.cell.Sigma_obs,
+                print('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
                     smc_transformer.cell.attention_smc.sigma_k,
                     smc_transformer.cell.attention_smc.sigma_q,
                     smc_transformer.cell.attention_smc.sigma_v,
@@ -193,8 +192,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                     train_loss[1].numpy(), val_loss[1].numpy()))
             losses_history["train_mse_metric"].append(train_loss[1].numpy())
             losses_history["val_mse_metric"].append(val_loss[1].numpy())
-            logger.info('sigma_obs:{} - sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                smc_transformer.cell.Sigma_obs,
+            logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
                 smc_transformer.cell.attention_smc.sigma_k,
                 smc_transformer.cell.attention_smc.sigma_q,
                 smc_transformer.cell.attention_smc.sigma_v,

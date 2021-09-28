@@ -63,10 +63,10 @@ class SMCTAlgo(Algo):
                 dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [args.sigmas for _ in range(4)]))
             else:
                 dict_sigmas = None
-            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=args.sigma_obs,
+            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=args.particles)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
-            self.logger.info("Sigma_obs init: {}".format(self.smc_transformer.cell.Sigma_obs))
+            self.logger.info("Sigmas init: {}".format(dict_sigmas))
 
     def _check_consistency_hparams(self, args):
         if args.save_path is not None:
@@ -123,8 +123,7 @@ class SMCTAlgo(Algo):
             start_epoch = 0
         if self.save_path is not None and self.distribution:
             # self._check_consistency_hparams(args)
-            sigma_file = "sigmas_after_training.json" if not self.cv else "sigmas_after_training_{}.json".format(
-                num_train)
+            sigma_file = "sigmas_after_training.json"
             with open(os.path.join(self.save_path, sigma_file)) as json_file:
                 dict_json = json.load(json_file)
             self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
@@ -135,7 +134,7 @@ class SMCTAlgo(Algo):
     def _reinit_sigmas(self):
         if self.sigmas_after_training is not None:
             dict_sigmas = {key: self.sigmas_after_training[key] for key in ['k', 'q', 'v', 'z']}
-            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=0.5,
+            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
     def _EM_after_training(self, inputs, targets, index, iterations=30):
@@ -152,10 +151,6 @@ class SMCTAlgo(Algo):
             err_v = tf.reduce_mean(err_v)
             err_z = self.smc_transformer.noise_z * self.smc_transformer.noise_z
             err_z = tf.reduce_mean(err_z)
-            # EM estimation of Sigma_obs:
-            err_obs = tf.cast(targets_tiled, tf.float32) - tf.cast(preds_resampl, tf.float32)
-            new_sigma_obs = err_obs * err_obs
-            new_sigma_obs = tf.reduce_mean(new_sigma_obs)
             # update of the sigmas:
             self.smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_v + it ** (
@@ -169,11 +164,8 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (
                 -0.6)) * self.smc_transformer.cell.attention_smc.sigma_z + it ** (
                                                                   -0.6) * err_z
-            self.smc_transformer.cell.Sigma_obs = (1 - it ** (-0.6)) * self.smc_transformer.cell.Sigma_obs + it ** (
-                -0.6) * new_sigma_obs
             print('it:', it)
-            print("sigma_obs: {}, sigma_k: {}, sigma_q: {}, sigma_v: {}, sigma_z: {}".format(
-                self.smc_transformer.cell.Sigma_obs,
+            print("sigma_k: {}, sigma_q: {}, sigma_v: {}, sigma_z: {}".format(
                 self.smc_transformer.cell.attention_smc.sigma_k,
                 self.smc_transformer.cell.attention_smc.sigma_q,
                 self.smc_transformer.cell.attention_smc.sigma_v,

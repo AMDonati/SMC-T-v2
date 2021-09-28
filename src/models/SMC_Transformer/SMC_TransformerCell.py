@@ -11,7 +11,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, task="classification", **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -26,8 +26,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.seq_len = seq_len
         self.full_model = full_model
 
-        self.task = task
-
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
@@ -39,10 +37,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.len_resampling = None
 
         # output layer for computing the weights
-        if self.task == "regression":
-            self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
-        elif self.task == "classification":
-            self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
+        self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
 
         # internal states: K,V,R. size without batch_dim.
         self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
@@ -53,36 +48,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
-    def add_SMC_parameters(self, dict_sigmas, sigma_obs, num_particles):
+    def add_SMC_parameters(self, dict_sigmas, num_particles):
         self.noise = True
         self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
         self.num_particles = num_particles
-        self.Sigma_obs = sigma_obs
         self.list_weights, self.list_indices = [], []
-
-    def compute_w_regression(self, predictions, y):
-        '''
-        # FORMULA
-        # logw = -0.5 * mu_t ^ T * mu_t / omega
-        # logw = logw - max(logw)
-        # w = exp(logw)
-        :param predictions: output of final layer: (B,P,1,F_y)
-        :param y: current target element > shape (B,P,1,F_y).
-        :return:
-        resampling weights of shape (B,P).
-        '''
-        assert len(tf.shape(self.Sigma_obs)) == 0
-        mu_t = y - predictions  # (B,P,1,F_y)
-        mu_t = tf.squeeze(mu_t, axis=-2)  # removing sequence dim. # (B,P,F_y).
-        log_w = (-1 / (2 * self.Sigma_obs)) * tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-        log_w = tf.linalg.diag_part(log_w)  # take the diagonal. # (B,P).
-        w = tf.nn.softmax(log_w)
-        # check if w contains a nan number
-        bool_tens = tf.math.is_nan(w)
-        has_nan = tf.math.reduce_any(bool_tens).numpy()
-        assert has_nan == False
-        assert len(tf.shape(w)) == 2
-        return w
 
     def compute_w_classification(self, predictions, y):
       # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
@@ -138,10 +108,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         # -------- SMC Algo ---------------------------------------------------------------------------------------------------------
         if self.noise:
-            if self.task == "regression":
-                w = self.compute_w_regression(predictions=predictions, y=y)
-            elif self.task == "classification":
-                w = self.compute_w_classification(predictions=predictions, y=y)
+            w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
             self.list_weights.append(w.numpy())
@@ -179,7 +146,7 @@ if __name__ == "__main__":
     print(".........................................Test of compute w regression ................................")
     temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=False, dff=0)
 
-    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=num_particles)
+    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, num_particles=num_particles)
 
     temp_pred = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
     temp_y = tf.random.uniform(shape=(batch_size, 10, 1, output_size))
@@ -189,7 +156,7 @@ if __name__ == "__main__":
 
     print(".........................................Test of multi-head attention  ................................")
     temp_cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=True, dff=24, num_heads=3)
-    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, sigma_obs=sigma_obs, num_particles=num_particles)
+    temp_cell.add_SMC_parameters(dict_sigmas=dict_sigmas, num_particles=num_particles)
 
 
 
