@@ -13,7 +13,7 @@
 export TMPDIR=$JOBSCRATCH
 module purge
 module load  pytorch-gpu/py3/1.7.1
-conda activate smc-dec
+conda activate smc-t
 
 export PYTHONPATH=src:${PYTHONPATH}
 
