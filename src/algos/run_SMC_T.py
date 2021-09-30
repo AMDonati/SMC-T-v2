@@ -8,7 +8,7 @@ from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
-from src.eval.language_metrics import BLEU_score, SELFBLEU_score
+from src.eval.language_metrics import BLEU_score, SELFBLEU_score, gpt2_perplexity
 
 
 class SMCTAlgo(Algo):
@@ -211,7 +211,7 @@ class SMCTAlgo(Algo):
         # smc_transformer_no_noise = tf.keras.models.clone_model(model=self.smc_transformer)
         # smc_transformer_no_noise.cell.num_particles = 1
         # smc_transformer_no_noise.cell.noise = False
-        selfbleu_scores, mean_bleus, max_bleus = [], [], []
+        selfbleu_scores, mean_bleus, max_bleus, gpt2_ppls= [], [], [], []
         for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
             inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
             self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
@@ -224,10 +224,12 @@ class SMCTAlgo(Algo):
                 # particles_no_noise = inference_multistep(smc_transformer=smc_transformer_no_noise, inputs=inp,
                 #                                      targets=tar, past_len=self.past_len,
                 #                                      future_len=self.future_len)  # shape (1,P,len,1)
-                decoded_particles = []
+                decoded_particles, gpt2_ppl_particles = [], []
                 for p in range(particles.shape[1]):
                     decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
                     decoded_particles.append(decoded_particle)
+                    gpt2_ppl = gpt2_perplexity(decoded_particle)
+                    gpt2_ppl_particles.append(gpt2_ppl)
                     self.logger.info("DECODED TEXT SEQUENCE - particle{}:{}".format(p, decoded_particle))
                     self.logger.info("-------------------------------------------------------------------")
                 # self.logger.info(
@@ -238,28 +240,37 @@ class SMCTAlgo(Algo):
                 max_bleus.append(max_bleu)
                 mean_bleus.append(mean_bleu)
                 selfbleu_scores.append(selfbleu_score)
+                gpt2_ppls.append(round(np.mean(gpt2_ppl_particles),2))
                 self.logger.info("--------BLEU SCORES----------:")
                 self.logger.info("Max bleu: {}".format(max_bleu))
                 #self.logger.info("Mean bleu: {}".format(mean_bleu))
                 self.logger.info("--------SELF-BLEU SCORE----------:")
                 self.logger.info(selfbleu_score)
+                self.logger.info("--------GPT2 PPL----------:")
+                self.logger.info("min ppl:{}".format(np.min(gpt2_ppl_particles)))
+                self.logger.info("mean ppl:{}".format(round(np.mean(gpt2_ppl_particles),2)))
             else:
                 decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())
                 decoded_particle_ = [decoded_particle.split(sep=' ')]
                 decoded_target_ = decoded_targets.split(sep=' ')
                 bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
                 mean_bleus.append(bleu_score)
+                gpt2_ppl = gpt2_perplexity(decoded_particle)
+                gpt2_ppls.append(gpt2_ppl)
                 self.logger.info("DECODED TEXT SEQUENCE: {}".format(
                     decoded_particle))
                 self.logger.info("BLEU SCORE:{}".format(round(bleu_score, 4)))
+                self.logger.info("GPT2 PPL:{}".format(gpt2_ppl))
             self.logger.info("----------------------------------------------------------------------------------------------------------")
         self.logger.info("------------------------------------------------OVERALL BLEU SCORES------------------------------------------------------------------------")
-        self.logger.info("MEAN BLEU:{}".format(np.mean(mean_bleus)))
+        self.logger.info("MEAN BLEU:{}".format(round(np.mean(mean_bleus), 4)))
         self.logger.info("ALL MEAN BLEU:{}".format(mean_bleus))
+        self.logger.info("GPT2 PPL:{}".format(round(np.mean(gpt2_ppls),2)))
+        self.logger.info("ALL GPT2 PPL:{}".format(gpt2_ppls))
         if self.distribution:
-            self.logger.info("MAX BLEU:{}".format(np.mean(max_bleus)))
+            self.logger.info("MAX BLEU:{}".format(round(np.mean(max_bleus),4)))
             self.logger.info("ALL MAX BLEU:{}".format(max_bleus))
-            self.logger.info("SELF BLEU:{}".format(np.mean(selfbleu_scores)))
+            self.logger.info("SELF BLEU:{}".format(round(np.mean(selfbleu_scores),4)))
             self.logger.info("ALL SELF BLEU:{}".format(selfbleu_scores))
         self.logger.info(
             "---------------------------------------------------------------------------------------------------------------------------------------------------------")

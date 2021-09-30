@@ -1,5 +1,11 @@
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 import numpy as np
+from transformers import TFGPT2LMHeadModel, GPT2Tokenizer
+import tensorflow as tf
+
+gpt2_model = TFGPT2LMHeadModel.from_pretrained("gpt2")
+gpt2_tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
+
 
 def get_weights_bleu_score(n_gram=4):
     if n_gram == 2:
@@ -10,6 +16,16 @@ def get_weights_bleu_score(n_gram=4):
         weights = [0.25, 0.25, 0.25, 0.25]
     return weights
 
+def gpt2_perplexity(sentence):
+    inputs = gpt2_tokenizer(sentence, return_tensors="tf")
+    outputs = gpt2_model(input_ids=inputs["input_ids"])
+    logits = outputs["logits"]
+    preds = logits[:, :-1, :]
+    targets = inputs["input_ids"][:, 1:]
+    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+    cross_entropy = tf.reduce_mean(ce(y_true=targets, y_pred=preds)) # (B,1,S)
+    ppl = tf.math.exp(cross_entropy)
+    return round(ppl.numpy(),2)
 
 # class LanguageScore(Metric):
 #     '''Compute the perplexity of a pretrained language model (GPT) on the generated dialog.'''
