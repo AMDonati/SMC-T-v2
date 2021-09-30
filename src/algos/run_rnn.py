@@ -5,6 +5,7 @@ from src.models.Baselines.RNNs import build_LSTM_for_regression, build_LSTM_for_
 from src.algos.generic import Algo
 import numpy as np
 import datetime
+from src.eval.language_metrics import BLEU_score, gpt2_perplexity
 
 class RNNAlgo(Algo):
     def __init__(self, dataset, args):
@@ -102,22 +103,53 @@ class RNNAlgo(Algo):
                        logger=self.logger,
                        num_train=1)
 
+    def _decode_targets(self, inputs, targets):
+        decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs[:,0]).numpy()])
+        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
+        decoded_target = decoded_first_word + ' ' + decoded_target
+        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets[:, self.past_len:]).numpy())
+        if decoded_future_targets != '':
+            len_future_targets = len(decoded_future_targets.split(sep=' '))
+        else:
+            len_future_targets = 0
+        return decoded_target, len_future_targets
+
     def test(self, **kwargs):
         self.logger.info(
             "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        for (inputs, _) in self.test_dataset.take(kwargs["test_samples"]):
+        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
             inp = inputs[:, :self.past_len]
             self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
             particles = self.stochastic_forward_pass_multistep(inp_model=inp)
+            decoded_target, len_future_targets = self._decode_targets(inputs, targets)
+            bleus, gpt2_ppls = [], []
+            decoded_target_ = decoded_target.split(sep=' ')
             if self.distribution:
                 for p in range(particles.shape[1]):
                     decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
-                    self.logger.info("DECODED TEXT SEQUENCE - mc sample{}:{}".format(p, decoded_particle))
+                    decoded_particle_ = [decoded_particle.split(sep=' ')]
+                    bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
+                    gpt2_ppl = gpt2_perplexity(decoded_particle)
+                    self.logger.info("DECODED TEXT SEQUENCE - mc sample{}: {}".format(p, decoded_particle))
+                    self.logger.info("BLEU score - mc sample{}: {}".format(p, bleu_score))
+                    self.logger.info("GPT2 PPL - mc sample{}: {}".format(p, gpt2_ppl))
                     self.logger.info("-------------------------------------------------------------------")
             else:
+                decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())
+                decoded_particle_ = [decoded_particle.split(sep=' ')]
+                bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
+                gpt2_ppl = gpt2_perplexity(decoded_particle)
                 self.logger.info("DECODED TEXT SEQUENCE: {}".format(
-                    self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())))
-            self.logger.info(
+                    decoded_particle))
+                self.logger.info("BLEU score:{}".format(bleu_score))
+                self.logger.info("GPT2 ppl:{}".format(gpt2_ppl))
+            bleus.append(bleu_score)
+            gpt2_ppls.append(gpt2_ppl)
+        self.logger.info("MEAN BLEU:{}".format(round(np.mean(bleus), 4)))
+        self.logger.info("ALL MEAN BLEU:{}".format(bleus))
+        self.logger.info("GPT2 PPL:{}".format(round(np.mean(gpt2_ppls), 2)))
+        self.logger.info("ALL GPT2 PPL:{}".format(gpt2_ppls))
+        self.logger.info(
                 "----------------------------------------------------------------------------------------------------------")
 
 
