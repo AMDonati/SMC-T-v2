@@ -3,11 +3,12 @@ import tensorflow as tf
 import os
 from src.models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from src.train.train_functions import train_SMC_transformer
-from src.eval.inference_functions import inference_onestep, inference_multistep, get_distrib_all_timesteps
+from src.eval.inference_functions import inference_multistep
 from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
+from src.eval.language_metrics import BLEU_score, SELFBLEU_score
 
 
 class SMCTAlgo(Algo):
@@ -181,33 +182,87 @@ class SMCTAlgo(Algo):
         write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
                      dic=dict_sigmas)
 
+    def _decode_targets(self, inputs, targets):
+        decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs[:,:,0,:]).numpy()])
+        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
+        decoded_target = decoded_first_word + ' ' + decoded_target
+        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets[:, :, self.past_len:, :]).numpy())
+        if decoded_future_targets != '':
+            len_future_targets = len(decoded_future_targets.split(sep=' '))
+        else:
+            len_future_targets = 0
+        return decoded_target, len_future_targets
+
+    def _evaluate_BLEU_score(self, decoded_particles, decoded_target):
+        decoded_particles = [particles.split(sep=' ') for particles in decoded_particles]
+        decoded_target = decoded_target.split(sep=' ')
+        bleu_scores = []
+        for sentence in decoded_particles:
+            bleu_score = BLEU_score(true_sentence=decoded_target, generated_sentence=[sentence])
+            bleu_scores.append(round(bleu_score, 4))
+        selfbleu_score = SELFBLEU_score(sentences=decoded_particles)
+        max_bleu = np.max(bleu_scores)
+        mean_bleu = np.mean(bleu_scores)
+        return (max_bleu, mean_bleu, bleu_scores), round(selfbleu_score,4)
+
+
     def test(self, **kwargs):
         self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
         # smc_transformer_no_noise = tf.keras.models.clone_model(model=self.smc_transformer)
         # smc_transformer_no_noise.cell.num_particles = 1
         # smc_transformer_no_noise.cell.noise = False
+        selfbleu_scores, mean_bleus, max_bleus = [], [], []
         for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
             inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
             self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
+            decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
+            future_len = max(self.future_len, len_future_targets)
             particles = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
                                         targets=tar, past_len=self.past_len,
-                                        future_len=self.future_len)  # shape (1,P,len,1)
+                                        future_len=future_len)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
             if self.distribution:
                 # particles_no_noise = inference_multistep(smc_transformer=smc_transformer_no_noise, inputs=inp,
                 #                                      targets=tar, past_len=self.past_len,
                 #                                      future_len=self.future_len)  # shape (1,P,len,1)
+                decoded_particles = []
                 for p in range(particles.shape[1]):
                     decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
+                    decoded_particles.append(decoded_particle)
                     self.logger.info("DECODED TEXT SEQUENCE - particle{}:{}".format(p, decoded_particle))
                     self.logger.info("-------------------------------------------------------------------")
                 # self.logger.info(
                 # "-------------------- generating text with NO NOISE TRANSFORMER-----------------------------")
                 # self.logger.info("DECODED TEXT SEQUENCE: {}".format(
                 # self.dataset.tokenizer.decode(tf.squeeze(particles_no_noise).numpy())))
+                (max_bleu, mean_bleu, _), selfbleu_score = self._evaluate_BLEU_score(decoded_particles=decoded_particles, decoded_target=decoded_targets)
+                max_bleus.append(max_bleu)
+                mean_bleus.append(mean_bleu)
+                selfbleu_scores.append(selfbleu_score)
+                self.logger.info("--------BLEU SCORES----------:")
+                self.logger.info("Max bleu: {}".format(max_bleu))
+                #self.logger.info("Mean bleu: {}".format(mean_bleu))
+                self.logger.info("--------SELF-BLEU SCORE----------:")
+                self.logger.info(selfbleu_score)
             else:
+                decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())
+                decoded_particle_ = [decoded_particle.split(sep=' ')]
+                decoded_target_ = decoded_targets.split(sep=' ')
+                bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
+                mean_bleus.append(bleu_score)
                 self.logger.info("DECODED TEXT SEQUENCE: {}".format(
-                    self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())))
+                    decoded_particle))
+                self.logger.info("BLEU SCORE:{}".format(round(bleu_score, 4)))
             self.logger.info("----------------------------------------------------------------------------------------------------------")
+        self.logger.info("------------------------------------------------OVERALL BLEU SCORES------------------------------------------------------------------------")
+        self.logger.info("MEAN BLEU:{}".format(np.mean(mean_bleus)))
+        self.logger.info("ALL MEAN BLEU:{}".format(mean_bleus))
+        if self.distribution:
+            self.logger.info("MAX BLEU:{}".format(np.mean(max_bleus)))
+            self.logger.info("ALL MAX BLEU:{}".format(max_bleus))
+            self.logger.info("SELF BLEU:{}".format(np.mean(selfbleu_scores)))
+            self.logger.info("ALL SELF BLEU:{}".format(selfbleu_scores))
+        self.logger.info(
+            "---------------------------------------------------------------------------------------------------------------------------------------------------------")
 
 
     def compute_test_loss(self, save_particles=False):
