@@ -4,7 +4,7 @@ from transformers import TFGPT2LMHeadModel, GPT2Tokenizer, GPT2Config
 import tensorflow as tf
 
 gpt2_config = GPT2Config(vocab_size=50257)
-gpt2_model = TFGPT2LMHeadModel(gpt2_config).from_pretrained("gpt2")
+gpt2_model = TFGPT2LMHeadModel(gpt2_config).from_pretrained("cache/gpt2")
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
 gpt2_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 gpt2_tokenizer.pad_token_id = [50256]
@@ -37,65 +37,6 @@ def gpt2_perplexity_batch(sentences):
     loss = outputs["loss"]
     ppl = tf.math.exp(tf.reduce_mean(loss))
     return round(ppl.numpy(),2)
-
-# class LanguageScore(Metric):
-#     '''Compute the perplexity of a pretrained language model (GPT) on the generated dialog.'''
-#
-#     def __init__(self, agent, train_test, env, trunc, sampling):
-#         Metric.__init__(self, agent, train_test, "language_score", "scalar", env, trunc, sampling)
-#         self.lm_model = gpt2_model
-#         self.tokenizer = gpt2_tokenizer
-#         self.tokenizer.pad_token = self.tokenizer.eos_token
-#         self.questions = []
-#         self.batch_size = 1000
-#
-#     def fill_(self, **kwargs):
-#         pass
-#
-#     def process_batch(self, questions):
-#         loss = torch.nn.CrossEntropyLoss(reduction="none")
-#         inputs = self.tokenizer(questions, padding=True, truncation=True, return_tensors="pt")
-#         labels = inputs["input_ids"].clone()
-#         labels[inputs["attention_mask"] == 0] = -100
-#         outputs = self.lm_model(**inputs, labels=labels)
-#         shift_logits = outputs["logits"][..., :-1, :].contiguous()
-#         shift_labels = labels[..., 1:].contiguous()
-#         loss_ = loss(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)).view(labels.size(0),
-#                                                                                                labels.size(1) - 1)
-#         masked_loss = loss_.sum(dim=-1)
-#         masked_loss /= inputs["attention_mask"].sum(dim=-1)
-#         ppls_per_sentence = torch.exp(masked_loss)
-#         return ppls_per_sentence.view(-1).tolist()
-#
-#     def reset(self):
-#         self.questions = []
-#
-#     def compute_(self, **kwargs):
-#         if kwargs["state"].text.shape[-1] > 1:
-#             state_decoded = self.dataset.question_tokenizer.decode(kwargs["state"].text[:, 1:].cpu().numpy()[0])
-#             self.questions.append(state_decoded)
-#         if len(self.questions) == self.batch_size:
-#             ppl = self.process_batch(self.questions)
-#             self.metric.extend(ppl)
-#             self.reset()
-#
-#     def get_min_ppl_idxs(self, num_diversity):
-#         if len(self.questions) > 0:
-#             ppl = self.process_batch(self.questions)
-#             self.metric_history.extend(ppl)
-#             self.reset()
-#         ppls = torch.tensor(self.metric_history).view(-1, num_diversity)
-#         idx_to_keep = torch.argmin(ppls, dim=1).tolist()
-#         return idx_to_keep
-#
-#     def post_treatment(self, num_episodes, idx_to_keep=None):
-#         if len(self.questions) > 0:
-#             ppl = self.process_batch(self.questions)
-#             self.metric_history.extend(ppl)
-#             self.reset()
-#         # self.filter_reranking(num_episodes, idx_to_keep)
-#         self.post_treatment_()
-#         self.save_series_and_stats(idx_to_keep, num_episodes)
 
 def BLEU_score(true_sentence, generated_sentence, split_str=False):
     weights = get_weights_bleu_score(4)
