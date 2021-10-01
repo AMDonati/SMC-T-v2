@@ -64,8 +64,6 @@ def get_parser():
     # inference params.
     parser.add_argument("-past_len", type=int, default=5, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
-    parser.add_argument("-inference", type=int, default=0, help="launch inference or not on test data.")
-    parser.add_argument("-multistep", type=str2bool, default=False, help="doing multistep inference or not.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     # misc:
     parser.add_argument("-lambda_QD", type=float, default=1.0, help="lambda parameter for loss QD.")
@@ -96,7 +94,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=5)
+    algo.test(test_samples=3)
 
 
 if __name__ == '__main__':

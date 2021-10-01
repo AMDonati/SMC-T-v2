@@ -3,12 +3,9 @@ import tensorflow as tf
 import os
 from src.models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from src.train.train_functions import train_SMC_transformer
-from src.eval.inference_functions import inference_multistep
 from src.algos.generic import Algo
 import json
 import datetime
-import numpy as np
-from src.eval.language_metrics import BLEU_score, SELFBLEU_score, gpt2_perplexity
 
 
 class SMCTAlgo(Algo):
@@ -41,21 +38,18 @@ class SMCTAlgo(Algo):
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
-            return args.save_path
-        else:
-            # out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
-            # self.bs, args.full_model,
-            # args.dff, args.attn_w)
-            out_file = '{}_l{}_h{}_d{}_{}p_sigmas{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles, args.sigmas)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-            # if args.smc:
-            #     out_file = out_file + '__p_{}'.format(args.particles)
-            #     out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
-            #     out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+            out_folder = os.path.join(args.save_path, datetime_folder)
+        else:
+            out_file = '{}_l{}_h{}_d{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model)
+            datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            if args.smc:
+                out_file = out_file + '__p{}'.format(args.particles)
+                out_file = out_file + '_sigmas_{}'.format(args.sigmas)
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
-            if not os.path.isdir(out_folder):
+        if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)
-            return out_folder
+        return out_folder
 
     def _init_SMC_T(self, args):
         if args.smc:
@@ -138,162 +132,25 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
-    def _EM_after_training(self, inputs, targets, index, iterations=30):
-        targets_tiled = tf.tile(targets, multiples=[1, self.smc_transformer.cell.num_particles, 1, 1])
-        for it in range(1, iterations + 1):
-            (preds, preds_resampl), _, _ = self.smc_transformer(inputs=inputs,
-                                                                targets=targets)
-            # EM estimation of the noise parameters
-            err_k = self.smc_transformer.noise_K_resampled * self.smc_transformer.noise_K_resampled
-            err_k = tf.reduce_mean(err_k)
-            err_q = self.smc_transformer.noise_q * self.smc_transformer.noise_q
-            err_q = tf.reduce_mean(err_q)
-            err_v = self.smc_transformer.noise_V_resampled * self.smc_transformer.noise_V_resampled
-            err_v = tf.reduce_mean(err_v)
-            err_z = self.smc_transformer.noise_z * self.smc_transformer.noise_z
-            err_z = tf.reduce_mean(err_z)
-            # update of the sigmas:
-            self.smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (
-                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_v + it ** (
-                                                                  -0.6) * err_v
-            self.smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (
-                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_k + it ** (
-                                                                  -0.6) * err_k
-            self.smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (
-                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_q + it ** (
-                                                                  -0.6) * err_q
-            self.smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (
-                -0.6)) * self.smc_transformer.cell.attention_smc.sigma_z + it ** (
-                                                                  -0.6) * err_z
-            print('it:', it)
-            print("sigma_k: {}, sigma_q: {}, sigma_v: {}, sigma_z: {}".format(
-                self.smc_transformer.cell.attention_smc.sigma_k,
-                self.smc_transformer.cell.attention_smc.sigma_q,
-                self.smc_transformer.cell.attention_smc.sigma_v,
-                self.smc_transformer.cell.attention_smc.sigma_z
-            ))
-
-        dict_sigmas = dict(zip(['sigma_obs', 'sigma_k', 'sigma_q', 'sigma_v', 'sigma_z'],
-                               [self.smc_transformer.cell.Sigma_obs.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
-        write_to_csv(output_dir=os.path.join(self.inference_path, "sigmas_after_EM_{}.csv".format(index)),
-                     dic=dict_sigmas)
-
-    def _decode_targets(self, inputs, targets):
-        decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs[:,:,0,:]).numpy()])
-        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
-        decoded_target = decoded_first_word + ' ' + decoded_target
-        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets[:, :, self.past_len:, :]).numpy())
-        if decoded_future_targets != '':
-            len_future_targets = len(decoded_future_targets.split(sep=' '))
-        else:
-            len_future_targets = 0
-        return decoded_target, len_future_targets
-
-    def _evaluate_BLEU_score(self, decoded_particles, decoded_target):
-        decoded_particles = [particles.split(sep=' ') for particles in decoded_particles]
-        decoded_target = decoded_target.split(sep=' ')
-        bleu_scores = []
-        for sentence in decoded_particles:
-            bleu_score = BLEU_score(true_sentence=decoded_target, generated_sentence=[sentence])
-            bleu_scores.append(round(bleu_score, 4))
-        selfbleu_score = SELFBLEU_score(sentences=decoded_particles)
-        max_bleu = np.max(bleu_scores)
-        mean_bleu = np.mean(bleu_scores)
-        return (max_bleu, mean_bleu, bleu_scores), round(selfbleu_score,4)
-
-
-    def test(self, **kwargs):
-        self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        # smc_transformer_no_noise = tf.keras.models.clone_model(model=self.smc_transformer)
-        # smc_transformer_no_noise.cell.num_particles = 1
-        # smc_transformer_no_noise.cell.noise = False
-        selfbleu_scores, mean_bleus, max_bleus, gpt2_ppls= [], [], [], []
-        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
-            inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
-            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
-            decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
-            future_len = max(self.future_len, len_future_targets)
-            particles = inference_multistep(smc_transformer=self.smc_transformer, inputs=inp,
-                                        targets=tar, past_len=self.past_len,
-                                        future_len=future_len)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
-            if self.distribution:
-                # particles_no_noise = inference_multistep(smc_transformer=smc_transformer_no_noise, inputs=inp,
-                #                                      targets=tar, past_len=self.past_len,
-                #                                      future_len=self.future_len)  # shape (1,P,len,1)
-                decoded_particles, gpt2_ppl_particles = [], []
-                for p in range(particles.shape[1]):
-                    decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
-                    decoded_particles.append(decoded_particle)
-                    gpt2_ppl = gpt2_perplexity(decoded_particle)
-                    gpt2_ppl_particles.append(gpt2_ppl)
-                    self.logger.info("DECODED TEXT SEQUENCE - particle{}:{}".format(p, decoded_particle))
-                    self.logger.info("-------------------------------------------------------------------")
-                # self.logger.info(
-                # "-------------------- generating text with NO NOISE TRANSFORMER-----------------------------")
-                # self.logger.info("DECODED TEXT SEQUENCE: {}".format(
-                # self.dataset.tokenizer.decode(tf.squeeze(particles_no_noise).numpy())))
-                (max_bleu, mean_bleu, _), selfbleu_score = self._evaluate_BLEU_score(decoded_particles=decoded_particles, decoded_target=decoded_targets)
-                max_bleus.append(max_bleu)
-                mean_bleus.append(mean_bleu)
-                selfbleu_scores.append(selfbleu_score)
-                gpt2_ppls.append(round(np.mean(gpt2_ppl_particles),2))
-                self.logger.info("--------BLEU SCORES----------:")
-                self.logger.info("Max bleu: {}".format(max_bleu))
-                #self.logger.info("Mean bleu: {}".format(mean_bleu))
-                self.logger.info("--------SELF-BLEU SCORE----------:")
-                self.logger.info(selfbleu_score)
-                self.logger.info("--------GPT2 PPL----------:")
-                self.logger.info("min ppl:{}".format(np.min(gpt2_ppl_particles)))
-                self.logger.info("mean ppl:{}".format(round(np.mean(gpt2_ppl_particles),2)))
-            else:
-                decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())
-                decoded_particle_ = [decoded_particle.split(sep=' ')]
-                decoded_target_ = decoded_targets.split(sep=' ')
-                bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
-                mean_bleus.append(bleu_score)
-                gpt2_ppl = gpt2_perplexity(decoded_particle)
-                gpt2_ppls.append(gpt2_ppl)
-                self.logger.info("DECODED TEXT SEQUENCE: {}".format(
-                    decoded_particle))
-                self.logger.info("BLEU SCORE:{}".format(round(bleu_score, 4)))
-                self.logger.info("GPT2 PPL:{}".format(gpt2_ppl))
-            self.logger.info("----------------------------------------------------------------------------------------------------------")
-        self.logger.info("------------------------------------------------OVERALL BLEU SCORES------------------------------------------------------------------------")
-        self.logger.info("MEAN BLEU:{}".format(round(np.mean(mean_bleus), 4)))
-        self.logger.info("ALL MEAN BLEU:{}".format(mean_bleus))
-        self.logger.info("GPT2 PPL:{}".format(round(np.mean(gpt2_ppls),2)))
-        self.logger.info("ALL GPT2 PPL:{}".format(gpt2_ppls))
-        if self.distribution:
-            self.logger.info("MAX BLEU:{}".format(round(np.mean(max_bleus),4)))
-            self.logger.info("ALL MAX BLEU:{}".format(max_bleus))
-            self.logger.info("SELF BLEU:{}".format(round(np.mean(selfbleu_scores),4)))
-            self.logger.info("ALL SELF BLEU:{}".format(selfbleu_scores))
-        self.logger.info(
-            "---------------------------------------------------------------------------------------------------------------------------------------------------------")
-
-
-    def compute_test_loss(self, save_particles=False):
-        test_loss, MEAN_PREDS = [], []
-        for (inp, tar) in self.test_dataset:
-            (preds_test, preds_test_resampl), _, _ = self.smc_transformer(inputs=inp,
-                                                                          targets=tar)  # predictions test are the ones not resampled.
-            test_metric_avg_pred = tf.keras.losses.MSE(tar,
-                                                       tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
-            #test_metric_avg_pred = tf.keras.losses.MSE(inp,
-                                                       #tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
-            test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred).numpy()
-            mean_preds = tf.reduce_mean(preds_test, axis=1)
-            test_loss.append(test_metric_avg_pred)
-            MEAN_PREDS.append(mean_preds)
-        if save_particles:
-            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
-            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
-            print('preds particles shape', preds_test.shape)
-            print('preds particles resampled shape', preds_test_resampl.shape)
-            self.logger.info("saving predicted particles on test set...")
-        MEAN_PREDS = tf.stack(MEAN_PREDS, axis=0)
-        return np.mean(test_loss), MEAN_PREDS
+    def inference_multistep(self, inputs, targets, past_len=4, future_len=5):
+        P = self.smc_transformer.cell.num_particles
+        # forward pass on test_sample_past
+        self.smc_transformer.seq_len = past_len
+        if self.smc_transformer.cell.noise:
+            self.smc_transformer.cell.add_stop_resampling(past_len)
+        for i in range(future_len + 1):
+            (preds, _), _, _ = self.smc_transformer(inputs, targets)  # K,V shape (1, P, 40, D)
+            last_pred = preds[:, :, -1, :]
+            last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+            if i == 0:
+                inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
+                targets = tf.tile(targets, multiples=[1, P, 1, 1])
+            if i < future_len:  # dummy target (not used when resampling is stopped.)
+                self.smc_transformer.seq_len += 1
+            last_pred = tf.expand_dims(last_pred, axis=-2)
+            last_pred = tf.expand_dims(last_pred, axis=0)
+            inputs = tf.concat([inputs, last_pred], axis=-2)
+            targets = tf.concat(
+                [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
+                axis=-2)
+        return inputs

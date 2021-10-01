@@ -1,11 +1,10 @@
 import tensorflow as tf
 import os
 from src.train.train_functions import train_LSTM
-from src.models.Baselines.RNNs import build_LSTM_for_regression, build_LSTM_for_classification
+from src.models.Baselines.RNNs import build_LSTM_for_classification
 from src.algos.generic import Algo
 import numpy as np
 import datetime
-from src.eval.language_metrics import BLEU_score, gpt2_perplexity
 
 class RNNAlgo(Algo):
     def __init__(self, dataset, args):
@@ -35,19 +34,16 @@ class RNNAlgo(Algo):
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
-            return args.save_path
+            datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            output_folder = os.path.join(args.save_path, datetime_folder)
         else:
             output_path = args.output_path
-            #out_file = '{}_LSTM_units_{}_pdrop_{}_rnndrop_{}_lr_{}_bs_{}_cv_{}'.format(args.dataset, args.rnn_units,
-                                                                                       #args.p_drop,
-                                                                                       #args.rnn_drop, self.lr,
-                                                                                       #self.bs, args.cv)
             out_file = '{}_d{}_p{}'.format(args.algo, args.rnn_units, args.p_drop)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             output_folder = os.path.join(output_path, out_file, datetime_folder)
-            if not os.path.isdir(output_folder):
-                os.makedirs(output_folder)
-            return output_folder
+        if not os.path.isdir(output_folder):
+            os.makedirs(output_folder)
+        return output_folder
 
     def _load_ckpt(self, num_train=1):
         ckpt_path = os.path.join(self.ckpt_path, "RNN_Baseline_{}".format(num_train))
@@ -73,7 +69,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
-    def stochastic_forward_pass_multistep(self, inp_model):
+    def inference_multistep(self, inputs, targets=None, past_len=4, future_len=5):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -82,8 +78,8 @@ class RNNAlgo(Algo):
         '''
         list_predictions = []
         for i in range(self.mc_samples):
-            inp = inp_model
-            for t in range(self.future_len + 1):
+            inp = inputs
+            for t in range(future_len + 1):
                 preds_test = self.lstm(inputs=inp)  # (B,S,1)
                 last_pred = preds_test[:, -1, :]
                 last_pred = tf.random.categorical(logits=last_pred, num_samples=1, dtype=tf.int32)
@@ -103,64 +99,3 @@ class RNNAlgo(Algo):
                        logger=self.logger,
                        num_train=1)
 
-    def _decode_targets(self, inputs, targets):
-        decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs[:,0]).numpy()])
-        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
-        decoded_target = decoded_first_word + ' ' + decoded_target
-        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets[:, self.past_len:]).numpy())
-        if decoded_future_targets != '':
-            len_future_targets = len(decoded_future_targets.split(sep=' '))
-        else:
-            len_future_targets = 0
-        return decoded_target, len_future_targets
-
-    def test(self, **kwargs):
-        self.logger.info(
-            "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
-            inp = inputs[:, :self.past_len]
-            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
-            particles = self.stochastic_forward_pass_multistep(inp_model=inp)
-            decoded_target, len_future_targets = self._decode_targets(inputs, targets)
-            bleus, gpt2_ppls = [], []
-            decoded_target_ = decoded_target.split(sep=' ')
-            if self.distribution:
-                for p in range(particles.shape[1]):
-                    decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles[:, p, :, :]).numpy())
-                    decoded_particle_ = [decoded_particle.split(sep=' ')]
-                    bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
-                    gpt2_ppl = gpt2_perplexity(decoded_particle)
-                    self.logger.info("DECODED TEXT SEQUENCE - mc sample{}: {}".format(p, decoded_particle))
-                    self.logger.info("BLEU score - mc sample{}: {}".format(p, bleu_score))
-                    self.logger.info("GPT2 PPL - mc sample{}: {}".format(p, gpt2_ppl))
-                    self.logger.info("-------------------------------------------------------------------")
-            else:
-                decoded_particle = self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())
-                decoded_particle_ = [decoded_particle.split(sep=' ')]
-                bleu_score = BLEU_score(true_sentence=decoded_target_, generated_sentence=decoded_particle_)
-                gpt2_ppl = gpt2_perplexity(decoded_particle)
-                self.logger.info("DECODED TEXT SEQUENCE: {}".format(
-                    decoded_particle))
-                self.logger.info("BLEU score:{}".format(bleu_score))
-                self.logger.info("GPT2 ppl:{}".format(gpt2_ppl))
-            bleus.append(bleu_score)
-            gpt2_ppls.append(gpt2_ppl)
-        self.logger.info("MEAN BLEU:{}".format(round(np.mean(bleus), 4)))
-        self.logger.info("ALL MEAN BLEU:{}".format(bleus))
-        self.logger.info("GPT2 PPL:{}".format(round(np.mean(gpt2_ppls), 2)))
-        self.logger.info("ALL GPT2 PPL:{}".format(gpt2_ppls))
-        self.logger.info(
-                "----------------------------------------------------------------------------------------------------------")
-
-
-    def compute_test_loss(self, save_particles=True):
-        TEST_LOSS, PREDS_TEST = [], []
-        for inp, tar in self.test_dataset:
-            test_preds = self.lstm(inp)
-            test_loss = tf.keras.losses.MSE(test_preds, tar)
-            test_loss = tf.reduce_mean(test_loss)
-            TEST_LOSS.append(test_loss)
-            PREDS_TEST.append(test_preds)
-        PREDS_TEST = tf.stack(PREDS_TEST, axis=0)
-        #PREDS_TEST = tf.reshape(PREDS_TEST, shape=(PREDS_TEST.shape[0]* PREDS_TEST.shape[1], PREDS_TEST.shape[-2], PREDS_TEST.shape[-1]))
-        return np.mean(TEST_LOSS), PREDS_TEST
