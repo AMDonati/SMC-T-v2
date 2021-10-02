@@ -18,7 +18,7 @@ class SMCTAlgo(Algo):
                                                   epsilon=1e-9)
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
-        self.ckpt_path = self.create_ckpt_path()
+        self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
@@ -105,7 +105,7 @@ class SMCTAlgo(Algo):
 
     def _load_ckpt(self, num_train=1):
         # creating checkpoint manager
-        ckpt = tf.train.Checkpoint(transformer=self.smc_transformer,
+        ckpt = tf.train.Checkpoint(model=self.smc_transformer,
                                    optimizer=self.optimizer)
         smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))
         ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=50)

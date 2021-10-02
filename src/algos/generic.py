@@ -25,18 +25,17 @@ class Algo:
         self.test_predictive_distribution = None
         self.test_predictive_distribution_multistep = None
         self.distribution = False
-        self.lambda_QD = args.lambda_QD
-
-    def stochastic_forward_pass_multistep(self, inp_model, future_inp_features, save_path):
-        pass
 
     def create_logger(self):
         out_file_log = os.path.join(self.out_folder, 'training_log.log')
         logger = create_logger(out_file_log=out_file_log)
         return logger
 
-    def create_ckpt_path(self):
-        checkpoint_path = os.path.join(self.out_folder, "checkpoints")
+    def create_ckpt_path(self, args):
+        if args.save_path is not None:
+            checkpoint_path = os.path.join(args.save_path, "checkpoints")
+        else:
+            checkpoint_path = os.path.join(self.out_folder, "checkpoints")
         if not os.path.isdir(checkpoint_path):
             os.makedirs(checkpoint_path)
         return checkpoint_path
@@ -111,7 +110,6 @@ class Algo:
                 inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
             elif len(inputs.shape) == 2:
                 inp, tar = inputs[:, :self.past_len], targets[:,:self.past_len]
-            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             particles = self.inference_multistep(inputs=inp,
@@ -123,9 +121,14 @@ class Algo:
             for key, val in zip(list(metrics.keys()), [mean_bleu, var_bleu, gpt2_ppl, selfbleu]):
                 if val is not None:
                     metrics[key].append(val)
+            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
             self.logger.info("DECODED TEXT SEQUENCES: {}".format(decoded_particles))
             self.logger.info("-------------------------------------------------------------------")
         mean_metrics = dict(zip(list(metrics.keys()), [np.mean(val) for val in list(metrics.values())]))
+        metrics_file = os.path.join(self.out_folder, "test_metrics_all.csv")
+        write_to_csv(metrics_file, metrics)
+        mean_metrics_file = os.path.join(self.out_folder, "test_metrics_mean.csv")
+        write_to_csv(mean_metrics_file, mean_metrics)
         self.logger.info("------------------------------------------------MEAN SCORES------------------------------------------------------------------------")
         self.logger.info(mean_metrics)
         self.logger.info(

@@ -3,7 +3,7 @@ import json
 import os
 
 class SSTTokenizer:
-    def __init__(self, dataset, vocab_path='data/sst/vocab.json'):
+    def __init__(self, dataset, vocab_path='data/sst/vocab.json', min_token_count=1):
         self.SPECIAL_TOKENS = { #TODO: add EOS and SOS tokens. Add it on input_ids and target_ids.
             '<PAD>': 0,
             '<UNK>': 1,
@@ -15,8 +15,8 @@ class SSTTokenizer:
                 self.vocab = json.load(f)
         else:
             print("Building vocab")
-            self.vocab, start_tokens, tokens_to_count = self.build_vocab(dataset)
-        self.allow_unk = False
+            self.vocab, start_tokens, tokens_to_count = self.build_vocab(dataset, min_token_count=min_token_count)
+        self.allow_unk = False if min_token_count == 1 else True
         self.idx_to_token = dict(zip(list(self.vocab.values()), list(self.vocab.keys())))
 
     def _get_tokens(self, dataset):

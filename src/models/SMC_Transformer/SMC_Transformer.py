@@ -21,12 +21,11 @@ class SMC_Transformer(tf.keras.Model):
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
                                     dff=dff, attn_window=attn_window, num_heads=num_heads)
 
-        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
+        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate, dim=4)
         # for pre_processing words in the one_layer case.
-        self.input_dense_projection = tf.keras.layers.Dense(d_model, name='projection_layer_ts') # for regression case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
         # for regression case.
         self.final_layer = self.cell.output_layer

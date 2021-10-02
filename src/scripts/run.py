@@ -31,6 +31,8 @@ def get_parser():
     parser.add_argument("-dataset", type=str, default='dummy_nlp', help='dataset selection')
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
+    parser.add_argument("-min_token_count", type=int, default=1, help="min token count for sst vocabulary.")
+    parser.add_argument("-max_seq_len", type=int, default=51, help="max seq len for ")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), ARIMA(arima), Bayesian LSTM (bayesian_lstm)")
@@ -65,8 +67,8 @@ def get_parser():
     parser.add_argument("-past_len", type=int, default=5, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
+    parser.add_argument("-test_samples", type=int, default=3, help="number of test samples.")
     # misc:
-    parser.add_argument("-lambda_QD", type=float, default=1.0, help="lambda parameter for loss QD.")
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
     parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
@@ -84,8 +86,9 @@ def run(args):
                           max_samples=args.max_samples)
     elif args.dataset == "sst":
         dataset = load_from_disk(args.data_path)
-        sst_tokenizer = SSTTokenizer(dataset=dataset)
-        dataset = SSTDataset(tokenizer=sst_tokenizer, batch_size=args.bs, max_samples=args.max_samples)
+        vocab_path = "data/sst/vocab.json" if args.min_token_count == 1 else "data/sst/vocab2.json"
+        sst_tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
+        dataset = SSTDataset(tokenizer=sst_tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 
@@ -94,7 +97,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=3)
+    algo.test(test_samples=args.test_samples)
 
 
 if __name__ == '__main__':

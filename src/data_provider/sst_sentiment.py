@@ -1,25 +1,23 @@
 from datasets import load_from_disk
-import torch
 import matplotlib.pyplot as plt
 from pprint import pprint
 from transformers import GPT2Tokenizer
-from torch.nn.utils.rnn import pad_sequence
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 import os
 import tensorflow as tf
-import random
 import numpy as np
 
 
 class SSTDataset():
-    def __init__(self, tokenizer, batch_size=32, max_samples=None):
+    def __init__(self, tokenizer, batch_size=32, max_seq_len=51, max_samples=None):
         self.tokenizer = tokenizer
         self.output_size = self.get_len_vocab()
         self.PAD_IDX = self.get_PAD_IDX()
         self.batch_size = batch_size
         self.max_samples = max_samples
+        self.max_seq_len = max_seq_len
 
     def get_len_vocab(self):
         if self.tokenizer.__class__ == GPT2Tokenizer:
@@ -98,9 +96,12 @@ class SSTDataset():
         processed_dataset = dataset.map(split_input_target)
         return processed_dataset
 
-    def get_tf_dataset(self, dataset, batch_size, columns=['input_ids', 'target_ids'], num_dim=4):
+    def get_tf_dataset(self, dataset, batch_size, num_dim=4):
         features = {x: tf.keras.preprocessing.sequence.pad_sequences(dataset[x], padding="post",
-                                                                     truncating="post", maxlen=51) for x in columns}
+                                                                     truncating="post", maxlen=self.max_seq_len, value=self.PAD_IDX) for x in ['input_ids', 'target_ids']}
+        features["attention_mask"] = tf.keras.preprocessing.sequence.pad_sequences(dataset["attention_mask"], padding="post",
+                                                                     truncating="post", maxlen=self.max_seq_len) # attention mask. Padding with zero.
+
         if num_dim == 4:
             features_ = {k:v[:, np.newaxis, :, np.newaxis] for k,v in features.items()}
             self.seq_len = features_["input_ids"].shape[-2]
@@ -113,7 +114,7 @@ class SSTDataset():
         if self.max_samples is not None:
             features_ = {k: v[:self.max_samples] for k, v in features_.items()}
             print("reducing train dataset to {} samples".format(self.max_samples))
-        tfdataset = tf.data.Dataset.from_tensor_slices((features_["input_ids"], features_["target_ids"]))
+        tfdataset = tf.data.Dataset.from_tensor_slices((features_["input_ids"], features_["target_ids"], features_["attention_mask"]))
         tfdataloader = tfdataset.batch(batch_size=batch_size, drop_remainder=True)
         next(iter(tfdataset))
         return tfdataset, tfdataloader
@@ -142,7 +143,7 @@ class SSTDataset():
         return num_unk / num_tokens, num_unk
 
     def check_dataset(self, dataset):
-        for (inp, tar) in dataset.take(1):
+        for (inp, tar, _) in dataset.take(1):
             if inp.shape == 4:
                 assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
             elif inp.shape == 3:
@@ -152,10 +153,17 @@ class SSTDataset():
 if __name__ == '__main__':
     print("-----------------------------------------------------------------------------")
     print("SST dataset with SST tokenizer")
-    dataset = load_from_disk("cache/sst/all_data")
+    dataset = load_from_disk("data/sst/all_data")
     sst_tokenizer = SSTTokenizer(dataset=dataset)
     sst_dataset = SSTDataset(tokenizer=sst_tokenizer)
     train_set, val_set, test_set = sst_dataset.get_datasets()
     train_dataset, val_dataset, test_dataset = sst_dataset.data_to_dataset(train_set, val_set, test_set)
     sst_dataset.check_dataset(train_dataset)
+    print("-----------------------------------------------------------------------------")
+    print("SST dataset with GPT2 tokenizer")
+    tokzer = GPT2Tokenizer.from_pretrained("cache/gpt2")
+    dset = SSTDataset(tokenizer=tokzer)
+    train_set, val_set, test_set = dset.get_datasets()
+    train_dataset, val_dataset, test_dataset = sst_dataset.data_to_dataset(train_set, val_set, test_set)
+    dset.check_dataset(train_dataset)
     print("done")
