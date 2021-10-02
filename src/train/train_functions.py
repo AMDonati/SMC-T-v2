@@ -6,6 +6,7 @@ import time
 import os
 from src.utils.utils_train import saving_training_history, write_to_csv, restoring_checkpoint
 import numpy as np
+from src.train.utils import compute_categorical_cross_entropy
 
 
 def train_LSTM(model, optimizer, EPOCHS, train_dataset, val_dataset, output_path, checkpoint_path, logger, num_train):
@@ -126,9 +127,10 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
     losses_history = {"train_loss":[], "train_mse_metric":[], "train_ppl":[], "val_loss":[], "val_mse_metric": [], "val_ppl":[]}
 
     # check the pass forward.
-    for input_example_batch, target_example_batch in train_dataset.take(1):
+    for input_example_batch, target_example_batch, attn_mask in train_dataset.take(1):
         (temp_preds, temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch,
-                                                                 targets=target_example_batch)
+                                                                 targets=target_example_batch,
+                                                                 attention_mask=attn_mask)
         logger.info("predictions shape: {}".format(temp_preds.shape))
         print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
         print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
@@ -154,12 +156,13 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         else:
             train_loss, val_loss = [0.], [0.]
 
-        for batch, (inp, tar) in enumerate(train_dataset):
+        for batch, (inp, tar, attn_mask) in enumerate(train_dataset):
             it += 1
             train_loss_batch, train_metric_avg_pred = train_step_SMC_T(inputs=inp, targets=tar,
                                                                        smc_transformer=smc_transformer,
                                                                        optimizer=optimizer,
-                                                                       it=it)
+                                                                       it=it,
+                                                                       attention_mask=attn_mask)
             train_loss[0] += train_loss_batch
 
             if smc_transformer.cell.noise:
@@ -170,19 +173,15 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                     smc_transformer.cell.attention_smc.sigma_z))
                 train_loss[1] += train_metric_avg_pred
 
-        for batch_val, (inp, tar) in enumerate(val_dataset):
-            (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar)  # shape (B,1,S,F_y)
+        for batch_val, (inp, tar, attn_mask) in enumerate(val_dataset):
+            (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar, attention_mask=attn_mask)  # shape (B,1,S,F_y)
             if smc_transformer.cell.noise:
                 val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
-                ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-                val_metric_avg_pred = ce(y_true=tar, y_pred=tf.reduce_mean(preds_val, axis=1, keepdims=True))  # (B,1,S)
-                val_metric_avg_pred = tf.reduce_mean(val_metric_avg_pred)
+                val_metric_avg_pred = compute_categorical_cross_entropy(targets=tar, preds=preds_val, attention_mask=attn_mask)
                 val_loss[0] += val_loss_batch
                 val_loss[1] += val_metric_avg_pred
             else:
-                ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-                val_loss_batch = ce(y_true=tar, y_pred=tf.reduce_mean(preds_val, axis=1, keepdims=True))  # (B,1,S)
-                val_loss_batch = tf.reduce_mean(val_loss_batch)
+                val_loss_batch = compute_categorical_cross_entropy(targets=tar, preds=preds_val, attention_mask=attn_mask)
                 val_loss[0] += val_loss_batch
 
         train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]

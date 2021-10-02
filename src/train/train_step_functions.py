@@ -1,5 +1,6 @@
 import tensorflow as tf
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
+from src.train.utils import compute_categorical_cross_entropy
 
 # -------------------------------- TRAIN STEP FUNCTIONS ---------------------------------------------------------------------
 train_step_signature = [
@@ -27,7 +28,7 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
 # @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None):
     '''
     :param it:
     :param inputs:
@@ -41,7 +42,8 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
 
     with tf.GradientTape() as tape:
         (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,
-                                                       targets=targets)  # predictions: shape (B,P,S,F_y) with P=1 during training.
+                                                       targets=targets,
+                                                       attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
 
         if smc_transformer.cell.noise:
             # EM estimation of the noise parameters
@@ -63,15 +65,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
 
             smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets)
             loss = smc_loss
-            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-            #resampling_weights = smc_transformer.cell.list_weights[-1] #TODO: add comparison with best particle.
-            #best_particles = tf.math.argmax(resampling_weights)
-            ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
-            ce_metric_avg_pred = tf.reduce_mean(ce_metric_avg_pred)
+            ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, attention_mask=attention_mask)
         else:
-            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-            ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
-            loss = tf.reduce_mean(ce_metric_avg_pred)
+            loss = compute_categorical_cross_entropy(targets=targets, preds=preds, attention_mask=attention_mask)
 
         gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 

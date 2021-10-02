@@ -105,7 +105,7 @@ class Algo:
     def test(self, **kwargs):
         self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
         metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
-        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
+        for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
             if len(inputs.shape) == 4:
                 inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
             elif len(inputs.shape) == 2:
@@ -113,7 +113,7 @@ class Algo:
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             particles = self.inference_multistep(inputs=inp,
-                                        targets=tar, past_len=self.past_len,
+                                        targets=tar, attention_mask=attention_mask, past_len=self.past_len,
                                         future_len=future_len)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
             decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in range(particles.shape[1])] if self.distribution else [self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
             gpt2_ppl = gpt2_perplexity_batch(decoded_particles)

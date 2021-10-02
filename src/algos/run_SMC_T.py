@@ -132,14 +132,14 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
-    def inference_multistep(self, inputs, targets, past_len=4, future_len=5):
+    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         self.smc_transformer.seq_len = past_len
         if self.smc_transformer.cell.noise:
             self.smc_transformer.cell.add_stop_resampling(past_len)
         for i in range(future_len + 1):
-            (preds, _), _, _ = self.smc_transformer(inputs, targets)  # K,V shape (1, P, 40, D)
+            (preds, _), _, _ = self.smc_transformer(inputs, targets, attention_mask)  # K,V shape (1, P, 40, D)
             last_pred = preds[:, :, -1, :]
             last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
             if i == 0:

@@ -4,6 +4,7 @@ from src.models.SMC_Transformer.SMC_TransformerCell import SMC_Transf_Cell
 from src.models.Baselines.Transformer_without_enc import Decoder
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
+from src.models.Baselines.GPT2Decoder import GPT2Decoder
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -21,10 +22,19 @@ class SMC_Transformer(tf.keras.Model):
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
                                     dff=dff, attn_window=attn_window, num_heads=num_heads)
 
-        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
+        # set Decoder
+        if num_layers == 1:
+            self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate, dim=4)
+        elif num_layers > 1:
+            self.decoder = Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
+                                                            dff=dff, full_model=full_model,
+                                                            maximum_position_encoding=maximum_position_encoding,
+                                                            rate=rate, dim=4)
+        elif num_layers == 0:
+            self.decoder = GPT2Decoder()
         # for pre_processing words in the one_layer case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
         # for regression case.
@@ -63,7 +73,7 @@ class SMC_Transformer(tf.keras.Model):
         classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
-    def get_encoded_input(self, inputs):
+    def get_encoded_input(self, inputs, attention_mask=None):
         if tf.shape(inputs)[1] == 1:
             inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
         if self.decoder is None:
@@ -73,11 +83,11 @@ class SMC_Transformer(tf.keras.Model):
         else:
             seq_len = tf.shape(inputs)[-2]
             look_ahead_mask = create_look_ahead_mask(seq_len)
-            input_tensor_processed, _ = self.decoder(inputs, training=False, look_ahead_mask=look_ahead_mask)  # (B,S,D)
+            input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask, look_ahead_mask=look_ahead_mask)  # (B,P,S,D)
 
         return input_tensor_processed
 
-    def call(self, inputs, targets):
+    def call(self, inputs, targets, attention_mask=None):
         '''
         :param inputs: input_data: shape (B,P,S,F_x) with P=1 during training.
         :param targets: target_data: shape (B,P,S,F_y) with P=1 during training. F_y can be different from F_x.
@@ -86,7 +96,7 @@ class SMC_Transformer(tf.keras.Model):
         # check dimensionality of inputs (B,P,S,F) with P = 1 during training.
         assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
-        input_tensor_processed = self.get_encoded_input(inputs)
+        input_tensor_processed = self.get_encoded_input(inputs, attention_mask=attention_mask)
         if tf.shape(targets)[1] == 1:
             targets = tf.tile(targets, multiples=[1, self.cell.num_particles, 1, 1])
 
@@ -178,6 +188,15 @@ if __name__ == "__main__":
     print("....................test of computing SMC loss.....................................")
     smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=predictions)
 
+    print("....................test GPT2 Decoder .....................................")
+    #inputs = inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]], [[1], [2], [3]]], shape=(2, seq_len, 1),
+                         #dtype=tf.int32)
+    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  attn_window=4, num_layers=0)
+    transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                        num_particles=num_particles)
+
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
 

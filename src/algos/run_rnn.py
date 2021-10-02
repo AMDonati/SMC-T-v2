@@ -69,7 +69,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
-    def inference_multistep(self, inputs, targets=None, past_len=4, future_len=5):
+    def inference_multistep(self, inputs, targets=None, attention_mask=None, past_len=4, future_len=5):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
