@@ -87,7 +87,7 @@ def run(args):
     elif args.dataset == "sst":
         dataset = load_from_disk(args.data_path)
         vocab_path = "data/sst/vocab.json" if args.min_token_count == 1 else "data/sst/vocab2.json"
-        sst_tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
+        sst_tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path, min_token_count=args.min_token_count)
         dataset = SSTDataset(tokenizer=sst_tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
 
     algo = algos[args.algo](dataset=dataset, args=args)

@@ -18,7 +18,7 @@ class RNNAlgo(Algo):
         self.rnn_drop = args.rnn_drop
         self.out_folder = self._create_out_folder(args=args)
         self.logger = self.create_logger()
-        self.ckpt_path = self.create_ckpt_path()
+        self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
         self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2) # num_dim = 2 for classification lstm.
 
