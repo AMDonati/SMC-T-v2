@@ -2,6 +2,7 @@ from src.utils.utils_train import CustomSchedule, restoring_checkpoint, write_to
 import tensorflow as tf
 import os
 from src.models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+from src.models.Baselines.GPT2Decoder import GPT2Decoder
 from src.train.train_functions import train_SMC_transformer
 from src.algos.generic import Algo
 import json
@@ -20,14 +21,17 @@ class SMCTAlgo(Algo):
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
-        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
+        if args.num_layers == 0:
+            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2, num_dim_targets=4)
+        else:
+            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
                                                output_size=self.output_size,
                                                seq_len=self.seq_len,
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)

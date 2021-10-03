@@ -38,7 +38,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
     :return:
     '''
 
-    assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
+    #assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
     with tf.GradientTape() as tape:
         (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,

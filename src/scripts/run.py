@@ -8,6 +8,7 @@ from src.algos.run_baseline_T import BaselineTAlgo
 from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
+from transformers import GPT2Tokenizer
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -35,8 +36,9 @@ def get_parser():
     parser.add_argument("-max_seq_len", type=int, default=51, help="max seq len for ")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
-                        help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), ARIMA(arima), Bayesian LSTM (bayesian_lstm)")
-    parser.add_argument("-num_layers", type=int, default=1, help="number of layers in the network")
+                        help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), Bayesian LSTM (bayesian_lstm)")
+    parser.add_argument("-num_layers", type=int, default=1, help="number of layers in the network. If == 0, corresponds to adding GPT2Decoder.")
+    parser.add_argument("-reduce_gpt2output", type=int, default=0, help="when using GPT2decoder, reduce or not to d_model the gpt2output of dim 768.")
     parser.add_argument("-num_heads", type=int, default=1, help="number of attention heads for Transformer networks")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
     parser.add_argument("-full_model", type=str2bool, default=True,
@@ -87,8 +89,11 @@ def run(args):
     elif args.dataset == "sst":
         dataset = load_from_disk(args.data_path)
         vocab_path = "data/sst/vocab.json" if args.min_token_count == 1 else "data/sst/vocab2.json"
-        sst_tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
-        dataset = SSTDataset(tokenizer=sst_tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+        if args.num_layers >= 1:
+            tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
+        else:
+            tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
+        dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

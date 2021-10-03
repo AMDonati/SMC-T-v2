@@ -16,31 +16,39 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None):
+                 rate=0., attn_window=None, reduce_gpt2output=False):
         super(SMC_Transformer, self).__init__()
+
+        self.d_model = d_model
+
+        # set Decoder
+        if num_layers == 1:
+            self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model,
+                                                                output_size=output_size, num_heads=num_heads,
+                                                                dff=dff, full_model=full_model,
+                                                                maximum_position_encoding=maximum_position_encoding,
+                                                                rate=rate, dim=4)
+        elif num_layers > 1:
+            self.decoder = Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size,
+                                   num_heads=num_heads,
+                                   dff=dff, full_model=full_model,
+                                   maximum_position_encoding=maximum_position_encoding,
+                                   rate=rate, dim=4)
+        elif num_layers == 0:
+            self.decoder = GPT2Decoder()
+            if reduce_gpt2output:
+                self.gpt2_projection_layer = tf.keras.layers.Dense(d_model)
+            else:
+                self.gpt2_projection_layer = None
+                self.d_model = 768
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
                                     dff=dff, attn_window=attn_window, num_heads=num_heads)
 
-        # set Decoder
-        if num_layers == 1:
-            self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
-                                                            dff=dff, full_model=full_model,
-                                                            maximum_position_encoding=maximum_position_encoding,
-                                                            rate=rate, dim=4)
-        elif num_layers > 1:
-            self.decoder = Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size, num_heads=num_heads,
-                                                            dff=dff, full_model=full_model,
-                                                            maximum_position_encoding=maximum_position_encoding,
-                                                            rate=rate, dim=4)
-        elif num_layers == 0:
-            self.decoder = GPT2Decoder()
         # for pre_processing words in the one_layer case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
-        # for regression case.
         self.final_layer = self.cell.output_layer
         self.output_size = output_size
-        self.d_model = d_model
         self.seq_len = seq_len
         self.full_model = full_model
         self.dff = dff
@@ -97,6 +105,8 @@ class SMC_Transformer(tf.keras.Model):
             input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask)  # (B,S,D)
             input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)
             input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1, 1])
+            if self.gpt2_projection_layer is not None:
+                input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
     def call(self, inputs, targets, attention_mask=None):
@@ -165,7 +175,7 @@ if __name__ == "__main__":
     d_model = 6
     full_model = True
     dff = 24
-    num_particles = 2
+    num_particles = 4
     sigma = 0.1
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
@@ -207,8 +217,8 @@ if __name__ == "__main__":
     targets_ = tf.expand_dims(targets_, axis=1)
     attention_mask = tf.constant([[1]*10, [1]*7+[0]*3], dtype=tf.int32)
 
-    transformer = SMC_Transformer(d_model=768, output_size=20257, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4, num_layers=0)
+    transformer = SMC_Transformer(d_model=64, output_size=20257, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  attn_window=4, num_layers=0, reduce_gpt2output=True)
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)
 

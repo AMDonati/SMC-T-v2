@@ -48,13 +48,14 @@ class Algo:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
         # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
-    def load_datasets(self, num_dim=4):
+    def load_datasets(self, num_dim=4, num_dim_targets=None):
         train_data, val_data, test_data = self.dataset.get_datasets()
         self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
-                                                                                num_dim=num_dim)
+                                                                                num_dim=num_dim,
+                                                                                num_dim_targets=num_dim_targets)
         self.dataset.check_dataset(train_dataset)
         self.dataset.check_dataset(val_dataset)
         self.dataset.check_dataset(test_dataset)

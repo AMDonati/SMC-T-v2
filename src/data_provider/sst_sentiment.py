@@ -96,7 +96,7 @@ class SSTDataset():
         processed_dataset = dataset.map(split_input_target)
         return processed_dataset
 
-    def get_tf_dataset(self, dataset, batch_size, num_dim=4):
+    def get_tf_dataset(self, dataset, batch_size, num_dim=4, num_dim_targets=None):
         features = {x: tf.keras.preprocessing.sequence.pad_sequences(dataset[x], padding="post",
                                                                      truncating="post", maxlen=self.max_seq_len, value=self.PAD_IDX) for x in ['input_ids', 'target_ids']}
         features["attention_mask"] = tf.keras.preprocessing.sequence.pad_sequences(dataset["attention_mask"], padding="post",
@@ -111,6 +111,13 @@ class SSTDataset():
         elif num_dim == 2:
             features_ = features
             self.seq_len = features_["input_ids"].shape[1]
+        if num_dim_targets is not None:
+            if num_dim_targets == 4:
+                features_["target_ids"] = features["target_ids"][:, np.newaxis, :, np.newaxis]
+            elif num_dim_targets == 3:
+                features_["target_ids"] = features["target_ids"][:, :, np.newaxis]
+            elif num_dim_targets == 2:
+                features_["target_ids"] = features["target_ids"]
         if self.max_samples is not None:
             features_ = {k: v[:self.max_samples] for k, v in features_.items()}
             print("reducing train dataset to {} samples".format(self.max_samples))
@@ -123,10 +130,10 @@ class SSTDataset():
         next(iter(tfdataset))
         return tfdataset, tfdataloader
 
-    def data_to_dataset(self, train_data, val_data, test_data, num_dim=4):
-        _, train_dataset = self.get_tf_dataset(dataset=train_data, batch_size=self.batch_size, num_dim=num_dim)
-        _, val_dataset = self.get_tf_dataset(dataset=val_data, batch_size=self.batch_size,  num_dim=num_dim)
-        _, test_dataset = self.get_tf_dataset(dataset=test_data, batch_size=1, num_dim=num_dim)
+    def data_to_dataset(self, train_data, val_data, test_data, num_dim=4, num_dim_targets=None):
+        _, train_dataset = self.get_tf_dataset(dataset=train_data, batch_size=self.batch_size, num_dim=num_dim, num_dim_targets=num_dim_targets)
+        _, val_dataset = self.get_tf_dataset(dataset=val_data, batch_size=self.batch_size,  num_dim=num_dim, num_dim_targets=num_dim_targets)
+        _, test_dataset = self.get_tf_dataset(dataset=test_data, batch_size=1, num_dim=num_dim, num_dim_targets=num_dim_targets)
         return train_dataset, val_dataset, test_dataset
 
     def preprocess_dataset(self, dataset):
@@ -169,6 +176,10 @@ if __name__ == '__main__':
     tokzer = GPT2Tokenizer.from_pretrained("cache/gpt2")
     dset = SSTDataset(tokenizer=tokzer)
     train_set, val_set, test_set = dset.get_datasets()
-    train_dataset, val_dataset, test_dataset = sst_dataset.data_to_dataset(train_set, val_set, test_set)
+    train_dataset, val_dataset, test_dataset = dset.data_to_dataset(train_set, val_set, test_set, num_dim=2, num_dim_targets=4)
+    for (inp, tar, attn_mask) in train_dataset.take(1):
+        print('inputs', inp.shape)
+        print('targets', tar.shape)
+        print("attention_mask", attn_mask)
     dset.check_dataset(train_dataset)
     print("done")
