@@ -47,44 +47,56 @@ class SMC_Transformer(tf.keras.Model):
         self.num_layers = num_layers
         self.num_heads = num_heads
 
-    def compute_SMC_loss(self, targets, predictions):
-        assert self.cell.noise == self.cell.attention_smc.noise == True
-        list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
-                       self.cell.attention_smc.sigma_v, \
-                       self.cell.attention_smc.sigma_z]  # (D,D) or scalar.
-        loss_parts, loss_parts_no_log = [], []
+    def compute_SMC_loss(self, targets, predictions, attention_mask=None):
+        assert self.cell.noise == self.cell.attention_smc.noise
 
-        for noise, Sigma in zip(self.internal_noises, list_Sigmas):
-            loss_part = 1 / 2 * (1 / Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
-            loss_parts.append(loss_part)
-        smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
-        smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
-        smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
+        if self.cell.noise:
+            list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
+                           self.cell.attention_smc.sigma_v, \
+                           self.cell.attention_smc.sigma_z]  # (D,D) or scalar.
+            loss_parts, loss_parts_no_log = [], []
 
-        classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions)
+            for noise, Sigma in zip(self.internal_noises, list_Sigmas):
+                loss_part = 1 / 2 * (1 / Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
+                loss_parts.append(loss_part)
+            smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
+            smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
+            smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
+        else:
+            smc_loss = 0.
 
+        classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions, attention_mask=attention_mask)
         total_loss = smc_loss + classic_loss
         return total_loss, classic_loss
 
-    def compute_classic_loss(self, targets, predictions):
+    def compute_classic_loss(self, targets, predictions, attention_mask=None):
         targets = tf.tile(targets, multiples=[1,self.cell.num_particles, 1, 1])
         ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
         classic_loss = ce(y_true=targets, y_pred=predictions)
+        if attention_mask is not None:
+            attn_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), multiples=[1, self.cell.num_particles, 1])
+            attn_mask = tf.cast(attn_mask, dtype=tf.float32)
+            classic_loss = classic_loss * attn_mask
         classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
     def get_encoded_input(self, inputs, attention_mask=None):
-        if tf.shape(inputs)[1] == 1:
-            inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
         if self.decoder is None:
+            if tf.shape(inputs)[1] == 1:
+                inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
             input_tensor_processed = self.embedding(inputs)  # (B,P,S,D)
             input_tensor_processed = tf.squeeze(input_tensor_processed, axis=-2)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        else:
+        elif self.decoder.__class__ == Decoder:
+            if tf.shape(inputs)[1] == 1:
+                inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
             seq_len = tf.shape(inputs)[-2]
             look_ahead_mask = create_look_ahead_mask(seq_len)
-            input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask, look_ahead_mask=look_ahead_mask)  # (B,P,S,D)
-
+            input_tensor_processed, _ = self.decoder(inputs, look_ahead_mask=look_ahead_mask)
+        elif self.decoder.__class__ == GPT2Decoder:
+            input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask)  # (B,S,D)
+            input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)
+            input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1, 1])
         return input_tensor_processed
 
     def call(self, inputs, targets, attention_mask=None):
@@ -94,7 +106,7 @@ class SMC_Transformer(tf.keras.Model):
         :return:
         '''
         # check dimensionality of inputs (B,P,S,F) with P = 1 during training.
-        assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
+        #assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
         input_tensor_processed = self.get_encoded_input(inputs, attention_mask=attention_mask)
         if tf.shape(targets)[1] == 1:
@@ -188,21 +200,26 @@ if __name__ == "__main__":
     print("....................test of computing SMC loss.....................................")
     smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=predictions)
 
-    print("....................test GPT2 Decoder .....................................")
-    #inputs = inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]], [[1], [2], [3]]], shape=(2, seq_len, 1),
-                         #dtype=tf.int32)
-    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
+    print(".....................................TEST GPT2 DECODER .....................................................")
+    inputs_ = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]], [[1], [2], [3], [4], [5], [6], [7], [20256], [20256], [20256]]], shape=(2, seq_len), dtype=tf.int32)
+    targets_ = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11]],
+                          [[2], [3], [4], [5], [6], [7], [8], [20256], [20256], [20256]]], shape=(2, seq_len, 1), dtype=tf.int32)
+    targets_ = tf.expand_dims(targets_, axis=1)
+    attention_mask = tf.constant([[1]*10, [1]*7+[0]*3], dtype=tf.int32)
+
+    transformer = SMC_Transformer(d_model=768, output_size=20257, seq_len=seq_len, full_model=full_model, dff=dff,
                                   attn_window=4, num_layers=0)
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)
 
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs_, targets=targets_, attention_mask=attention_mask)
+    smc_loss = transformer.compute_SMC_loss(targets=targets_, predictions=predictions, attention_mask=attention_mask)
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
 
     print("..............................TEST MULTI-LAYER / ONE-HEAD CASE ...............................................")
 
-    transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
+    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
                                   num_layers=2, num_heads=1)
     print("Decoder num layers:", transformer.decoder.num_layers)
 
@@ -213,6 +230,7 @@ if __name__ == "__main__":
 
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)
+
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 
     print('predictions', predictions.shape)

@@ -175,14 +175,12 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
 
         for batch_val, (inp, tar, attn_mask) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar, attention_mask=attn_mask)  # shape (B,1,S,F_y)
+            val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
+            val_loss[0] += val_loss_batch
             if smc_transformer.cell.noise:
-                val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
-                val_metric_avg_pred = compute_categorical_cross_entropy(targets=tar, preds=preds_val, attention_mask=attn_mask)
-                val_loss[0] += val_loss_batch
+                val_metric_avg_pred = compute_categorical_cross_entropy(targets=tar, preds=preds_val, num_particles=smc_transformer.cell.num_particles,
+                                                                    attention_mask=attn_mask)
                 val_loss[1] += val_metric_avg_pred
-            else:
-                val_loss_batch = compute_categorical_cross_entropy(targets=tar, preds=preds_val, attention_mask=attn_mask)
-                val_loss[0] += val_loss_batch
 
         train_loss, val_loss = [i / (batch + 1) for i in train_loss], [i / (batch_val + 1) for i in val_loss]
         logger.info('train loss: {} - val loss: {}'.format(train_loss[0].numpy(), val_loss[0].numpy()))

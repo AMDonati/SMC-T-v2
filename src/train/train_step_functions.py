@@ -63,11 +63,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
                 smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
                 smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
 
-            smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets)
-            loss = smc_loss
-            ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, attention_mask=attention_mask)
-        else:
-            loss = compute_categorical_cross_entropy(targets=targets, preds=preds, attention_mask=attention_mask)
+        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
+        loss = smc_loss
+        ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, num_particles=smc_transformer.cell.num_particles, attention_mask=attention_mask)
 
         gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 

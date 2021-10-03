@@ -148,10 +148,11 @@ class SSTDataset():
 
     def check_dataset(self, dataset):
         for (inp, tar, _) in dataset.take(1):
-            if inp.shape == 4:
-                assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
-            elif inp.shape == 3:
-                assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
+            if len(inp.shape) == len(tar.shape):
+                if inp.shape == 4:
+                    assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
+                elif inp.shape == 3:
+                    assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
 
 
 if __name__ == '__main__':

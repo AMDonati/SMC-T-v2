@@ -17,13 +17,13 @@ class GPT2Decoder(tf.keras.Model):
             outputs = self.model(input_ids=input, output_hidden_states=True, output_attentions=True)
         else:
             outputs = self.model(input_ids=input, attention_mask=attention_mask, output_hidden_states=True, output_attentions=True)
-        last_hidden_state = tf.squeeze(outputs.hidden_states[-2], axis=-2) # shape (B,P,S,768) # hidden before last attention block.
+        last_hidden_state = outputs.hidden_states[-2]# shape (B,S,768) # hidden before last attention block.
         attention_weights = outputs.attentions
         return last_hidden_state, attention_weights
 
 if __name__ == '__main__':
     gpt2decoder = GPT2Decoder()
-
+    print("done")
 
 
 #

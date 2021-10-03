@@ -63,9 +63,10 @@ class Decoder(tf.keras.layers.Layer):
     self.full_model = full_model
 
   def call(self, inputs, look_ahead_mask, attention_mask=None):
-    seq_len = tf.shape(inputs)[1]
+    seq_len = tf.shape(inputs)[-2]  #TODO: change this. Not true for 4D input.
     attention_weights = {}
     inputs = self.embedding(inputs)
+    inputs = tf.squeeze(inputs, axis=-2) # shape (B,P,S,D)
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
