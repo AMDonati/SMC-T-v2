@@ -16,21 +16,29 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas):
         # noise parameters.
-        self.sigma_k = dict_sigmas['k']
-        self.sigma_q = dict_sigmas['q']
-        self.sigma_v = dict_sigmas['v']
-        self.sigma_z = dict_sigmas['z']
+        self.logvar_k = tf.Variable(initial_value=dict_sigmas['k'], name="logvar_k")
+        self.logvar_q = tf.Variable(initial_value=dict_sigmas['q'], name="logvar_q")
+        self.logvar_v = tf.Variable(initial_value=dict_sigmas['v'], name="logvar_v")
+        self.logvar_z = tf.Variable(initial_value=dict_sigmas['z'], name="logvar_z")
+        #self.sigma_k = dict_sigmas['k']
+        #self.sigma_q = dict_sigmas['q']
+        #self.sigma_v = dict_sigmas['v']
+        #self.sigma_z = dict_sigmas['z']
         self.noise = True
 
-    def add_noise(self, params, sigma):
+    def reparameterize(self, mean, logvar):
+        eps = tf.random.normal(shape=mean.shape)
+        return eps * tf.exp(logvar * .5) + mean
+
+    def add_noise(self, params, logvar):
         '''
         :param params: K,q,V or z. shape (B,P,S,D) for K, V. or shape (B,P,1,D) for q, z.
         :param sigma: scalar or matrix of shape (D,D).
         :return:
         '''
-        assert len(tf.shape(sigma)) == 0
+        assert len(tf.shape(logvar)) == 0
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-        noise = (sigma) ** (1 / 2) * gaussian_noise
+        noise = tf.exp(logvar * 0.5) * gaussian_noise
         return params + noise
 
     def call(self, inputs, timestep, K, V):
@@ -49,9 +57,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         v_ = self.wv(inputs)  # (B,P,1,D)
 
         if self.noise:
-            k = self.add_noise(k_, self.sigma_k)
-            q = self.add_noise(q_, self.sigma_q)
-            v = self.add_noise(v_, self.sigma_v)
+            k = self.add_noise(k_, self.logvar_k)
+            q = self.add_noise(q_, self.logvar_q)
+            v = self.add_noise(v_, self.logvar_v)
             self.noise_k = k - k_
             self.noise_q = q - q_
             self.noise_v = v - v_
@@ -85,7 +93,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         z_ = self.dense(z_)
 
         if self.noise:
-            z = self.add_noise(z_, self.sigma_z)
+            z = self.add_noise(z_, self.logvar_z)
             self.noise_z = z - z_ # TODO: remove this one, because we need resampled noise.
         else:
             z = z_

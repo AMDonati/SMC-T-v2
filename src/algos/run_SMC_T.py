@@ -97,12 +97,12 @@ class SMCTAlgo(Algo):
                               num_train=1)
         if self.distribution:
             self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
-                                                   [self.smc_transformer.cell.attention_smc.sigma_k.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_q.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_v.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.sigma_z.numpy()]))
+                                                   [self.smc_transformer.cell.attention_smc.logvar_k.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.logvar_q.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.logvar_v.numpy(),
+                                                   self.smc_transformer.cell.attention_smc.logvar_z.numpy()]))
             dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-            final_sigmas_path = os.path.join(self.out_folder, "sigmas_after_training.json")
+            final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
             with open(final_sigmas_path, 'w') as fp:
                 json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
         self.logger.info('-' * 60)
@@ -122,17 +122,17 @@ class SMCTAlgo(Algo):
             start_epoch = 0
         if self.save_path is not None and self.distribution:
             # self._check_consistency_hparams(args)
-            sigma_file = "sigmas_after_training.json"
+            sigma_file = "logvar_after_training.json"
             with open(os.path.join(self.save_path, sigma_file)) as json_file:
                 dict_json = json.load(json_file)
-            self.sigmas_after_training = {key: float(value) for key, value in dict_json.items()}
+            self.logvar_after_training = {key: float(value) for key, value in dict_json.items()}
             self.logger.info("updating sigmas values with the latest ones...{}".format(dict_json))
             self._reinit_sigmas()
         return ckpt_manager, start_epoch
 
     def _reinit_sigmas(self):
-        if self.sigmas_after_training is not None:
-            dict_sigmas = {key: self.sigmas_after_training[key] for key in ['k', 'q', 'v', 'z']}
+        if self.logvar_after_training is not None:
+            dict_sigmas = {key: self.logvar_after_training[key] for key in ['k', 'q', 'v', 'z']}
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 

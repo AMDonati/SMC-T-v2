@@ -59,13 +59,13 @@ class SMC_Transformer(tf.keras.Model):
         assert self.cell.noise == self.cell.attention_smc.noise
 
         if self.cell.noise:
-            list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
-                           self.cell.attention_smc.sigma_v, \
-                           self.cell.attention_smc.sigma_z]  # (D,D) or scalar.
+            list_logvar = [self.cell.attention_smc.logvar_k, self.cell.attention_smc.logvar_q,
+                           self.cell.attention_smc.logvar_v,
+                           self.cell.attention_smc.logvar_z]  # (D,D) or scalar.
             loss_parts, loss_parts_no_log = [], []
 
-            for noise, Sigma in zip(self.internal_noises, list_Sigmas):
-                loss_part = 1 / 2 * (1 / Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
+            for noise, logvar in zip(self.internal_noises, list_logvar):
+                loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)

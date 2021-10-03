@@ -45,24 +45,6 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
                                                        targets=targets,
                                                        attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
 
-        if smc_transformer.cell.noise:
-            # EM estimation of the noise parameters
-            err_k = smc_transformer.noise_K_resampled * smc_transformer.noise_K_resampled
-            err_k = tf.reduce_mean(err_k, axis=[1,2,3])
-            err_q = smc_transformer.noise_q * smc_transformer.noise_q
-            err_q = tf.reduce_mean(err_q, axis=[1,2,3])
-            err_v = smc_transformer.noise_V_resampled * smc_transformer.noise_V_resampled
-            err_v = tf.reduce_mean(err_v, axis=[1,2,3])
-            err_z = smc_transformer.noise_z * smc_transformer.noise_z
-            err_z = tf.reduce_mean(err_z, axis=[1,2,3])
-
-
-            for j in range(err_v.shape[0]):
-                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
-                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
-                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
-                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
-
         smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
         loss = smc_loss
         ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, num_particles=smc_transformer.cell.num_particles, attention_mask=attention_mask)
@@ -73,7 +55,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
         # trainable_variables = list(smc_transformer.trainable_variables)
         # trainable_variables_names = [t.name for t in trainable_variables]
         # var_and_grad_dict = dict(zip(trainable_variables_names, gradients))
-        # print('dict of variables and associated gradients', var_and_grad_dict)
+        #print('dict of variables and associated gradients', var_and_grad_dict)
 
     optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
