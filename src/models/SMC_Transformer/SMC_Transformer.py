@@ -82,7 +82,7 @@ class SMC_Transformer(tf.keras.Model):
         ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
         classic_loss = ce(y_true=targets, y_pred=predictions)
         if attention_mask is not None:
-            attn_mask = tf.tile(tf.expand_dims(attention_mask, axis=1), multiples=[1, self.cell.num_particles, 1])
+            attn_mask = tf.squeeze(tf.tile(attention_mask, multiples=[1, self.cell.num_particles, 1, 1]), axis=-1)
             attn_mask = tf.cast(attn_mask, dtype=tf.float32)
             classic_loss = classic_loss * attn_mask
         classic_loss = tf.reduce_mean(classic_loss)
@@ -95,17 +95,19 @@ class SMC_Transformer(tf.keras.Model):
             input_tensor_processed = self.embedding(inputs)  # (B,P,S,D)
             input_tensor_processed = tf.squeeze(input_tensor_processed, axis=-2)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        elif self.decoder.__class__ == Decoder:
+        else:
             if tf.shape(inputs)[1] == 1:
                 inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
+            if attention_mask is not None and tf.shape(attention_mask)[1] == 1:
+                attention_mask = tf.tile(attention_mask, multiples=[1, self.cell.num_particles, 1, 1])
             seq_len = tf.shape(inputs)[-2]
             look_ahead_mask = create_look_ahead_mask(seq_len)
-            input_tensor_processed, _ = self.decoder(inputs, look_ahead_mask=look_ahead_mask)
-        elif self.decoder.__class__ == GPT2Decoder:
-            input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask)  # (B,S,D)
-            input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)
-            input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1, 1])
-            if self.gpt2_projection_layer is not None:
+            input_tensor_processed, _ = self.decoder(inputs, look_ahead_mask=look_ahead_mask, attention_mask=attention_mask)
+        # elif self.decoder.__class__ == GPT2Decoder:
+        #     input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask)  # (B,S,D)
+        #     input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)
+        #     input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1, 1])
+            if self.gpt2_projection_layer is not None and self.decoder.__class__ == GPT2Decoder:
                 input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 

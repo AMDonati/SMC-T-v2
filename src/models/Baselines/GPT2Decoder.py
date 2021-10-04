@@ -12,13 +12,22 @@ class GPT2Decoder(tf.keras.Model):
         self.tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
         self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
-    def call(self, input, attention_mask=None, look_ahead_mask=None):
-        if attention_mask is None:
-            outputs = self.model(input_ids=input, output_hidden_states=True, output_attentions=True)
+    def _reshape_inputs(self, input):
+        if input is not None:
+            input_ = tf.reshape(input, shape=(input.shape[0]*input.shape[1], input.shape[-2]))
         else:
-            outputs = self.model(input_ids=input, attention_mask=attention_mask, output_hidden_states=True, output_attentions=True)
-        last_hidden_state = outputs.hidden_states[-2]# shape (B,S,768) # hidden before last attention block.
+            input_ = input
+        return input_
+
+    def call(self, input, attention_mask=None, look_ahead_mask=None):
+        bs = input.shape[0]
+        num_particles = input.shape[1]
+        input_ = self._reshape_inputs(input)
+        attention_mask_ = self._reshape_inputs(attention_mask)
+        outputs = self.model(input_ids=input_, attention_mask=attention_mask_, output_hidden_states=True, output_attentions=True)
+        last_hidden_state = outputs.hidden_states[-2]# shape (P*B,S,768) # hidden before last attention block.
         attention_weights = outputs.attentions
+        last_hidden_state = tf.reshape(last_hidden_state, shape=(bs, num_particles, last_hidden_state.shape[-2], last_hidden_state.shape[-1]))
         return last_hidden_state, attention_weights
 
 if __name__ == '__main__':

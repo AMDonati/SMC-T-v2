@@ -92,6 +92,7 @@ class SSTDataset():
         def split_input_target(example):
             example['target_ids'] = example['input_ids'][1:] #TODO: add SOS Token ?
             example['input_ids'] = example['input_ids'][:-1] #TODO: add EOS Token?
+            example['attention_mask'] = example['attention_mask'][1:]
             return example
         processed_dataset = dataset.map(split_input_target)
         return processed_dataset

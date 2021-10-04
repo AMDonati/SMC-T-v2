@@ -21,10 +21,10 @@ class SMCTAlgo(Algo):
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
-        if args.num_layers == 0:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2, num_dim_targets=4)
-        else:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
+        # if args.num_layers == 0:
+        #     self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2, num_dim_targets=4)
+        # else:
+        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
                                                output_size=self.output_size,
                                                seq_len=self.seq_len,
@@ -136,6 +136,12 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
+    def _update_attention_mask(self, attention_mask, last_pred):
+        new_padding_mask = tf.where(last_pred == self.dataset.PAD_IDX, x=tf.zeros(last_pred.shape, dtype=tf.int32), y=tf.ones(last_pred.shape, dtype=tf.int32))
+        new_padding_mask = tf.cast(new_padding_mask, dtype=tf.int32)
+        attention_mask_ = tf.concat([attention_mask, new_padding_mask], axis=-2)
+        return attention_mask_
+
     def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
@@ -149,6 +155,7 @@ class SMCTAlgo(Algo):
             if i == 0:
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
+                attention_mask = tf.tile(attention_mask, multiples=[1, P, 1, 1])
             if i < future_len:  # dummy target (not used when resampling is stopped.)
                 self.smc_transformer.seq_len += 1
             last_pred = tf.expand_dims(last_pred, axis=-2)
@@ -157,4 +164,8 @@ class SMCTAlgo(Algo):
             targets = tf.concat(
                 [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
                 axis=-2)
+            if attention_mask is not None:
+                attention_mask = self._update_attention_mask(attention_mask, last_pred)
+                #attention_mask = tf.concat([attention_mask, tf.ones(shape=(attention_mask.shape[0], attention_mask.shape[1], 1, 1), dtype=tf.int32)],
+                #axis=-2)
         return inputs
