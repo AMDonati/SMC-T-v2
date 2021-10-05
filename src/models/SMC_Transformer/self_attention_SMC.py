@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 # ----- scaled_dot_product_attention_function & mha function ------------
 
@@ -57,6 +58,17 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
+
+        #bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
+        # mask_time = np.zeros(shape=K.shape)
+        # mask_time[:,:,timestep,:] = 1
+        # mask_time = tf.constant(mask_time)
+        # mask_future = tf.constant([[0]*timestep + [-1e9] * S], shape=(1,1,S,1))
+        # mask_future = tf.tile(mask_future, multiples=[bs, P, 1, 1])
+        #
+        # K = K + k * mask_time
+        # K = K + mask_future
+        # V = V + v * mask_time
 
         K_past = K[:, :, :timestep, :]
         K_future = K[:, :, timestep + 1:, :]
