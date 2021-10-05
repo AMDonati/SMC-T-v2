@@ -170,6 +170,9 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                     smc_transformer.cell.attention_smc.sigma_z))
                 train_loss[1] += train_metric_avg_pred
 
+            # save smc transformer weights.
+            smc_transformer.save_weights(os.path.join(output_path, "model"))
+
         for batch_val, (inp, tar) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar)  # shape (B,1,S,F_y)
             if smc_transformer.cell.noise:

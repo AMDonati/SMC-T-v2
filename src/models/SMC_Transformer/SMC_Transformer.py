@@ -84,7 +84,7 @@ class SMC_Transformer(tf.keras.Model):
         :return:
         '''
         # check dimensionality of inputs (B,P,S,F) with P = 1 during training.
-        assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
+        #assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
         input_tensor_processed = self.get_encoded_input(inputs)
         if tf.shape(targets)[1] == 1:

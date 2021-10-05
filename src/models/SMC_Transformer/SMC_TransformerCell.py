@@ -115,9 +115,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             self.list_indices.append(i_t.numpy())
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
-                K = resample(params=K, i_t=i_t, t=self.dec_timestep)
-                V = resample(params=V, i_t=i_t, t=self.dec_timestep)
-                R = resample(params=R, i_t=i_t, t=self.dec_timestep)
+                KVR = tf.concat([K,V,R], axis=-1)
+                KVR = resample(KVR, i_t)
+                K, V, R = tf.split(KVR, num_or_size_splits=3, axis=-1)
+                #K = resample(params=K, i_t=i_t)
+                #V = resample(params=V, i_t=i_t)
+                #R = resample(params=R, i_t=i_t)
             # Getting internal noises for computing the loss.
             internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
             output = [r, attn_weights, internal_noises]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
