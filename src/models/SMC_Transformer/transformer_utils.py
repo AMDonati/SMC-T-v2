@@ -36,7 +36,7 @@ def create_look_ahead_mask(size):
     return mask  # (seq_len, seq_len)
 
 
-def resample(params, i_t, t):
+def resample(params, i_t):
     """
     :param params: attention parameters tensor to be reshaped (K or V) > shape (B,P,S,D)
     :param i_t: current set of indices at time t > shape (B,P)
@@ -44,24 +44,7 @@ def resample(params, i_t, t):
     :return:
     the trajectories of the attention parameters resampling according to i_t.
     """
-    # TODO use tf.scatter_nd instead to avoid the for loop on the number of particles?
-    num_particles = tf.shape(params)[1]
-    past_params = params[:, :, :t + 1, :]  # (B,P,t,D)
-    future_params = params[:, :, t + 1:, :]  # (B,P,S-t,D)
-    rows_new_params = []
-    for m in range(num_particles):
-        i_t_m = i_t[:, m]  # shape B
-        # reshaping to (B,1)
-        i_t_m = tf.expand_dims(i_t_m, axis=-1)
-        row_m_new_params = tf.gather(past_params, i_t_m, axis=1, batch_dims=1)  # shape (B,1,t-1,D)
-        # squeezing on 2nd dim:
-        row_m_new_params = tf.squeeze(row_m_new_params, axis=1)
-        rows_new_params.append(row_m_new_params)
-    # stacking the new rows in the a new tensor
-    new_params = tf.stack(rows_new_params, axis=1)  # add a tf.expand_dims? # (B,P,t-1,D)
-    new_params = tf.concat([new_params, future_params],
-                           axis=2)  # concatenating new_params (until t-1) and old params (from t)
-    return new_params
+    return tf.gather(params, i_t, axis=1, batch_dims=1)
 
 
 if __name__ == "__main__":

@@ -173,10 +173,14 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                     smc_transformer.cell.attention_smc.logvar_z.numpy()))
                 train_loss[1] += train_metric_avg_pred
 
+        # save smc transformer weights.
+        smc_transformer.save_weights(os.path.join(output_path, "model"))
+
         for batch_val, (inp, tar, attn_mask) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar, attention_mask=attn_mask)  # shape (B,1,S,F_y)
             val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
             val_loss[0] += val_loss_batch
+
             if smc_transformer.cell.noise:
                 val_metric_avg_pred = compute_categorical_cross_entropy(targets=tar, preds=preds_val, num_particles=smc_transformer.cell.num_particles,
                                                                     attention_mask=attn_mask)

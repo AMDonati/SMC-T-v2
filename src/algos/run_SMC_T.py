@@ -105,10 +105,13 @@ class SMCTAlgo(Algo):
             final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
             with open(final_sigmas_path, 'w') as fp:
                 json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+        self.smc_transformer.save_weights(os.path.join(self.out_folder, "model"))
         self.logger.info('-' * 60)
 
     def _load_ckpt(self, num_train=1):
-        # creating checkpoint manager
+        #TODO: replace this par model.load_weights()?
+        if self.save_path is not None:
+            self.smc_transformer.load_weights(os.path.join(self.save_path, "model"))
         ckpt = tf.train.Checkpoint(model=self.smc_transformer,
                                    optimizer=self.optimizer)
         smc_T_ckpt_path = os.path.join(self.ckpt_path, "SMC_transformer_{}".format(num_train))

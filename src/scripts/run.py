@@ -89,6 +89,7 @@ def run(args):
     elif args.dataset == "sst":
         dataset = load_from_disk(args.data_path)
         vocab_path = "data/sst/vocab.json" if args.min_token_count == 1 else "data/sst/vocab2.json"
+
         if args.num_layers >= 1:
             tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
         else:

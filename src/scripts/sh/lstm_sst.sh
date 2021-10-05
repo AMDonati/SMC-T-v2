@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP"
+OUTPUT_PATH="output/NLP/vocab2/maxlen30"
 D_MODEL=32
 RNN_UNITS=32
 BS=32
 PARTICLES=1
 EP=50
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH -max_seq_len 30 -min_token_count 2 -test_samples 30
