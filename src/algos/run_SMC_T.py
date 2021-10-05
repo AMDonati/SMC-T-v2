@@ -106,7 +106,6 @@ class SMCTAlgo(Algo):
 
     def _load_ckpt(self, num_train=1):
         #TODO: replace this par model.load_weights()?
-        # creating checkpoint manager
         if self.save_path is not None:
             self.smc_transformer.load_weights(os.path.join(self.save_path, "model"))
         ckpt = tf.train.Checkpoint(model=self.smc_transformer,
