@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=smc-t0.05
+#SBATCH --job-name=MAXSEQ-smc-t0.05
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
