@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=smc-t0.1
+#SBATCH --job-name=LOGVAR-smc-t0.1
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,7 +19,7 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/refacto_resample"
+OUTPUT_PATH="output/NLP/refacto_logvar"
 D_MODEL=32
 DFF=32
 BS=32

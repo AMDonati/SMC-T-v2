@@ -119,15 +119,13 @@ class SSTDataset():
         if self.max_samples is not None:
             features_ = {k: v[:self.max_samples] for k, v in features_.items()}
             print("reducing train dataset to {} samples".format(self.max_samples))
-<<<<<<< HEAD
+
         if self.tokenizer.__class__ == GPT2Tokenizer:
             tfdataset = tf.data.Dataset.from_tensor_slices((features_["input_ids"], features_["target_ids"], features_["attention_mask"]))
         elif self.tokenizer.__class__ == SSTTokenizer:
             tfdataset = tf.data.Dataset.from_tensor_slices(
                 (features_["input_ids"], features_["target_ids"], None))
-=======
-        tfdataset = tf.data.Dataset.from_tensor_slices((features_["input_ids"], features_["target_ids"]))
->>>>>>> nlp22
+
         tfdataloader = tfdataset.batch(batch_size=batch_size, drop_remainder=True)
         next(iter(tfdataset))
         return tfdataset, tfdataloader
@@ -156,20 +154,13 @@ class SSTDataset():
         return num_unk / num_tokens, num_unk
 
     def check_dataset(self, dataset):
-<<<<<<< HEAD
         for (inp, tar, _) in dataset.take(1):
             if len(inp.shape) == len(tar.shape):
                 if inp.shape == 4:
                     assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
                 elif inp.shape == 3:
                     assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
-=======
-        for (inp, tar) in dataset.take(1):
-            if inp.shape == 4:
-                assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
-            elif inp.shape == 3:
-                assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
->>>>>>> nlp22
+
 
 
 if __name__ == '__main__':
