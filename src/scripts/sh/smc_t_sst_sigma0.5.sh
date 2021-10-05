@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/refacto_resample"
+OUTPUT_PATH="output/NLP/max_seq_len30/min_token_count2"
 D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=10
 EP=50
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.5 -test_samples 30
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.5 -test_samples 30 -max_seq_len 30 -min_token_count 2
