@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=smc-t-None
+#SBATCH --job-name=MAXSEQ-lstm
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,7 +19,7 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/vocab2/maxlen30"
+OUTPUT_PATH="output/NLP/max_seq_len30/min_token_count2"
 D_MODEL=32
 RNN_UNITS=32
 BS=32

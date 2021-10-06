@@ -78,6 +78,10 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         # K = K + mask_future
         # V = V + v * mask_time
 
+        #TODO: use this instead: tf.sequence_mask(
+    #lengths, maxlen=None, dtype=tf.dtypes.bool, name=None
+#)
+
         K_past = K[:, :, :timestep, :]
         K_future = K[:, :, timestep + 1:, :]
         K = tf.concat([K_past, k, K_future], axis=2)  # (B,P,S,D)

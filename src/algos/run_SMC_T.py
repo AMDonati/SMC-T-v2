@@ -7,6 +7,7 @@ from src.train.train_functions import train_SMC_transformer
 from src.algos.generic import Algo
 import json
 import datetime
+import numpy as np
 
 
 class SMCTAlgo(Algo):
@@ -139,16 +140,25 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
-    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5):
+    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
+        list_top_k_words, list_particles_norm = [], []
         self.smc_transformer.seq_len = past_len
         if self.smc_transformer.cell.noise:
             self.smc_transformer.cell.add_stop_resampling(past_len)
         for i in range(future_len + 1):
             (preds, _), _, _ = self.smc_transformer(inputs, targets, attention_mask)  # K,V shape (1, P, 40, D)
             last_pred = preds[:, :, -1, :]
-            last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+            if decoding == "sampling":
+                dict_top_k_words = self._extract_top_k_words(last_pred)
+                list_top_k_words.append(dict_top_k_words)
+                particles_norm = self._get_particle_norm(last_pred)
+                list_particles_norm.append(particles_norm)
+            if decoding == "sampling":
+                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+            elif decoding == "greedy":
+                last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32), axis=-1)
             if i == 0:
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
@@ -160,4 +170,28 @@ class SMCTAlgo(Algo):
             targets = tf.concat(
                 [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
                 axis=-2)
-        return inputs
+        if decoding == "sampling":
+            return inputs, list_top_k_words, list_particles_norm
+        elif decoding == "greedy":
+            return inputs, None, None
+
+
+    def _extract_top_k_words(self, last_pred, top_k=10):
+        # last_pred -> shape: (B;P,V)
+        last_pred = tf.squeeze(last_pred) # shape (P,V)
+        probas = tf.nn.softmax(last_pred, axis=-1)
+        top_probas, top_tokens = tf.math.top_k(probas, k=top_k) # shape (B=1,P,top_k)
+        top_words = [self.dataset.tokenizer.decode(top_tokens[p].numpy()).split(' ') for p in range(top_tokens.shape[0])]
+        top_k_words_particles = [dict(zip(top_words[p], list(np.round(top_probas[p].numpy(), 5)))) for p in range(top_probas.shape[0])]
+        return top_k_words_particles
+
+    def _get_particle_norm(self, last_pred):
+        last_pred = tf.squeeze(last_pred)
+        logits_norm = tf.norm(last_pred, axis=-1) # shape (B)
+        return list(np.round(logits_norm.numpy(), 4))
+
+
+
+    #TODO: from last_pred: extract top_k words & probas (last_pred = logits).
+    # TODO: from last_pred extract norm.
+
