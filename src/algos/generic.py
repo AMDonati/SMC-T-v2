@@ -48,13 +48,14 @@ class Algo:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
         # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
-    def load_datasets(self, num_dim=4):
+    def load_datasets(self, num_dim=4, num_dim_targets=None):
         train_data, val_data, test_data = self.dataset.get_datasets()
         self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
-                                                                                num_dim=num_dim)
+                                                                                num_dim=num_dim,
+                                                                                num_dim_targets=num_dim_targets)
         self.dataset.check_dataset(train_dataset)
         self.dataset.check_dataset(val_dataset)
         self.dataset.check_dataset(test_dataset)
@@ -108,7 +109,7 @@ class Algo:
         metrics_greedy = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
         out_file_text_sampling = os.path.join(self.out_folder, "text_sampling.txt")
         out_file_text_greedy = os.path.join(self.out_folder, "text_greedy.txt")
-        for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
+        for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
             if len(inputs.shape) == 4:
                 inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
             elif len(inputs.shape) == 2:
@@ -116,15 +117,15 @@ class Algo:
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-"*30 + "SAMPLING GENERATION" + '-'*30)
-            metrics_sampling = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, out_file_text=out_file_text_sampling, decoding="sampling")
+            metrics_sampling = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, out_file_text=out_file_text_sampling, decoding="sampling")
             self.logger.info("-" * 30 + "GREEDY GENERATION" + '-' * 30)
-            metrics_greedy = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
+            metrics_greedy = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
         self._save_and_log_metrics(metrics_sampling, decoding='sampling')
         self._save_and_log_metrics(metrics_greedy, decoding="greedy")
 
-    def _generate_text(self, inputs, targets, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
+    def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
         particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
-                                                                             targets=targets, past_len=self.past_len,
+                                                                             targets=targets, attention_mask=attention_mask, past_len=self.past_len,
                                                                              future_len=future_len, decoding=decoding)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
         decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
                              range(particles.shape[1])] if self.distribution else [

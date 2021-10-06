@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=MAX-SEQ-smc-t0.1
+#SBATCH --job-name=SIG-LOGVAR-smc-t0.1
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/max_seq_len30/min_token_count2"
+OUTPUT_PATH="output/NLP/refacto_logvar/good_sigmas"
 D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=10
 EP=50
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.1 -test_samples 30 -max_seq_len 30 -min_token_count 2
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas -2.3026  -test_samples 30

@@ -59,12 +59,14 @@ class Decoder(tf.keras.layers.Layer):
       self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model, dim=dim)
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate, full_model=full_model) for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(self.rate)
+    self.training = True if self.rate > 0 else False
     self.full_model = full_model
 
-  def call(self, inputs, training, look_ahead_mask):
-    seq_len = tf.shape(inputs)[1]
+  def call(self, inputs, look_ahead_mask, attention_mask=None):
+    seq_len = tf.shape(inputs)[-2]  #TODO: change this. Not true for 4D input.
     attention_weights = {}
     inputs = self.embedding(inputs)
+    inputs = tf.squeeze(inputs, axis=-2) # shape (B,P,S,D)
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
@@ -74,11 +76,10 @@ class Decoder(tf.keras.layers.Layer):
       elif len(inputs.shape) == 4:
         inputs += self.pos_encoding[:, :, seq_len, :]
 
-    inputs = self.dropout(inputs, training=training)
+    inputs = self.dropout(inputs, training=self.training)
 
     for i in range(self.num_layers):
       inputs, block = self.dec_layers[i](inputs=inputs,
-                                         training=training,
                                          look_ahead_mask=look_ahead_mask)
       attention_weights['decoder_layer{}'.format(i + 1)] = block
 

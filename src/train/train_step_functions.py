@@ -1,5 +1,6 @@
 import tensorflow as tf
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
+from src.train.utils import compute_categorical_cross_entropy
 
 # -------------------------------- TRAIN STEP FUNCTIONS ---------------------------------------------------------------------
 train_step_signature = [
@@ -27,7 +28,7 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
 # @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None):
     '''
     :param it:
     :param inputs:
@@ -37,41 +38,16 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
     :return:
     '''
 
-    assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
+    #assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
     with tf.GradientTape() as tape:
         (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,
-                                                       targets=targets)  # predictions: shape (B,P,S,F_y) with P=1 during training.
+                                                       targets=targets,
+                                                       attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
 
-        if smc_transformer.cell.noise:
-            # EM estimation of the noise parameters
-            err_k = smc_transformer.noise_K_resampled * smc_transformer.noise_K_resampled
-            err_k = tf.reduce_mean(err_k, axis=[1,2,3])
-            err_q = smc_transformer.noise_q * smc_transformer.noise_q
-            err_q = tf.reduce_mean(err_q, axis=[1,2,3])
-            err_v = smc_transformer.noise_V_resampled * smc_transformer.noise_V_resampled
-            err_v = tf.reduce_mean(err_v, axis=[1,2,3])
-            err_z = smc_transformer.noise_z * smc_transformer.noise_z
-            err_z = tf.reduce_mean(err_z, axis=[1,2,3])
-
-
-            for j in range(err_v.shape[0]):
-                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
-                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
-                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
-                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
-
-            smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets)
-            loss = smc_loss
-            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-            #resampling_weights = smc_transformer.cell.list_weights[-1] #TODO: add comparison with best particle.
-            #best_particles = tf.math.argmax(resampling_weights)
-            ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
-            ce_metric_avg_pred = tf.reduce_mean(ce_metric_avg_pred)
-        else:
-            ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-            ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
-            loss = tf.reduce_mean(ce_metric_avg_pred)
+        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
+        loss = smc_loss
+        ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, num_particles=smc_transformer.cell.num_particles, attention_mask=attention_mask)
 
         gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 
@@ -79,7 +55,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it):
         # trainable_variables = list(smc_transformer.trainable_variables)
         # trainable_variables_names = [t.name for t in trainable_variables]
         # var_and_grad_dict = dict(zip(trainable_variables_names, gradients))
-        # print('dict of variables and associated gradients', var_and_grad_dict)
+        #print('dict of variables and associated gradients', var_and_grad_dict)
 
     optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
