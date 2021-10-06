@@ -166,11 +166,6 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             train_loss[0] += train_loss_batch
 
             if smc_transformer.cell.noise:
-                print('logvar_k:{} - logvar_q: {} - logvar_v: {} - logvar_z: {}'.format(
-                    smc_transformer.cell.attention_smc.logvar_k.numpy(),
-                    smc_transformer.cell.attention_smc.logvar_q.numpy(),
-                    smc_transformer.cell.attention_smc.logvar_v.numpy(),
-                    smc_transformer.cell.attention_smc.logvar_z.numpy()))
                 train_loss[1] += train_metric_avg_pred
 
         # save smc transformer weights.
@@ -199,10 +194,10 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             losses_history["train_ppl"] = np.exp(losses_history["train_mse_metric"])
             losses_history["val_ppl"] = np.exp(losses_history["val_mse_metric"])
             logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                smc_transformer.cell.attention_smc.logvar_k.numpy(),
-                smc_transformer.cell.attention_smc.logvar_q.numpy(),
-                smc_transformer.cell.attention_smc.logvar_v.numpy(),
-                smc_transformer.cell.attention_smc.logvar_z.numpy()))
+                tf.math.exp(smc_transformer.cell.attention_smc.logvar_k).numpy(),
+                tf.math.exp(smc_transformer.cell.attention_smc.logvar_q).numpy(),
+                tf.math.exp(smc_transformer.cell.attention_smc.logvar_v).numpy(),
+                tf.math.exp(smc_transformer.cell.attention_smc.logvar_z).numpy()))
         else:
             losses_history["train_ppl"] = np.exp(losses_history["train_loss"])
             losses_history["val_ppl"]= np.exp(losses_history["val_loss"])
