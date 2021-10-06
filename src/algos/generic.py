@@ -117,9 +117,9 @@ class Algo:
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-"*30 + "SAMPLING GENERATION" + '-'*30)
-            metrics_sampling = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, out_file_text=out_file_text_sampling, decoding="sampling")
+            metrics_sampling = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, out_file_text=out_file_text_sampling, decoding="sampling")
             self.logger.info("-" * 30 + "GREEDY GENERATION" + '-' * 30)
-            metrics_greedy = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
+            metrics_greedy = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
         self._save_and_log_metrics(metrics_sampling, decoding='sampling')
         self._save_and_log_metrics(metrics_greedy, decoding="greedy")
 
