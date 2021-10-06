@@ -104,7 +104,8 @@ class Algo:
 
     def test(self, **kwargs):
         self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
+        metrics_sampling = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
+        metrics_greedy = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
         for (inputs, targets) in self.test_dataset.take(kwargs["test_samples"]):
             if len(inputs.shape) == 4:
                 inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
@@ -112,28 +113,44 @@ class Algo:
                 inp, tar = inputs[:, :self.past_len], targets[:,:self.past_len]
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
-            particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inp,
-                                        targets=tar, past_len=self.past_len,
-                                        future_len=future_len)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
-            decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in range(particles.shape[1])] if self.distribution else [self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
-            gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
-            (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles, decoded_target=decoded_targets)
-            for key, val in zip(list(metrics.keys()), [mean_bleu, var_bleu, gpt2_ppl, selfbleu]):
-                if val is not None:
-                    metrics[key].append(val)
-            self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inp).numpy())))
-            self.logger.info("DECODED TEXT SEQUENCES: {}".format(decoded_particles))
-            if dict_top_words is not None:
-                self._log(dict_top_words, string="TOP K WORDS")
-            if particles_norm is not None:
-                self._log(particles_norm, string="PARTICLES NORM")
-            self.logger.info("-------------------------------------------------------------------")
+            self.logger.info("-"*30 + "SAMPLING GENERATION" + '-'*30)
+            metrics_sampling = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, decoding="sampling")
+            self.logger.info("-" * 30 + "GREEDY GENERATION" + '-' * 30)
+            metrics_greedy = self._generate_text(inputs=inp, targets=tar, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, decoding="greedy")
+        self._save_and_log_metrics(metrics_sampling, decoding='sampling')
+        self._save_and_log_metrics(metrics_greedy, decoding="greedy")
+
+    def _generate_text(self, inputs, targets, decoded_targets, future_len, metrics, decoding="sampling"):
+        particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
+                                                                             targets=targets, past_len=self.past_len,
+                                                                             future_len=future_len, decoding=decoding)  # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
+        decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
+                             range(particles.shape[1])] if self.distribution else [
+            self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
+        gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
+        (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,
+                                                                    decoded_target=decoded_targets)
+        for key, val in zip(list(metrics.keys()), [mean_bleu, var_bleu, gpt2_ppl, selfbleu]):
+            if val is not None:
+                metrics[key].append(val)
+        self.logger.info("INPUT SENTENCE:{}".format(self.dataset.tokenizer.decode(tf.squeeze(inputs).numpy())))
+        self.logger.info("DECODED TEXT SEQUENCES: {}".format(decoded_particles))
+        if dict_top_words is not None:
+            self._log(dict_top_words, string="TOP K WORDS")
+        if particles_norm is not None:
+            self._log(particles_norm, string="PARTICLES NORM")
+        self.logger.info("-------------------------------------------------------------------")
+        return metrics
+
+    def _save_and_log_metrics(self, metrics, decoding="sampling"):
+        self.logger.info("--------------------------------------------{} GENERATION---------------------------------------------------".format(decoding))
         mean_metrics = dict(zip(list(metrics.keys()), [np.mean(val) for val in list(metrics.values())]))
-        metrics_file = os.path.join(self.out_folder, "test_metrics_all.csv")
+        metrics_file = os.path.join(self.out_folder, "test_metrics_all_{}.csv".format(decoding))
         write_to_csv(metrics_file, metrics)
-        mean_metrics_file = os.path.join(self.out_folder, "test_metrics_mean.csv")
+        mean_metrics_file = os.path.join(self.out_folder, "test_metrics_mean_{}.csv".format(decoding))
         write_to_csv(mean_metrics_file, mean_metrics)
-        self.logger.info("------------------------------------------------MEAN SCORES------------------------------------------------------------------------")
+        self.logger.info(
+            "------------------------------------------------MEAN SCORES------------------------------------------------------------------------")
         self.logger.info(mean_metrics)
         self.logger.info(
             "------------------------------------------------ALL SAMPLES SCORES------------------------------------------------------------------------")

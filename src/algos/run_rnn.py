@@ -69,7 +69,7 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
-    def inference_multistep(self, inputs, targets=None, past_len=4, future_len=5):
+    def inference_multistep(self, inputs, targets=None, past_len=4, future_len=5, decoding="sampling"):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
@@ -82,11 +82,15 @@ class RNNAlgo(Algo):
             for t in range(future_len + 1):
                 preds_test = self.lstm(inputs=inp)  # (B,S,1)
                 last_pred = preds_test[:, -1, :]
-                last_pred = tf.random.categorical(logits=last_pred, num_samples=1, dtype=tf.int32)
+                if decoding == "sampling":
+                    last_pred = tf.random.categorical(logits=last_pred, num_samples=1, dtype=tf.int32)
+                elif decoding == "greedy":
+                    last_pred = tf.expand_dims(
+                        tf.math.argmax(last_pred, axis=-1, output_type=tf.int32), axis=-1)
                 inp = tf.concat([inp, last_pred], axis=1)
             list_predictions.append(inp)
         preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # shape (B, mc_samples, seq_len)
-        return preds_test_MC_Dropout
+        return preds_test_MC_Dropout, None, None
 
     def train(self):
         train_LSTM(model=self.lstm,
