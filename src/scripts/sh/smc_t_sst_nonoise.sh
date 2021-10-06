@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=LOGVAR-smc-t-None
+#SBATCH --job-name=30MAXSEQ-LOGVAR-smc-t-None
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,7 +19,7 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/refacto_logvar"
+OUTPUT_PATH="output/NLP/max_seq_len30/"
 D_MODEL=32
 DFF=32
 BS=32

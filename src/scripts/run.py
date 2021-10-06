@@ -33,7 +33,7 @@ def get_parser():
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
     parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
     parser.add_argument("-min_token_count", type=int, default=1, help="min token count for sst vocabulary.")
-    parser.add_argument("-max_seq_len", type=int, default=51, help="max seq len for ")
+    parser.add_argument("-max_seq_len", type=int, default=30, help="max seq len for ")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), Bayesian LSTM (bayesian_lstm)")
@@ -66,7 +66,7 @@ def get_parser():
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
-    parser.add_argument("-past_len", type=int, default=5, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-past_len", type=int, default=4, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     parser.add_argument("-test_samples", type=int, default=3, help="number of test samples.")
