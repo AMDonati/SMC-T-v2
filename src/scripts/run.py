@@ -2,6 +2,7 @@ import argparse
 from datasets import load_from_disk
 from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
+from src.data_provider.CLEVRDataset import QuestionsDataset
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -31,7 +32,7 @@ def get_parser():
     # data parameters:
     parser.add_argument("-dataset", type=str, default='dummy_nlp', help='dataset selection')
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
-    parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
+    parser.add_argument("-max_samples", type=int, default=10000, help="max samples for train dataset")
     parser.add_argument("-min_token_count", type=int, default=1, help="min token count for sst vocabulary.")
     parser.add_argument("-max_seq_len", type=int, default=30, help="max seq len for ")
     # model parameters:
@@ -89,12 +90,13 @@ def run(args):
     elif args.dataset == "sst":
         dataset = load_from_disk(args.data_path)
         vocab_path = "data/sst/vocab.json" if args.min_token_count == 1 else "data/sst/vocab2.json"
-
         if args.num_layers >= 1:
             tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
         else:
             tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
         dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+    elif args.dataset == "clevr":
+        dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

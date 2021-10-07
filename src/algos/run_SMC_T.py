@@ -46,7 +46,7 @@ class SMCTAlgo(Algo):
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             out_folder = os.path.join(args.save_path, datetime_folder)
         else:
-            out_file = '{}_l{}_h{}_d{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model)
+            out_file = '{}_{}_l{}_h{}_d{}'.format(args.dataset, args.algo, args.num_layers, args.num_heads, args.d_model)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             if args.smc:
                 out_file = out_file + '__p{}'.format(args.particles)

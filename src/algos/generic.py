@@ -10,7 +10,7 @@ from src.eval.language_metrics import gpt2_perplexity_batch, BLEU_score, SELFBLE
 
 
 class Algo:
-    def __init__(self, dataset, args, output_size=50):
+    def __init__(self, dataset, args):
         self.dataset = dataset
         self.bs = args.bs
         self.EPOCHS = args.ep
@@ -50,7 +50,7 @@ class Algo:
 
     def load_datasets(self, num_dim=4, num_dim_targets=None):
         train_data, val_data, test_data = self.dataset.get_datasets()
-        self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
+        #self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
