@@ -178,7 +178,7 @@ class SMCTAlgo(Algo):
 
     def _extract_top_k_words(self, last_pred, top_k=10):
         # last_pred -> shape: (B;P,V)
-        last_pred = tf.squeeze(last_pred) # shape (P,V)
+        last_pred = tf.squeeze(last_pred, axis=0) # shape (P,V)
         probas = tf.nn.softmax(last_pred, axis=-1)
         top_probas, top_tokens = tf.math.top_k(probas, k=top_k) # shape (B=1,P,top_k)
         top_words = [self.dataset.tokenizer.decode(top_tokens[p].numpy()).split(' ') for p in range(top_tokens.shape[0])]
@@ -186,7 +186,7 @@ class SMCTAlgo(Algo):
         return top_k_words_particles
 
     def _get_particle_norm(self, last_pred):
-        last_pred = tf.squeeze(last_pred)
+        last_pred = tf.squeeze(last_pred, axis=0)
         logits_norm = tf.norm(last_pred, axis=-1) # shape (B)
         return list(np.round(logits_norm.numpy(), 4))
 
