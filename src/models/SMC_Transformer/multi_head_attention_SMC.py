@@ -20,10 +20,10 @@ class mha_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas):
         # noise parameters.
-        self.sigma_k = dict_sigmas['k']
-        self.sigma_q = dict_sigmas['q']
-        self.sigma_v = dict_sigmas['v']
-        self.sigma_z = dict_sigmas['z']
+        self.sigma_k = tf.math.log(dict_sigmas['k'])
+        self.sigma_q = tf.math.log(dict_sigmas['q'])
+        self.sigma_v = tf.math.log(dict_sigmas['v'])
+        self.sigma_z = tf.math.log(dict_sigmas['z'])
         self.noise = True
 
     def add_noise(self, params, sigma):
