@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="sst"
 DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/max_seq_len30/"
+OUTPUT_PATH="output/NLP/max_seq_len30/10_epochs"
 D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=1
-EP=50
+EP=10
 
 srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -test_samples 30

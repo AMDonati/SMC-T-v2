@@ -17,13 +17,13 @@ conda activate smc-t
 
 export PYTHONPATH=src:${PYTHONPATH}
 
-DATASET="sst"
-DATA_PATH="data/sst/all_data"
-OUTPUT_PATH="output/NLP/max_seq_len30/"
+DATASET="clevr"
+DATA_PATH="data/clevr"
+OUTPUT_PATH="output/NLP/CLEVR/max_seq_len20"
 D_MODEL=32
 RNN_UNITS=32
 BS=32
 PARTICLES=1
-EP=10
+EP=20
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH -max_seq_len 30 -test_samples 30
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH -max_seq_len 20 -test_samples 30
