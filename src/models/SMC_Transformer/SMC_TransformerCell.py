@@ -119,6 +119,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
+            print("RESAMPLING WEIGHTS FIRST ELEMENT - timestep {} - {}".format(self.dec_timestep, w[0].numpy()))
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
