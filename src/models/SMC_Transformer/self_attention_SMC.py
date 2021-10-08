@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask, create_look_ahead_mask_per_block
 
 # ----- scaled_dot_product_attention_function & mha function ------------
 
@@ -42,7 +43,35 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         noise = tf.exp(logvar * 0.5) * gaussian_noise
         return params + noise
 
-    def call(self, inputs, timestep, K, V):
+    def create_masks(self, inputs, K, timestep):
+        #mask_future = tf.sequence_mask([[timestep + inputs.shape[-2]]], maxlen=K.shape[-2], dtype=tf.float32)
+        #mask_future = 1 - mask_future
+        #mask_future = -1e9 * mask_future
+        #mask_future = tf.expand_dims(mask_future, axis=-1)
+        #mask_future = tf.tile(mask_future, multiples=(K.shape[0], K.shape[1], 1, K.shape[-1])) # mask for the future (from timestep + sampl_freq)
+        mask_time = np.zeros(shape=K.shape)
+        mask_time[:, :, timestep:timestep + inputs.shape[-2], :] = 1
+        mask_time = tf.constant(mask_time, dtype=tf.float32) #mask for the current input block (time window sampl freq).
+        return mask_time
+
+    def update_state(self, new_state, states, timestep, dec_timestep):
+        """
+
+        Args:
+            new_state: K(t:t+sampl_freq): shape (B,P,sampl_freq,D) (here sampl_freq=3)
+            states: K(1:T): shape (B,P,S,D) (here S=12)
+            timestep: current timestep for the whole sequence (seq_len = 12, sampl_freq=3) = > values = 0,3,6,12
+            dec_timestep: recurrent timestep for the recurrent cell (only 4 recurrences in this case) => 0,1,2,3
+        Returns:
+
+        """
+        mask_time = self.create_masks(inputs=new_state, K=states, timestep=timestep)
+        paddings = tf.constant([[0, 0], [0, 0], [timestep, states.shape[-2] - new_state.shape[-2]*(dec_timestep+1)], [0, 0]])
+        padded_new_state = tf.pad(new_state, paddings=paddings)
+        states = states + padded_new_state
+        return states
+
+    def call(self, inputs, timestep, dec_timestep, K, V, mask=None):
         '''
         :param inputs: X_t (B,P,1,D) with P = 1 during training.
         :param timestep:
@@ -53,9 +82,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         assert len(tf.shape(inputs)) == 4  # (B,P,1,D)
 
         # computing current k,q,v from inputs
-        k_ = self.wk(inputs)  # (B,P,1,D)
-        q_ = self.wq(inputs)  # (B,P,1,D)
-        v_ = self.wv(inputs)  # (B,P,1,D)
+        k_ = self.wk(inputs)  # (B,P,F,D)
+        q_ = self.wq(inputs)  # (B,P,F,D)
+        v_ = self.wv(inputs)  # (B,P,F,D)
 
         if self.noise:
             k = self.add_noise(k_, self.logvar_k)
@@ -67,44 +96,27 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         else:
             k, q, v = k_, q_, v_
 
-        #bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
-        # mask_time = np.zeros(shape=K.shape)
-        # mask_time[:,:,timestep,:] = 1
-        # mask_time = tf.constant(mask_time)
-        # mask_future = tf.constant([[0]*timestep + [-1e9] * S], shape=(1,1,S,1))
-        # mask_future = tf.tile(mask_future, multiples=[bs, P, 1, 1])
-        #
-        # K = K + k * mask_time
-        # K = K + mask_future
-        # V = V + v * mask_time
+        #mask_time = self.create_masks(inputs, K, timestep)
 
-        #TODO: use this instead: tf.sequence_mask(
-    #lengths, maxlen=None, dtype=tf.dtypes.bool, name=None
-#)
+        #padded_k = tf.pad(k, paddings=tf.constant([[0,0],[0,0],[0,K.shape[-2]-k.shape[-2]],[0,0]]))
+        #padded_v = tf.pad(k, paddings=tf.constant([[0, 0], [0, 0], [0, K.shape[-2] - k.shape[-2]], [0, 0]]))
 
-        K_past = K[:, :, :timestep, :]
-        K_future = K[:, :, timestep + 1:, :]
-        K = tf.concat([K_past, k, K_future], axis=2)  # (B,P,S,D)
-        V_past = V[:, :, :timestep, :]
-        V_future = V[:, :, timestep + 1:, :]
-        V = tf.concat([V_past, v, V_future], axis=2)  # (B,P,S,D)
+        #K = K + padded_k * mask_time
+        #K = K + mask_future
+        #V = V + padded_v * mask_time
+
+        K = self.update_state(new_state=k, states=K, timestep=timestep, dec_timestep=dec_timestep)
+        V = self.update_state(new_state=v, states=V, timestep=timestep, dec_timestep=dec_timestep)
 
         # Computation of z from K,V,q.
         matmul_qk = tf.matmul(q, K, transpose_b=True)  # (B, P, 1, S)
         # scale matmul_qk
         dk = tf.cast(tf.shape(K)[-1], tf.float32)
-        scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)  # (B,P,1,S)
-        bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
-        if self.attn_window is not None and timestep > self.attn_window:
-            scaled_attention_logits_masked = tf.concat([-1e9 * tf.ones(shape=(bs, P, 1, timestep - self.attn_window)),
-                                                        scaled_attention_logits[:, :, :, timestep - self.attn_window:timestep + 1],
-                                                        -1e9 * tf.ones(shape=(bs, P, 1, S - (timestep + 1)))], axis=-1)
-        else:
-            scaled_attention_logits_masked = tf.concat([scaled_attention_logits[:, :, :, :timestep + 1],
-                                                    -1e9 * tf.ones(shape=(
-                                                    bs, P, 1, S - (timestep + 1)))], axis=-1)
+        scaled_attention_logits = matmul_qk / tf.math.sqrt(dk) # (B,P,1,S)
+        if mask is not None: # mask per timestep on the future
+            scaled_attention_logits += (mask * -1e9)
         # softmax to get pi:
-        attention_weights = tf.nn.softmax(scaled_attention_logits_masked, axis=-1)  # (B, P, 1, S)
+        attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B, P, 1, S)
         z_ = tf.matmul(attention_weights, V)  # (B,P,1,S)
         z_ = self.dense(z_)
 

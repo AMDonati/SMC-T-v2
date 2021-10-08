@@ -16,7 +16,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None, reduce_gpt2output=False):
+                 rate=0., attn_window=None, reduce_gpt2output=False, sample_freq=1):
         super(SMC_Transformer, self).__init__()
 
         self.d_model = d_model
@@ -43,7 +43,7 @@ class SMC_Transformer(tf.keras.Model):
                 self.d_model = 768
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, sampl_freq=sample_freq)
 
         # for pre_processing words in the one_layer case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
@@ -54,6 +54,7 @@ class SMC_Transformer(tf.keras.Model):
         self.dff = dff
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.sample_freq = sample_freq
 
     def compute_SMC_loss(self, targets, predictions, attention_mask=None):
         assert self.cell.noise == self.cell.attention_smc.noise
@@ -109,6 +110,27 @@ class SMC_Transformer(tf.keras.Model):
                 input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
+    def prepare_inputs_for_rnn(self, tensor, permute=True):
+        '''
+
+        Args:
+            tensor: shape (B,P,sample_freq, S/sample_freq, D)
+        Returns:
+
+        '''
+        tensor = tf.reshape(tensor, shape=(
+        tensor.shape[0], tensor.shape[1], self.sample_freq, int(tensor.shape[-2] / self.sample_freq), tensor.shape[-1]))
+        if permute:
+            tensor = tf.transpose(tensor, perm=[0, 3, 1, 2, 4])
+        return tensor
+
+    def reshape_ouputs(self, outputs):
+        '''outputs = 5 dim.''' # shape (B,S', P, sample_freq, outputs.shape[-1])
+        outputs = tf.transpose(outputs, perm=[0, 2, 1, 3, 4])  # shape (B,P, S' sample_freq, outputs.shape[-1])
+        outputs = tf.reshape(outputs, shape=(outputs.shape[0], outputs.shape[1], outputs.shape[-2]*outputs.shape[2], outputs.shape[-1]))
+        return outputs
+
+
     def call(self, inputs, targets, attention_mask=None):
         '''
         :param inputs: input_data: shape (B,P,S,F_x) with P=1 during training.
@@ -133,10 +155,9 @@ class SMC_Transformer(tf.keras.Model):
         def step_function(inputs, states):
             return self.cell(inputs, states)
 
-        x = tf.transpose(input_tensor_processed,
-                         perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
-        targets = tf.transpose(targets, perm=[0, 2, 1, 3])
-        inputs_for_rnn = NestedInput(x=x, y=targets)  # y > (B,P,S,F_y), #x > (B,S,P,D))
+        x = self.prepare_inputs_for_rnn(input_tensor_processed, permute=True)
+        y = self.prepare_inputs_for_rnn(targets, permute=True)
+        inputs_for_rnn = NestedInput(x=x, y=y)  # y > (B,P,sample_freq,S,1), #x > (B,S',sample_freq, P,D))
         last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                                 inputs=inputs_for_rnn,
                                                                 initial_states=initial_state)
@@ -144,12 +165,16 @@ class SMC_Transformer(tf.keras.Model):
         self.cell.cell_count = 0  # additional counter to avoid duplicate of first timestep.
 
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-        outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
-        R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        attn_weights = outputs[1]
-        if len(tf.shape(attn_weights)) == 4: # one-head case
-            attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
-        attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
+        # outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
+        # R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
+        # attn_weights = outputs[1]
+        # if len(tf.shape(attn_weights)) == 4: # one-head case
+        #     attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
+        # attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
+
+        R = self.reshape_ouputs(outputs[0])
+        attn_weights = self.reshape_ouputs(outputs[1])
+
         # states
         K, V, R_resampl = new_states[0], new_states[1], new_states[2]  # (B,P,S,D)
 
@@ -161,8 +186,8 @@ class SMC_Transformer(tf.keras.Model):
         self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
 
         if self.cell.noise:
-            self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
-            self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
+            self.noise_q = self.reshape_ouputs(outputs[-1][0])
+            self.noise_z = self.reshape_ouputs(outputs[-1][1])  # (B,P,S,D)
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z] #TODO: resampled also the other noises.
 
         return (pred, pred_resampl), (K, V, R_resampl), attn_weights
@@ -175,19 +200,19 @@ if __name__ == "__main__":
     d_model = 6
     full_model = True
     dff = 24
-    num_particles = 4
+    num_particles = 2
     sigma = 0.1
     dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigma for _ in range(4)]))
 
     print("test NLP / classification case....")
 
-    inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]], shape=(1, seq_len, F),
+    inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]]], shape=(1, 12, F),
                          dtype=tf.int32)  # ok works with len(tf.shape(inputs)==3.
     inputs = tf.tile(inputs, multiples=[b, 1, 1])
     inputs = tf.expand_dims(inputs, axis=1)
     print('inputs', inputs.shape)
 
-    targets = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11]]], shape=(1, seq_len, F),
+    targets = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13]]], shape=(1, 12, F),
                           dtype=tf.int32)  # ok works with len(tf.shape(inputs)==3.
     targets = tf.tile(targets, multiples=[b, 1, 1])
     targets = tf.expand_dims(targets, axis=1)
@@ -195,8 +220,8 @@ if __name__ == "__main__":
 
     print("..............................TEST ONE LAYER CASE ...........................................")
 
-    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4)
+    transformer = SMC_Transformer(d_model=d_model, output_size=50, seq_len=12, full_model=full_model, dff=dff,
+                                  attn_window=4, sample_freq=3)
 
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)

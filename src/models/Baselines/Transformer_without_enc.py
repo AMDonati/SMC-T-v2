@@ -96,7 +96,7 @@ class Transformer(tf.keras.Model):
     super(Transformer, self).__init__()
     self.decoder = Decoder(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
                            maximum_position_encoding=maximum_position_encoding,
-                           rate=rate, full_model=full_model)
+                           rate=rate, full_model=full_model, output_size=target_vocab_size)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
   def call(self, inputs, training, mask):
@@ -115,27 +115,28 @@ class Transformer(tf.keras.Model):
 
 if __name__ == "__main__":
   B = 8
-  F = 3
+  F = 1
   num_layers = 1
   d_model = 64
   num_heads = 1
   dff = 128
   maximum_position_encoding = None # needs to be None if we have an input_tensor of shape (B,P,S,D).
-  data_type = 'time_series_multi'
-  C = F
-  S = 20
+  C = 50
+  S = 12
   rate = 0
 
   sample_transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
-                                   target_vocab_size=C, maximum_position_encoding=maximum_position_encoding, rate=rate,
+                                   target_vocab_size=50, maximum_position_encoding=maximum_position_encoding, rate=rate,
                                    full_model=False)
 
-  temp_input = tf.random.uniform((B, 10, 1, F), dtype=tf.float32, minval=0, maxval=200)
+  inputs = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12]]], shape=(1, 12, F),
+                       dtype=tf.int32)  # ok works with len(tf.shape(inputs)==3.
+  inputs = tf.tile(inputs, multiples=[B, 1, 1])
 
   mask = create_look_ahead_mask(S)
 
-  fn_out, attn_weights = sample_transformer(inputs=temp_input,
+  fn_out, attn_weights = sample_transformer(inputs=inputs,
                                  training=True,
-                                 mask=None) # mask need to be None for input of seq_len = 1.
+                                 mask=mask) # mask need to be None for input of seq_len = 1.
 
   print('model output', fn_out.shape) # (B,S,C)

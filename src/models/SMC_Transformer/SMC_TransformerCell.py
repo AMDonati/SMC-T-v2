@@ -5,13 +5,14 @@ from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
 from src.models.SMC_Transformer.multi_head_attention_SMC import mha_SMC
 from src.models.SMC_Transformer.transformer_utils import resample
 from src.models.classic_layers import point_wise_feed_forward_network
+from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, sampl_freq=1, num_heads=1, attn_window=None, **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -25,6 +26,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.output_size = output_size
         self.seq_len = seq_len
         self.full_model = full_model
+        self.sampl_freq = sampl_freq
 
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
@@ -45,8 +47,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                       R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]))
         self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
                             tf.TensorShape([self.num_particles, 1, self.seq_len]))  # r, attention_weights
+        self.look_ahead_mask = self.create_look_ahead_mask()
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
+
+    def create_look_ahead_mask(self):
+        mask = create_look_ahead_mask(self.seq_len)
+        mask = mask[:self.sampl_freq]
+        return mask
 
     def add_SMC_parameters(self, dict_sigmas, num_particles):
         self.noise = True
@@ -56,9 +64,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     def compute_w_classification(self, predictions, y):
       # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
-      probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-      w = tf.gather(tf.squeeze(probas, axis=-2), tf.squeeze(y, axis=[-1,-2]), axis=-1, batch_dims=2) # shape (B,P)
-      w_norm = tf.nn.softmax(w, axis=-1) # shape (B,P)
+      probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,F,V)
+      w = tf.gather(probas, y, axis=-1, batch_dims=3) # shape (B,P,S)
+      w_norm = tf.nn.softmax(tf.squeeze(w, axis=-1), axis=1) # shape (B,S) # how to combine the three weights ?
+      w_norm = tf.reduce_prod(w_norm, axis=-1) #TODO: check reduce_logsumexp
       return w_norm  # shape (B,P)
 
     def call_inference(self, inputs, states, timestep):
@@ -86,25 +95,26 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         :param states:
         :return:
         '''
-        x, y = tf.nest.flatten(inputs)  # unnesting inputs x: shape (B,P,D), y = shape(B,P,D) with P=1 during training.
-        x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim.
+        x, y = tf.nest.flatten(inputs)  # unnesting inputs x: shape (B,P,resample_freq, D), y = shape(B,P, resampl_freq, D) with P=1 during training.
+        #x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim. #TODO: not needed here because already a sequence dim.
         K, V, R = states  # getting states
 
         # self attention:
-        (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
+        timestep = self.sampl_freq * self.dec_timestep # if seq_len = 12, and sampl_freq = 3: values = [0,0,3,6,9,12] (duplication of zeros due to tensorflow
+        timestep_mask = self.sampl_freq * (self.dec_timestep+1) # for same use-case, values = [3,3,6,9,12]
+        #look_ahead_mask = self.create_look_ahead_mask(timestep=timestep_mask) # Mask for masking the future in the self attention computation.
+        (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=timestep, dec_timestep=self.dec_timestep, K=K, V=V, mask=self.look_ahead_mask)  #TODO: compute decoding timestep as sample_freq * self.dec_timestep
 
         if self.full_model:
             out = self.layernorm1(z + x)
             r = self.ffn(out)
             r = self.layernorm2(r + out)
         else:
-            r = z
+            r = z # (B,P,F,D)
 
-        predictions = self.output_layer(r)  # (B,P,1,F_y)
+        predictions = self.output_layer(r)  # (B,P,F,V)
         # storing r in R:
-        R_past = R[:, :, :self.dec_timestep, :]
-        R_future = R[:, :, self.dec_timestep + 1:, :]
-        R = tf.concat([R_past, r, R_future], axis=-2)
+        R = self.attention_smc.update_state(new_state=r, states=R, timestep=timestep, dec_timestep=self.dec_timestep)
 
         # -------- SMC Algo ---------------------------------------------------------------------------------------------------------
         if self.noise:

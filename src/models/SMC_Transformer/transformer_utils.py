@@ -35,6 +35,9 @@ def create_look_ahead_mask(size):
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
     return mask  # (seq_len, seq_len)
 
+def create_look_ahead_mask_per_block(size1, size2):
+    mask = 1 - tf.linalg.band_part(tf.ones((size1, size2)), -1, 0)
+    return mask  # (seq_len, seq_len)
 
 def resample(params, i_t):
     """

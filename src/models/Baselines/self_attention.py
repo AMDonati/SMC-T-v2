@@ -31,11 +31,9 @@ class OneHeadAttention(tf.keras.layers.Layer):
     def __init__(self, d_model):
         super(OneHeadAttention, self).__init__()
         self.d_model = d_model
-
         self.wq = tf.keras.layers.Dense(d_model)
         self.wk = tf.keras.layers.Dense(d_model)
         self.wv = tf.keras.layers.Dense(d_model)
-
         self.dense = tf.keras.layers.Dense(d_model)
         self.noise = False
 
