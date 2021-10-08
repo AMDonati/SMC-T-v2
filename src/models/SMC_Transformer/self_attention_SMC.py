@@ -22,10 +22,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         self.logvar_q = tf.Variable(initial_value=dict_sigmas['q'], name="logvar_q")
         self.logvar_v = tf.Variable(initial_value=dict_sigmas['v'], name="logvar_v")
         self.logvar_z = tf.Variable(initial_value=dict_sigmas['z'], name="logvar_z")
-        #self.sigma_k = dict_sigmas['k']
-        #self.sigma_q = dict_sigmas['q']
-        #self.sigma_v = dict_sigmas['v']
-        #self.sigma_z = dict_sigmas['z']
         self.noise = True
 
     def reparameterize(self, mean, logvar):
@@ -44,11 +40,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         return params + noise
 
     def create_masks(self, inputs, K, timestep):
-        #mask_future = tf.sequence_mask([[timestep + inputs.shape[-2]]], maxlen=K.shape[-2], dtype=tf.float32)
-        #mask_future = 1 - mask_future
-        #mask_future = -1e9 * mask_future
-        #mask_future = tf.expand_dims(mask_future, axis=-1)
-        #mask_future = tf.tile(mask_future, multiples=(K.shape[0], K.shape[1], 1, K.shape[-1])) # mask for the future (from timestep + sampl_freq)
         mask_time = np.zeros(shape=K.shape)
         mask_time[:, :, timestep:timestep + inputs.shape[-2], :] = 1
         mask_time = tf.constant(mask_time, dtype=tf.float32) #mask for the current input block (time window sampl freq).
@@ -65,7 +56,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         Returns:
 
         """
-        mask_time = self.create_masks(inputs=new_state, K=states, timestep=timestep)
         paddings = tf.constant([[0, 0], [0, 0], [timestep, states.shape[-2] - new_state.shape[-2]*(dec_timestep+1)], [0, 0]])
         padded_new_state = tf.pad(new_state, paddings=paddings)
         states = states + padded_new_state
@@ -95,15 +85,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
-
-        #mask_time = self.create_masks(inputs, K, timestep)
-
-        #padded_k = tf.pad(k, paddings=tf.constant([[0,0],[0,0],[0,K.shape[-2]-k.shape[-2]],[0,0]]))
-        #padded_v = tf.pad(k, paddings=tf.constant([[0, 0], [0, 0], [0, K.shape[-2] - k.shape[-2]], [0, 0]]))
-
-        #K = K + padded_k * mask_time
-        #K = K + mask_future
-        #V = V + padded_v * mask_time
 
         K = self.update_state(new_state=k, states=K, timestep=timestep, dec_timestep=dec_timestep)
         V = self.update_state(new_state=v, states=V, timestep=timestep, dec_timestep=dec_timestep)

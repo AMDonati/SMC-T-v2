@@ -96,13 +96,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         :return:
         '''
         x, y = tf.nest.flatten(inputs)  # unnesting inputs x: shape (B,P,resample_freq, D), y = shape(B,P, resampl_freq, D) with P=1 during training.
-        #x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim. #TODO: not needed here because already a sequence dim.
         K, V, R = states  # getting states
 
         # self attention:
         timestep = self.sampl_freq * self.dec_timestep # if seq_len = 12, and sampl_freq = 3: values = [0,0,3,6,9,12] (duplication of zeros due to tensorflow
-        timestep_mask = self.sampl_freq * (self.dec_timestep+1) # for same use-case, values = [3,3,6,9,12]
-        #look_ahead_mask = self.create_look_ahead_mask(timestep=timestep_mask) # Mask for masking the future in the self attention computation.
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=timestep, dec_timestep=self.dec_timestep, K=K, V=V, mask=self.look_ahead_mask)  #TODO: compute decoding timestep as sample_freq * self.dec_timestep
 
         if self.full_model:
@@ -121,8 +118,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
-            #self.list_weights.append(w.numpy())
-            #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
