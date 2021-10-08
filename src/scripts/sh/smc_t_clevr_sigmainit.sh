@@ -19,7 +19,7 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="clevr"
 DATA_PATH="data/clevr"
-OUTPUT_PATH="output/NLP/CLEVR/test_dims"
+OUTPUT_PATH="output/NLP/CLEVR/test_sigma_init"
 D_MODEL=32
 DFF=32
 BS=32
