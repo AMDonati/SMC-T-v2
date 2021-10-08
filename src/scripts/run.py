@@ -107,7 +107,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=args.test_samples)
+    #algo.test(test_samples=args.test_samples)
 
 
 if __name__ == '__main__':

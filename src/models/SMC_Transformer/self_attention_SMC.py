@@ -18,10 +18,10 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas):
         # noise parameters.
-        self.logvar_k = tf.Variable(initial_value=dict_sigmas['k'], name="logvar_k")
-        self.logvar_q = tf.Variable(initial_value=dict_sigmas['q'], name="logvar_q")
-        self.logvar_v = tf.Variable(initial_value=dict_sigmas['v'], name="logvar_v")
-        self.logvar_z = tf.Variable(initial_value=dict_sigmas['z'], name="logvar_z")
+        self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
+        self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
+        self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
+        self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
         self.noise = True
 
     def reparameterize(self, mean, logvar):

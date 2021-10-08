@@ -52,6 +52,8 @@ class SMCTAlgo(Algo):
             if args.smc:
                 out_file = out_file + '__p{}'.format(args.particles)
                 out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+                if args.sampl_freq > 1:
+                    out_file = out_file + '_samplFreq{}'.format(args.sampl_freq)
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
         if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)
