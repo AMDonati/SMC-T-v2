@@ -125,7 +125,6 @@ class SSTDataset():
         elif self.tokenizer.__class__ == SSTTokenizer:
             tfdataset = tf.data.Dataset.from_tensor_slices(
                 (features_["input_ids"], features_["target_ids"], None))
-
         tfdataloader = tfdataset.batch(batch_size=batch_size, drop_remainder=True)
         next(iter(tfdataset))
         return tfdataset, tfdataloader

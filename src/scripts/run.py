@@ -63,6 +63,7 @@ def get_parser():
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
+    parser.add_argument("-sampl_freq", type=int, default=3, help="frequency of resampling in the SMC algo of the transformer.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
@@ -83,6 +84,7 @@ def run(args):
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
     BUFFER_SIZE = 500
 
+    assert args.max_seq_len % args.sampl_freq == 0, "sampl_freq args should be a multiple of max_seq_len"
 
     if args.dataset == "dummy_nlp":
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,

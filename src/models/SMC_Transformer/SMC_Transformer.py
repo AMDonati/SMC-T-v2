@@ -58,7 +58,6 @@ class SMC_Transformer(tf.keras.Model):
 
     def compute_SMC_loss(self, targets, predictions, attention_mask=None):
         assert self.cell.noise == self.cell.attention_smc.noise
-
         if self.cell.noise:
             list_logvar = [self.cell.attention_smc.logvar_k, self.cell.attention_smc.logvar_q,
                            self.cell.attention_smc.logvar_v,
@@ -137,8 +136,6 @@ class SMC_Transformer(tf.keras.Model):
         :param targets: target_data: shape (B,P,S,F_y) with P=1 during training. F_y can be different from F_x.
         :return:
         '''
-        # check dimensionality of inputs (B,P,S,F) with P = 1 during training.
-        #assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
 
         input_tensor_processed = self.get_encoded_input(inputs, attention_mask=attention_mask)
         if tf.shape(targets)[1] == 1:
@@ -165,13 +162,6 @@ class SMC_Transformer(tf.keras.Model):
         self.cell.cell_count = 0  # additional counter to avoid duplicate of first timestep.
 
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-        # outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
-        # R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        # attn_weights = outputs[1]
-        # if len(tf.shape(attn_weights)) == 4: # one-head case
-        #     attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
-        # attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
-
         R = self.reshape_ouputs(outputs[0])
         attn_weights = self.reshape_ouputs(outputs[1])
 

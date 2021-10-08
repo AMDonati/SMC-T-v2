@@ -32,7 +32,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output, sample_freq=args.sampl_freq)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -40,6 +40,7 @@ class SMCTAlgo(Algo):
         self.ckpt_manager, _ = self._load_ckpt()
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
+        print(args)
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
