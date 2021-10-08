@@ -114,6 +114,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             #self.list_weights.append(w.numpy())
             #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
+            print("RESAMPLING WEIGHTS", w.shape)
+            print("MAX INDICES", tf.reduce_max(i_t).numpy())
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
                 KVR = resample(KVR, i_t)
