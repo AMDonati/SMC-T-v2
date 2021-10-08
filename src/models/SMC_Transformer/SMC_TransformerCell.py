@@ -65,9 +65,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     def compute_w_classification(self, predictions, y):
       # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
       probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,F,V)
-      w = tf.gather(probas, y, axis=-1, batch_dims=3) # shape (B,P,S)
-      w_norm = tf.nn.softmax(tf.squeeze(w, axis=-1), axis=1) # shape (B,S) # how to combine the three weights ?
-      w_norm = tf.reduce_prod(w_norm, axis=-1) #TODO: check reduce_logsumexp
+      w = tf.gather(probas, y, axis=-1, batch_dims=3) # shape (B,P,S,1)
+      w_norm = tf.squeeze(w, axis=-1) # (B,P,S)
+      w_norm = tf.reduce_sum(w_norm, axis=-1)# shape (B,S) # sum because we are at the logits level.
+      #w_norm = tf.reduce_prod(w_norm, axis=-1) #TODO: check reduce_logsumexp
       return w_norm  # shape (B,P)
 
     def call_inference(self, inputs, states, timestep):
