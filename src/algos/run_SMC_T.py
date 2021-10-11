@@ -60,7 +60,16 @@ class SMCTAlgo(Algo):
         if args.smc:
             self.logger.info("SMC Transformer for {} particles".format(args.particles))
             if args.sigmas is not None:
-                dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [args.sigmas for _ in range(4)]))
+                if args.noise_dim == "multi":
+                    if not isinstance(args.sigmas, list):
+                        sigmas = [args.sigmas] * args.d_model
+                    elif len(args.sigmas) == args.d_model:
+                        sigmas = args.sigmas
+                    else:
+                        raise ValueError("Error in sigmas argument: should be either a scalar, either a list of length d_model args.")
+                else:
+                    sigmas = args.sigmas
+                dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigmas for _ in range(4)]))
             else:
                 dict_sigmas = None
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
@@ -102,10 +111,10 @@ class SMCTAlgo(Algo):
                                                    self.smc_transformer.cell.attention_smc.logvar_q.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_v.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_z.numpy()]))
-            dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-            final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
-            with open(final_sigmas_path, 'w') as fp:
-                json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+            # dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
+            # final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
+            # with open(final_sigmas_path, 'w') as fp:
+            #     json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
         self.smc_transformer.save_weights(os.path.join(self.out_folder, "model"))
         self.logger.info('-' * 60)
 
@@ -124,21 +133,13 @@ class SMCTAlgo(Algo):
             self.start_epoch = start_epoch
         else:
             start_epoch = 0
-        if self.save_path is not None and self.distribution:
-            # self._check_consistency_hparams(args)
-            sigma_file = "logvar_after_training.json"
-            with open(os.path.join(self.save_path, sigma_file)) as json_file:
-                dict_json = json.load(json_file)
-            self.logvar_after_training = {key: float(value) for key, value in dict_json.items()}
-            self.logger.info("updating sigmas values with the latest ones...{}".format(dict_json))
-            self._reinit_sigmas()
         return ckpt_manager, start_epoch
 
-    def _reinit_sigmas(self):
-        if self.logvar_after_training is not None:
-            dict_sigmas = {key: self.logvar_after_training[key] for key in ['k', 'q', 'v', 'z']}
-            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                                         num_particles=self.smc_transformer.cell.num_particles)
+    # def _reinit_sigmas(self):
+    #     if self.logvar_after_training is not None:
+    #         dict_sigmas = {key: self.logvar_after_training[key] for key in ['k', 'q', 'v', 'z']}
+    #         self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+    #                                                      num_particles=self.smc_transformer.cell.num_particles)
 
     def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
         P = self.smc_transformer.cell.num_particles

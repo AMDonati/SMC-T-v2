@@ -62,6 +62,7 @@ def get_parser():
     # smc params.
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+    parser.add_argument("-noise_dim", type=str, default="uni", help="1D noise or multi-dim noise.")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
