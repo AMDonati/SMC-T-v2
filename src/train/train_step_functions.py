@@ -28,7 +28,7 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
 # @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None):
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, EM_param=-0.6, attention_mask=None):
     '''
     :param it:
     :param inputs:
@@ -58,10 +58,10 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
 
 
             for j in range(err_v.shape[0]):
-                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
-                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
-                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
-                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
+                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-EM_param) * err_v[j]
+                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-EM_param) * err_k[j]
+                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-EM_param) * err_q[j]
+                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-EM_param) * err_z[j]
 
         smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
         loss = smc_loss

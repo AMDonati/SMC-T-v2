@@ -39,6 +39,7 @@ class SMCTAlgo(Algo):
         self.ckpt_manager, _ = self._load_ckpt()
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
         self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
+        self.EM_param = args.EM_param
 
     def _create_out_folder(self, args):
         if args.save_path is not None:
@@ -94,7 +95,8 @@ class SMCTAlgo(Algo):
                               ckpt_manager=self.ckpt_manager,
                               logger=self.logger,
                               start_epoch=self.start_epoch,
-                              num_train=1)
+                              num_train=1,
+                              EM_param=self.EM_param)
         if self.distribution:
             self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
                                                    [self.smc_transformer.cell.attention_smc.sigma_k.numpy(),

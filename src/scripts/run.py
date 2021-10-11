@@ -58,6 +58,7 @@ def get_parser():
     parser.add_argument("-bs", type=int, default=128, help="batch size")
     parser.add_argument("-ep", type=int, default=1, help="number of epochs")
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
+    parser.add_argument("-EM_param", type=float, default=0.6, help='learning rate for EM update.')
     # smc params.
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
@@ -102,7 +103,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=args.test_samples)
+    #algo.test(test_samples=args.test_samples)
 
 
 if __name__ == '__main__':

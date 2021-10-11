@@ -122,7 +122,7 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
 
 
 def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, ckpt_manager, logger,
-                          start_epoch, num_train):
+                          start_epoch, num_train, EM_param=-0.6):
 
     losses_history = {"train_loss":[], "train_mse_metric":[], "train_ppl":[], "val_loss":[], "val_mse_metric": [], "val_ppl":[]}
 
@@ -162,7 +162,8 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                                                                        smc_transformer=smc_transformer,
                                                                        optimizer=optimizer,
                                                                        it=it,
-                                                                       attention_mask=attn_mask)
+                                                                       attention_mask=attn_mask,
+                                                                       EM_param=EM_param)
             train_loss[0] += train_loss_batch
 
             if smc_transformer.cell.noise:

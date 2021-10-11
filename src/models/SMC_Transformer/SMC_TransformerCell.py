@@ -58,7 +58,17 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
       probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
       w = tf.gather(tf.squeeze(probas, axis=-2), tf.squeeze(y, axis=[-1,-2]), axis=-1, batch_dims=2) # shape (B,P)
+      if tf.math.reduce_sum(tf.cast(tf.math.is_inf(w), dtype=tf.int32)).numpy() > 0 or tf.math.reduce_sum(tf.cast(tf.math.is_nan(w), dtype=tf.int32)).numpy() > 0:
+          print("bug")
+      try:
+          tf.debugging.check_numerics(w, message='Checking b')
+      except Exception as e:
+          assert "Checking w: Tensor had NaN or Inf values" in e.message
       w_norm = tf.nn.softmax(w, axis=-1) # shape (B,P)
+      try:
+          tf.debugging.check_numerics(w_norm, message='Checking b')
+      except Exception as e:
+          assert "Checking w_norm: Tensor had NaN values" in e.message
       return w_norm  # shape (B,P)
 
     def call_inference(self, inputs, states, timestep):
@@ -109,10 +119,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         # -------- SMC Algo ---------------------------------------------------------------------------------------------------------
         if self.noise:
             w = self.compute_w_classification(predictions=predictions, y=y)
-            i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
+            i_t = tf.random.categorical(w, self.num_particles)
+            # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
-            self.list_weights.append(w.numpy())
-            self.list_indices.append(i_t.numpy())
+            #self.list_weights.append(w.numpy())
+            #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 K = resample(params=K, i_t=i_t, t=self.dec_timestep)
