@@ -102,6 +102,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             r = z
 
         predictions = self.output_layer(r)  # (B,P,1,F_y)
+
+        if tf.reduce_sum(tf.cast(tf.math.is_nan(predictions), dtype=tf.int32)) > 0:
+            print("BUG: NAN VALUES IN PREDICTIONS")
         # storing r in R:
         R_past = R[:, :, :self.dec_timestep, :]
         R_future = R[:, :, self.dec_timestep + 1:, :]
@@ -115,8 +118,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             #self.list_weights.append(w.numpy())
             #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
-            print("RESAMPLING WEIGHTS", w.shape)
-            print("MAX INDICES", tf.reduce_max(i_t).numpy())
+            #print("RESAMPLING WEIGHTS", w.shape)
+            #print("MAX INDICES", tf.reduce_max(i_t).numpy())
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
                 KVR = resample(KVR, i_t)
