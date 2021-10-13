@@ -51,9 +51,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
-    def create_look_ahead_mask(self):
+    def create_look_ahead_mask(self, timestep):
         mask = create_look_ahead_mask(self.seq_len)
-        mask = mask[:self.sampl_freq]
+        # if timestep == 0:
+        #     timestep_=timestep
+        # else:
+        #     timestep_=timestep+1
+        mask = mask[timestep:timestep+self.sampl_freq]
         return mask
 
     def reinit_sample_freq(self, sample_freq):
@@ -105,7 +109,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         # self attention:
         timestep = self.sampl_freq * self.dec_timestep # if seq_len = 12, and sampl_freq = 3: values = [0,0,3,6,9,12] (duplication of zeros due to tensorflow
-        look_ahead_mask = self.create_look_ahead_mask()
+        look_ahead_mask = self.create_look_ahead_mask(timestep)
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=timestep, dec_timestep=self.dec_timestep, K=K, V=V, mask=look_ahead_mask)  #TODO: compute decoding timestep as sample_freq * self.dec_timestep
 
         if self.full_model:
