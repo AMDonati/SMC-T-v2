@@ -6,6 +6,7 @@ from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 import tensorflow_probability as tfp
+import numpy as np
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -65,18 +66,41 @@ class SMC_Transformer(tf.keras.Model):
         log_prob = gaussian_distrib.log_prob(noise)
         return log_prob
 
+    def compute_log_gaussian_density_for_noise_net(self, logvar, noise): #TODO: check this function.
+        bs = noise.shape[0]
+        S = noise.shape[-2]
+        logvar = tf.reduce_mean(logvar, axis=1) # same values along all particles.
+        log_probs = np.zeros(shape=(bs, self.cell.num_particles, S))
+        for b in range(bs):
+            for s in range(S):
+                logvar_ = logvar[b,s] # shape (d_model).
+                noise_ = noise[b,:,s] # shape (P, d_model)
+                gauss_ = tfp.distributions.MultivariateNormalDiag(scale_diag=tf.exp(logvar_*0.5))
+                log_prob_ = gauss_.log_prob(noise_)
+                log_probs[b, :, s] = log_prob_.numpy()
+        return tf.constant(log_probs, dtype=tf.float32) # shape (B,P,S)
 
-    def compute_SMC_loss(self, targets, predictions, attention_mask=None):
+    def get_logvar_from_inputs(self, inputs):
+        inputs = self.get_encoded_input(inputs)
+        logvar_k, logvar_q, logvar_v, logvar_z = tf.split(self.cell.attention_smc.noise_network(inputs), num_or_size_splits=4, axis=-1)
+        return [logvar_k, logvar_q, logvar_v, logvar_z]
+
+    def compute_SMC_loss(self, inputs, targets, predictions, attention_mask=None): #TODO: add inputs here.
         assert self.cell.noise == self.cell.attention_smc.noise
 
         if self.cell.noise:
-            list_logvar = [self.cell.attention_smc.logvar_k, self.cell.attention_smc.logvar_q,
+            if self.cell.attention_smc.noise_network is None:
+                list_logvar = [self.cell.attention_smc.logvar_k, self.cell.attention_smc.logvar_q,
                            self.cell.attention_smc.logvar_v,
                            self.cell.attention_smc.logvar_z]  # (D,D) or scalar.
+            else:
+                list_logvar = self.get_logvar_from_inputs(inputs)
             loss_parts, loss_parts_no_log = [], []
-
             for noise, logvar in zip(self.internal_noises, list_logvar):
-                loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
+                if self.cell.attention_smc.noise_network is None:
+                    loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
+                else:
+                    loss_part = self.compute_log_gaussian_density_for_noise_net(logvar, noise)
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)

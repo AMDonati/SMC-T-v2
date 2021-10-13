@@ -67,6 +67,8 @@ class SMCTAlgo(Algo):
                         sigmas = args.sigmas
                     else:
                         raise ValueError("Error in sigmas argument: should be either a scalar, either a list of length d_model args.")
+                elif args.noise_dim == "noise_net":
+                    sigmas = args.noise_dim
                 else:
                     sigmas = args.sigmas
                 dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigmas for _ in range(4)]))
@@ -105,16 +107,6 @@ class SMCTAlgo(Algo):
                               logger=self.logger,
                               start_epoch=self.start_epoch,
                               num_train=1)
-        if self.distribution:
-            self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
-                                                   [self.smc_transformer.cell.attention_smc.logvar_k.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.logvar_q.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.logvar_v.numpy(),
-                                                   self.smc_transformer.cell.attention_smc.logvar_z.numpy()]))
-            # dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-            # final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
-            # with open(final_sigmas_path, 'w') as fp:
-            #     json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
         self.smc_transformer.save_weights(os.path.join(self.out_folder, "model"))
         self.logger.info('-' * 60)
 

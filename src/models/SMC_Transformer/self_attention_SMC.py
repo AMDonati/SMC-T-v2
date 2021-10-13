@@ -13,6 +13,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         self.wk = tf.keras.layers.Dense(d_model, name='dense_projection_k')
         self.wv = tf.keras.layers.Dense(d_model, name='dense_projection_v')
         self.dense = tf.keras.layers.Dense(d_model, name='dense_projection_z')
+        self.noise_network = None
         self.noise = False
 
     def diagonal_variance_matrix(self, sigmas):
@@ -22,7 +23,10 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas):
         # noise parameters.
-        if isinstance(dict_sigmas['k'], list):
+        if isinstance(dict_sigmas['k'], str):
+            self.noise_network = tf.keras.layers.Dense(4*self.d_model, name='noise_network')
+            self.logvar_k, self.logvar_q, self.logvar_v, self.logvar_z = None, None, None, None
+        elif isinstance(dict_sigmas['k'], list):
             self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
             self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
             self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
@@ -38,14 +42,16 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         eps = tf.random.normal(shape=mean.shape)
         return eps * tf.exp(logvar * .5) + mean
 
-    def add_noise(self, params, logvar):
+    def add_noise(self, params, logvar, noise=None):
         '''
         :param params: K,q,V or z. shape (B,P,S,D) for K, V. or shape (B,P,1,D) for q, z.
         :param sigma: scalar or matrix of shape (D,D).
         :return:
         '''
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-        if len(tf.shape(logvar)) == 0:
+        if noise is not None:
+            noise = tf.math.multiply(gaussian_noise, tf.exp(noise*0.5))
+        elif len(tf.shape(logvar)) == 0:
             noise = tf.exp(logvar * 0.5) * gaussian_noise
         else:
             diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
@@ -70,9 +76,13 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         v_ = self.wv(inputs)  # (B,P,1,D)
 
         if self.noise:
-            k = self.add_noise(k_, self.logvar_k)
-            q = self.add_noise(q_, self.logvar_q)
-            v = self.add_noise(v_, self.logvar_v)
+            if self.noise_network is not None:
+                noise_k, noise_q, noise_v, noise_z = tf.split(self.noise_network(inputs), num_or_size_splits=4, axis=-1)
+            else:
+                noise_k, noise_q, noise_v, noise_z = None, None, None, None
+            k = self.add_noise(k_, self.logvar_k, noise_k)
+            q = self.add_noise(q_, self.logvar_q, noise_q)
+            v = self.add_noise(v_, self.logvar_v, noise_v)
             self.noise_k = k - k_
             self.noise_q = q - q_
             self.noise_v = v - v_
@@ -118,13 +128,13 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         # softmax to get pi:
         attention_weights = tf.nn.softmax(scaled_attention_logits_masked, axis=-1)  # (B, P, 1, S)
         z_ = tf.matmul(attention_weights, V)  # (B,P,1,S)
-        z_ = self.dense(z_)
+        z_proj = self.dense(z_)
 
         if self.noise:
-            z = self.add_noise(z_, self.logvar_z)
+            z = self.add_noise(z_proj, self.logvar_z, noise_z)
             self.noise_z = z - z_ # TODO: remove this one, because we need resampled noise.
         else:
-            z = z_
+            z = z_proj
         return (z, K, V), attention_weights
 
 

@@ -45,7 +45,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
                                                        targets=targets,
                                                        attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
 
-        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
+        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(inputs=inputs, predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
         loss = smc_loss
         ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, num_particles=smc_transformer.cell.num_particles, attention_mask=attention_mask)
 
