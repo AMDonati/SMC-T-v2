@@ -47,7 +47,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                       R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]))
         self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
                             tf.TensorShape([self.num_particles, 1, self.seq_len]))  # r, attention_weights
-        self.look_ahead_mask = self.create_look_ahead_mask()
+        #self.look_ahead_mask = self.create_look_ahead_mask()
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
@@ -55,6 +55,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         mask = create_look_ahead_mask(self.seq_len)
         mask = mask[:self.sampl_freq]
         return mask
+
+    def reinit_sample_freq(self, sample_freq):
+        self.sampl_freq = sample_freq
+        self.look_ahead_mask = create_look_ahead_mask()
 
     def add_SMC_parameters(self, dict_sigmas, num_particles):
         self.noise = True
@@ -101,7 +105,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         # self attention:
         timestep = self.sampl_freq * self.dec_timestep # if seq_len = 12, and sampl_freq = 3: values = [0,0,3,6,9,12] (duplication of zeros due to tensorflow
-        (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=timestep, dec_timestep=self.dec_timestep, K=K, V=V, mask=self.look_ahead_mask)  #TODO: compute decoding timestep as sample_freq * self.dec_timestep
+        look_ahead_mask = self.create_look_ahead_mask()
+        (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=timestep, dec_timestep=self.dec_timestep, K=K, V=V, mask=look_ahead_mask)  #TODO: compute decoding timestep as sample_freq * self.dec_timestep
 
         if self.full_model:
             out = self.layernorm1(z + x)
@@ -119,7 +124,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
-            print("RESAMPLING WEIGHTS FIRST ELEMENT - timestep {} - {}".format(self.dec_timestep, w[0].numpy()))
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)

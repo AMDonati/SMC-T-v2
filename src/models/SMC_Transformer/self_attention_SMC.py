@@ -94,7 +94,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         # scale matmul_qk
         dk = tf.cast(tf.shape(K)[-1], tf.float32)
         scaled_attention_logits = matmul_qk / tf.math.sqrt(dk) # (B,P,1,S)
-        if mask is not None: # mask per timestep on the future
+        if mask is not None: # mask per timestep on the future: shape (sample_freq, seq_len)
             scaled_attention_logits += (mask * -1e9)
         # softmax to get pi:
         attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B, P, 1, S)
