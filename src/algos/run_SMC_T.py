@@ -112,7 +112,6 @@ class SMCTAlgo(Algo):
         self.smc_transformer.save_weights(os.path.join(self.out_folder, "model"))
         self.logger.info('-' * 60)
         self.logger.info("reinitializing the sample frequency to one after training...")
-        self.smc_transformer.sample_freq = 1
 
     def _load_ckpt(self, num_train=1):
         #TODO: replace this par model.load_weights()?
@@ -149,8 +148,9 @@ class SMCTAlgo(Algo):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
-        self.smc_transformer.seq_len = past_len
-        self.smc_transformer.cell.seq_len = past_len
+        self.smc_transformer.reinit_seq_len(past_len)
+        self.logger.info("reinitializing the sample frequency to one for inference...")
+        self.smc_transformer.reinit_sample_freq(1)
         if self.smc_transformer.cell.noise:
             self.smc_transformer.cell.add_stop_resampling(past_len)
         for i in range(future_len + 1):
@@ -169,8 +169,7 @@ class SMCTAlgo(Algo):
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
             if i < future_len:  # dummy target (not used when resampling is stopped.)
-                self.smc_transformer.seq_len += 1
-                self.smc_transformer.cell.seq_len += 1
+                self.smc_transformer.reinit_seq_len(self.smc_transformer.seq_len+1)
             last_pred = tf.expand_dims(last_pred, axis=-2)
             last_pred = tf.expand_dims(last_pred, axis=0)
             inputs = tf.concat([inputs, last_pred], axis=-2)

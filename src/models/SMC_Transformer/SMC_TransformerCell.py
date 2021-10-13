@@ -47,22 +47,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                       R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]))
         self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
                             tf.TensorShape([self.num_particles, 1, self.seq_len]))  # r, attention_weights
-        #self.look_ahead_mask = self.create_look_ahead_mask()
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
     def create_look_ahead_mask(self, timestep):
         mask = create_look_ahead_mask(self.seq_len)
-        # if timestep == 0:
-        #     timestep_=timestep
-        # else:
-        #     timestep_=timestep+1
         mask = mask[timestep:timestep+self.sampl_freq]
         return mask
-
-    def reinit_sample_freq(self, sample_freq):
-        self.sampl_freq = sample_freq
-        self.look_ahead_mask = create_look_ahead_mask()
 
     def add_SMC_parameters(self, dict_sigmas, num_particles):
         self.noise = True

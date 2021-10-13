@@ -109,6 +109,14 @@ class SMC_Transformer(tf.keras.Model):
                 input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
+    def reinit_sample_freq(self, sample_freq):
+        self.sample_freq = sample_freq
+        self.cell.sampl_freq = sample_freq
+
+    def reinit_seq_len(self, seq_len):
+        self.seq_len = seq_len
+        self.cell.seq_len = seq_len
+
     def prepare_inputs_for_rnn(self, tensor, permute=True):
         '''
 
