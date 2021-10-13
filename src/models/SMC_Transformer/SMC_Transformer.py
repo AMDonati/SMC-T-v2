@@ -76,7 +76,10 @@ class SMC_Transformer(tf.keras.Model):
             loss_parts, loss_parts_no_log = [], []
 
             for noise, logvar in zip(self.internal_noises, list_logvar):
-                loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
+                if len(logvar.shape) == 0:
+                    loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
+                else:
+                    loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
