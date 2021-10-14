@@ -141,6 +141,46 @@ class SMCTAlgo(Algo):
     #         self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
     #                                                      num_particles=self.smc_transformer.cell.num_particles)
 
+    def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
+        P = self.smc_transformer.cell.num_particles
+        # forward pass on test_sample_past
+        list_top_k_words, list_particles_norm = [], []
+        self.smc_transformer.seq_len = past_len
+        self.smc_transformer.cell.init_inference_parameters(self.dataset.tokenizer)
+        for i in range(future_len + 1):
+            if i == 0:
+                (preds, _), (K, V, _), _ = self.smc_transformer(inputs, targets,
+                                                                attention_mask)  # K,V shape (1, P, 40, D)
+                last_pred = preds[:, :, -1, :]
+            else:
+                encoded_inputs = self.smc_transformer.get_encoded_input(inputs, attention_mask)
+                last_pred, (K,V) = self.smc_transformer.cell.call_inference(inputs=inputs, encoded_inputs=encoded_inputs, states=(K,V), timestep=past_len+i-1)
+            #last_pred = preds[:, :, -1, :]
+            if decoding == "sampling":
+                dict_top_k_words = self._extract_top_k_words(last_pred)
+                list_top_k_words.append(dict_top_k_words)
+                particles_norm = self._get_particle_norm(last_pred)
+                list_particles_norm.append(particles_norm)
+            if decoding == "sampling":
+                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+            elif decoding == "greedy":
+                last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32), axis=-1)
+            if i == 0:
+                inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
+                targets = tf.tile(targets, multiples=[1, P, 1, 1])
+            if i < future_len:  # dummy target (not used when resampling is stopped.)
+                self.smc_transformer.seq_len += 1
+            last_pred = tf.expand_dims(last_pred, axis=-2)
+            last_pred = tf.expand_dims(last_pred, axis=0)
+            inputs = tf.concat([inputs, last_pred], axis=-2)
+            targets = tf.concat(
+                [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
+                axis=-2)
+        if decoding == "sampling":
+            return inputs, list_top_k_words, list_particles_norm
+        elif decoding == "greedy":
+            return inputs, None, None
+
     def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past

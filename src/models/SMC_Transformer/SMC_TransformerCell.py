@@ -5,6 +5,7 @@ from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
 from src.models.SMC_Transformer.multi_head_attention_SMC import mha_SMC
 from src.models.SMC_Transformer.transformer_utils import resample
 from src.models.classic_layers import point_wise_feed_forward_network
+from src.eval.language_metrics import gpt2_perplexity_batch
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
@@ -48,6 +49,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
+    def init_inference_parameters(self, tokenizer):
+        self.tokenizer=tokenizer
+
+
     def add_SMC_parameters(self, dict_sigmas, num_particles):
         self.noise = True
         self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
@@ -62,18 +67,39 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_norm = w
       return w_norm  # shape (B,P)
 
-    def call_inference(self, inputs, states, timestep):
+    def compute_w_inference(self, predictions, inputs):
+        probs = tf.squeeze(tf.nn.softmax(predictions), axis=-2)
+        values, indices = tf.math.top_k(probs, k=10)
+        indices = tf.expand_dims(indices, axis=-1) # shape (B,P,10,1)
+        list_sentences = [tf.squeeze(tf.concat([inputs, tf.expand_dims(indices[:, :, i], axis=-2)], axis=-2))for i in range(indices.shape[-2])] # list of tensor of shape (P,S).
+        list_gpt2_ppl = [gpt2_perplexity_batch(sentence, tokenizer=self.tokenizer, reduction=False) for sentence in list_sentences]
+        gpt2_ppls = tf.stack(list_gpt2_ppl, axis=-1) # shape (B,10)
+        weighted_gpt2_ppls = tf.math.multiply(gpt2_ppls, values)
+        w = tf.reduce_mean(weighted_gpt2_ppls, axis=-1)
+        return w # shape P.
+
+    def call_inference(self, inputs, encoded_inputs, states, timestep):
         K, V = states
+        input = tf.expand_dims(encoded_inputs[:,:,-1,:], axis=-2) #caution, we need here the encoded input and not the raw one....
         # self attention:
-        (z, K, V), attn_weights = self.attention_smc(inputs=inputs, timestep=timestep, K=K, V=V)
+        (z, K, V), attn_weights = self.attention_smc(inputs=input, timestep=timestep, K=K, V=V)
 
         if self.full_model:
-            out = self.layernorm1(z + inputs)
+            out = self.layernorm1(z + input)
             r = self.ffn(out)
             r = self.layernorm2(r + out)
         else:
             r = z
         predictions = self.output_layer(r)  # (B,P,1,F_y)
+
+        # resampling K,V:
+        if self.noise:
+            w = self.compute_w_inference(predictions=predictions, inputs=inputs)
+            i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
+            w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
+            KV = tf.concat([K,V], axis=-1)
+            KV = resample(KV, i_t)
+            K, V = tf.split(KV, num_or_size_splits=2, axis=-1)
 
         return predictions, (K, V)
 
@@ -118,8 +144,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             #self.list_weights.append(w.numpy())
             #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
-            #print("RESAMPLING WEIGHTS", w.shape)
-            #print("MAX INDICES", tf.reduce_max(i_t).numpy())
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
                 KVR = resample(KVR, i_t)
