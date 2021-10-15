@@ -6,6 +6,7 @@ from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 import tensorflow_probability as tfp
+import math
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -63,7 +64,7 @@ class SMC_Transformer(tf.keras.Model):
             diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
         gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)
         log_prob = gaussian_distrib.log_prob(noise)
-        return log_prob
+        return -log_prob
 
 
     def compute_SMC_loss(self, targets, predictions, attention_mask=None):
@@ -77,7 +78,11 @@ class SMC_Transformer(tf.keras.Model):
 
             for noise, logvar in zip(self.internal_noises, list_logvar):
                 if len(logvar.shape) == 0:
-                    loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
+                    #loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
+                    loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
+                    d_model = noise.shape[-1]
+                    #loss_part_ = 1 / 2 *[ (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise) + d_model * tf.math.log(2. * math.pi * tf.math.exp(logvar))]
+
                 else:
                     loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
                 loss_parts.append(loss_part)
