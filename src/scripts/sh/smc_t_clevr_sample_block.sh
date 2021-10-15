@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=CLEVR-smc-t0.1
+#SBATCH --job-name=SAMPLE-BLOCK-CLEVR-smc-t0.1
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1

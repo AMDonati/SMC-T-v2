@@ -5,6 +5,7 @@ from src.models.Baselines.Transformer_without_enc import Decoder
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
+import tensorflow_probability as tfp
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -56,6 +57,15 @@ class SMC_Transformer(tf.keras.Model):
         self.num_heads = num_heads
         self.sample_freq = sample_freq
 
+    def compute_log_gaussian_density(self, logvar, noise):
+        if len(tf.shape(logvar)) == 0:
+            diag_std = tf.math.exp(tf.constant([0.5 * logvar.numpy()] * noise.shape[-1], dtype=tf.float32))
+        else:
+            diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
+        gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)
+        log_prob = gaussian_distrib.log_prob(noise)
+        return -log_prob
+
     def compute_SMC_loss(self, targets, predictions, attention_mask=None):
         assert self.cell.noise == self.cell.attention_smc.noise
         if self.cell.noise:
@@ -65,7 +75,8 @@ class SMC_Transformer(tf.keras.Model):
             loss_parts, loss_parts_no_log = [], []
 
             for noise, logvar in zip(self.internal_noises, list_logvar):
-                loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
+                loss_part = self.compute_log_gaussian_density(logvar, noise)
+                #loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
