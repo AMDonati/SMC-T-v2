@@ -124,14 +124,14 @@ class Algo:
         self._save_and_log_metrics(metrics_greedy, decoding="greedy")
 
     def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
-        # #particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
-        #                                                                      targets=targets, attention_mask=attention_mask, past_len=self.past_len,
-        #                                                                      future_len=future_len, decoding=decoding) # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
-        particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
-                                                                             targets=targets,
-                                                                             attention_mask=attention_mask,
-                                                                             past_len=self.past_len,
-                                                                             future_len=future_len, decoding=decoding)
+        particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
+                                                                             targets=targets, attention_mask=attention_mask, past_len=self.past_len,
+                                                                             future_len=future_len, decoding=decoding) # shape (1,P,len,1) #TODO: put a min between self.future_len and len_decoded target.
+        # particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
+        #                                                                      targets=targets,
+        #                                                                      attention_mask=attention_mask,
+        #                                                                      past_len=self.past_len,
+        #                                                                      future_len=future_len, decoding=decoding)
         decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
                              range(particles.shape[1])] if self.distribution else [
             self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
