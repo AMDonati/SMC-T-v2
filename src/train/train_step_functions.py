@@ -1,6 +1,6 @@
 import tensorflow as tf
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from src.train.utils import compute_categorical_cross_entropy
+from src.train.utils import compute_categorical_cross_entropy, EM
 
 # -------------------------------- TRAIN STEP FUNCTIONS ---------------------------------------------------------------------
 train_step_signature = [
@@ -28,7 +28,7 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
 # @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None):
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None, EM_param=None):
     '''
     :param it:
     :param inputs:
@@ -44,6 +44,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
         (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,
                                                        targets=targets,
                                                        attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
+
+        if EM_param is not None:
+            smc_transformer = EM(smc_transformer, it=it, EM_param=EM_param)
 
         smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
         loss = smc_loss

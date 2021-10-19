@@ -20,18 +20,24 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             tf.math.log(tf.constant(sigmas, dtype=tf.float32))
         )
 
-    def add_SMC_parameters(self, dict_sigmas):
+    def add_SMC_parameters(self, dict_sigmas, EM=False):
         # noise parameters.
-        if isinstance(dict_sigmas['k'], list):
-            self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
-            self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
-            self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
-            self.logvar_z = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['z']), name="logvar_z")
+        if EM:
+            self.logvar_k = tf.math.log(dict_sigmas['k'])
+            self.logvar_q = tf.math.log(dict_sigmas['q'])
+            self.logvar_v = tf.math.log(dict_sigmas['v'])
+            self.logvar_z = tf.math.log(dict_sigmas['z'])
         else:
-            self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
-            self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
-            self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
-            self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
+            if isinstance(dict_sigmas['k'], list):
+                self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['z']), name="logvar_z")
+            else:
+                self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
         self.noise = True
 
     def reparameterize(self, mean, logvar):

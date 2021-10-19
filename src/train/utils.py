@@ -12,7 +12,8 @@ def compute_categorical_cross_entropy(targets, preds, num_particles, attention_m
     ce_metric_avg_pred = tf.reduce_mean(ce_metric_avg_pred)
     return ce_metric_avg_pred
 
-def EM(smc_transformer, it):
+def EM(smc_transformer, it, EM_param):
+    print("updating variance of noise with an EM...")
     if smc_transformer.cell.noise:
         # EM estimation of the noise parameters
         err_k = smc_transformer.noise_K_resampled * smc_transformer.noise_K_resampled
@@ -25,12 +26,19 @@ def EM(smc_transformer, it):
         err_z = tf.reduce_mean(err_z, axis=[1, 2, 3])
 
         for j in range(err_v.shape[0]):
-            smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (
-                -0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v[j]
-            smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (
-                -0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k[j]
-            smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (
-                -0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q[j]
-            smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (
-                -0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z[j]
+            smc_transformer.cell.attention_smc.logvar_v = EM_update(err_v[j], smc_transformer.cell.attention_smc.logvar_v, it, EM_param)
+            smc_transformer.cell.attention_smc.logvar_k = EM_update(err_k[j],
+                                                                    smc_transformer.cell.attention_smc.logvar_k, it,
+                                                                    EM_param)
+            smc_transformer.cell.attention_smc.logvar_q = EM_update(err_q[j],
+                                                                    smc_transformer.cell.attention_smc.logvar_q, it,
+                                                                    EM_param)
+            smc_transformer.cell.attention_smc.logvar_z = EM_update(err_z[j],
+                                                                    smc_transformer.cell.attention_smc.logvar_z, it,
+                                                                    EM_param)
     return smc_transformer
+
+def EM_update(err, logvar, it, EM_param):
+    var = (1 - it ** (
+        -EM_param)) * tf.math.exp(logvar) + it ** (-EM_param) * err
+    return tf.math.log(var)

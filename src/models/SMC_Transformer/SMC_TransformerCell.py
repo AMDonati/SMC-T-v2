@@ -53,9 +53,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.tokenizer=tokenizer
 
 
-    def add_SMC_parameters(self, dict_sigmas, num_particles):
+    def add_SMC_parameters(self, dict_sigmas, num_particles, EM=False):
         self.noise = True
-        self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
+        self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas, EM=EM)
         self.num_particles = num_particles
         #self.list_weights, self.list_indices = [], []
 

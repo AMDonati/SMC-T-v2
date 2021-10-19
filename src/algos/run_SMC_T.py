@@ -8,6 +8,7 @@ from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
+import math
 
 
 class SMCTAlgo(Algo):
@@ -35,6 +36,11 @@ class SMCTAlgo(Algo):
                                                attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output)
         self.distribution = args.smc
         self.particles = args.particles
+        if args.EM_param is not None:
+            self.EM = True
+        else:
+            self.EM = False
+        self.EM_param = args.EM_param
         self._init_SMC_T(args=args)
         self.sigmas_after_training = None
         self.ckpt_manager, _ = self._load_ckpt()
@@ -73,7 +79,7 @@ class SMCTAlgo(Algo):
             else:
                 dict_sigmas = None
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-                                                         num_particles=args.particles)
+                                                         num_particles=args.particles, EM=self.EM)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
             self.logger.info("Sigmas init: {}".format(dict_sigmas))
 
@@ -104,17 +110,18 @@ class SMCTAlgo(Algo):
                               ckpt_manager=self.ckpt_manager,
                               logger=self.logger,
                               start_epoch=self.start_epoch,
-                              num_train=1)
+                              num_train=1,
+                              EM_param=self.EM_param)
         if self.distribution:
             self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
                                                    [self.smc_transformer.cell.attention_smc.logvar_k.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_q.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_v.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_z.numpy()]))
-            # dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
-            # final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
-            # with open(final_sigmas_path, 'w') as fp:
-            #     json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
+            dict_json = {key: str(value) for key, value in self.sigmas_after_training.items()}
+            final_sigmas_path = os.path.join(self.out_folder, "logvar_after_training.json")
+            with open(final_sigmas_path, 'w') as fp:
+                json.dump(dict_json, fp)  # TODO: add this at each checkpoint saving?
         self.smc_transformer.save_weights(os.path.join(self.out_folder, "model"))
         self.logger.info('-' * 60)
 
@@ -135,11 +142,11 @@ class SMCTAlgo(Algo):
             start_epoch = 0
         return ckpt_manager, start_epoch
 
-    # def _reinit_sigmas(self):
-    #     if self.logvar_after_training is not None:
-    #         dict_sigmas = {key: self.logvar_after_training[key] for key in ['k', 'q', 'v', 'z']}
-    #         self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
-    #                                                      num_particles=self.smc_transformer.cell.num_particles)
+    def _reinit_sigmas(self):
+        if self.logvar_after_training is not None:
+            dict_sigmas = {key: math.exp(self.logvar_after_training[key]) for key in ['k', 'q', 'v', 'z']}
+            self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                                         num_particles=self.smc_transformer.cell.num_particles)
 
     def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
         P = self.smc_transformer.cell.num_particles
