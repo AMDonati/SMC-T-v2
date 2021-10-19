@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=FULL-MODEL-CLEVR-smc-t0.1
+#SBATCH --job-name=EM-CLEVR-smc-t0.1
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8g
-#SBATCH --output=slurm_out/sst/FULL-MODEL-smc_t0.1-%j.out
-#SBATCH --error=slurm_out/sst/FULL-MODEL-smc_t0.1-%j.err
+#SBATCH --output=slurm_out/sst/EM-smc_t0.1-%j.out
+#SBATCH --error=slurm_out/sst/EM-smc_t0.1-%j.err
 #SBATCH --time=100:00:00
 #SBATCH -A ktz@gpu
 
