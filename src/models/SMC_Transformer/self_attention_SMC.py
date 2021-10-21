@@ -40,9 +40,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
                 self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
         self.noise = True
 
-    def reparameterize(self, mean, logvar):
-        eps = tf.random.normal(shape=mean.shape)
-        return eps * tf.exp(logvar * .5) + mean
+    # def reparameterize(self, mean, logvar):
+    #     eps = tf.random.normal(shape=mean.shape)
+    #     return eps * tf.exp(logvar * .5) + mean
 
     def add_noise(self, params, logvar):
         '''
@@ -84,21 +84,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
-
-        #bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
-        # mask_time = np.zeros(shape=K.shape)
-        # mask_time[:,:,timestep,:] = 1
-        # mask_time = tf.constant(mask_time)
-        # mask_future = tf.constant([[0]*timestep + [-1e9] * S], shape=(1,1,S,1))
-        # mask_future = tf.tile(mask_future, multiples=[bs, P, 1, 1])
-        #
-        # K = K + k * mask_time
-        # K = K + mask_future
-        # V = V + v * mask_time
-
-        #TODO: use this instead: tf.sequence_mask(
-    #lengths, maxlen=None, dtype=tf.dtypes.bool, name=None
-#)
 
         K_past = K[:, :, :timestep, :]
         K_future = K[:, :, timestep + 1:, :]
