@@ -5,7 +5,7 @@ from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
 from src.models.SMC_Transformer.multi_head_attention_SMC import mha_SMC
 from src.models.SMC_Transformer.transformer_utils import resample
 from src.models.classic_layers import point_wise_feed_forward_network
-from src.eval.language_metrics import gpt2_perplexity_batch
+from src.eval.language_metrics import gpt2_perplexity_batch, gpt2_perplexity_batch_2
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
@@ -71,8 +71,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         probs = tf.squeeze(tf.nn.softmax(predictions), axis=-2)
         values, indices = tf.math.top_k(probs, k=10)
         indices = tf.expand_dims(indices, axis=-1) # shape (B,P,10,1)
-        list_sentences = [tf.squeeze(tf.concat([inputs, tf.expand_dims(indices[:, :, i], axis=-2)], axis=-2))for i in range(indices.shape[-2])] # list of tensor of shape (P,S).
-        list_gpt2_ppl = [gpt2_perplexity_batch(sentence, tokenizer=self.tokenizer, reduction=False) for sentence in list_sentences]
+        list_sentences = [tf.squeeze(tf.concat([inputs, tf.expand_dims(indices[:, :, i], axis=-2)], axis=-2))for i in range(indices.shape[-2])]  # list of tensor of shape (P,S).
+        list_gpt2_ppl = [gpt2_perplexity_batch_2(sentence, tokenizer=self.tokenizer) for sentence in
+                         list_sentences]
+        #list_gpt2_ppl = [gpt2_perplexity_batch(sentence, tokenizer=self.tokenizer, reduction=False) for sentence in list_sentences]
         gpt2_ppls = tf.stack(list_gpt2_ppl, axis=-1) # shape (B,10)
         weighted_gpt2_ppls = tf.math.multiply(gpt2_ppls, values)
         w = tf.reduce_mean(weighted_gpt2_ppls, axis=-1)
@@ -100,8 +102,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             KV = tf.concat([K,V], axis=-1)
             KV = resample(KV, i_t)
             K, V = tf.split(KV, num_or_size_splits=2, axis=-1)
-
-        return predictions, (K, V)
+        return tf.squeeze(predictions, axis=-2), (K, V)
 
     def add_stop_resampling(self, len_resampling):
         assert self.noise

@@ -162,13 +162,11 @@ class SMCTAlgo(Algo):
             else:
                 encoded_inputs = self.smc_transformer.get_encoded_input(inputs, attention_mask)
                 last_pred, (K,V) = self.smc_transformer.cell.call_inference(inputs=inputs, encoded_inputs=encoded_inputs, states=(K,V), timestep=past_len+i-1)
-            #last_pred = preds[:, :, -1, :]
             if decoding == "sampling":
                 dict_top_k_words = self._extract_top_k_words(last_pred)
                 list_top_k_words.append(dict_top_k_words)
                 particles_norm = self._get_particle_norm(last_pred)
                 list_particles_norm.append(particles_norm)
-            if decoding == "sampling":
                 last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
             elif decoding == "greedy":
                 last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32), axis=-1)

@@ -34,7 +34,7 @@ def gpt2_perplexity_batch(sentences, tokenizer=None, reduction=True):
         P = sentences.shape[0]
         S = sentences.shape[1]
         sentences = [tokenizer.decode(sentences[i].numpy()) for i in range(sentences.shape[0])]
-    inputs = gpt2_tokenizer(sentences, padding=True, truncation=True, return_tensors="tf")
+    inputs = gpt2_tokenizer(sentences, padding=True, return_tensors="tf")
     labels = tf.identity(inputs["input_ids"])
     labels_ = tf.where(inputs["attention_mask"] == 0, x=tf.constant(-100, shape=labels.shape), y=labels)
     outputs = gpt2_model(**inputs, labels=labels_)
@@ -45,6 +45,17 @@ def gpt2_perplexity_batch(sentences, tokenizer=None, reduction=True):
     else:
         ppl = tf.math.exp(tf.reduce_mean(loss))
         ppl = round(ppl.numpy(),2)
+    return ppl
+
+def gpt2_perplexity_batch_2(sentences, tokenizer=None):
+    sentences = [tokenizer.decode(sentences[i].numpy()) for i in range(sentences.shape[0])]
+    inputs = gpt2_tokenizer(sentences, padding=True, return_tensors="tf")
+    outputs = gpt2_model(**inputs)
+    preds_logits = outputs["logits"][:,:-1]
+    labels = inputs["input_ids"][:,1:]
+    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+    loss = ce(y_true=labels, y_pred=preds_logits)
+    ppl = tf.exp(tf.reduce_mean(loss, axis=-1))
     return ppl
 
 def BLEU_score(true_sentence, generated_sentence, split_str=False):

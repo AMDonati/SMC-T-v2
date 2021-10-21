@@ -66,6 +66,8 @@ def get_parser():
     parser.add_argument("-noise_dim", type=str, default="uni", help="1D noise or multi-dim noise.")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
     parser.add_argument("-EM_param", type=float, help="if not None, use an EM to learn the noise instead of SGD with learning rate equal to EM_param.")
+    parser.add_argument("-inference_resample", type=int, default=0,
+                        help="resampling particles at inference or not.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
