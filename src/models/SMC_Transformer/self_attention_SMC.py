@@ -22,15 +22,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas, EM=False):
         # noise parameters.
-        # self.logvar_k = tf.math.log(dict_sigmas['k'])
-        # self.logvar_q = tf.math.log(dict_sigmas['q'])
-        # self.logvar_v = tf.math.log(dict_sigmas['v'])
-        # self.logvar_z = tf.math.log(dict_sigmas['z'])
-        # self.logvar_k_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
-        # self.logvar_q_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
-        # self.logvar_v_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
-        # self.logvar_z_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
-
         if EM:
             self.logvar_k = tf.math.log(dict_sigmas['k'])
             self.logvar_q = tf.math.log(dict_sigmas['q'])
