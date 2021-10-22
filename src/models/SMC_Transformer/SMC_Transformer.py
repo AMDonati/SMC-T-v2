@@ -59,7 +59,9 @@ class SMC_Transformer(tf.keras.Model):
 
     def compute_log_gaussian_density(self, logvar, noise):
         if len(tf.shape(logvar)) == 0:
-            diag_std = tf.math.exp(tf.constant([0.5 * logvar.numpy()]*noise.shape[-1], dtype=tf.float32))
+            diag_logvar = 0.5 * logvar * tf.ones(shape=noise.shape[-1], dtype=tf.float32)
+            diag_std = tf.math.exp(diag_logvar)
+            #diag_std = tf.math.exp(tf.constant([0.5 * logvar.numpy()]*noise.shape[-1], dtype=tf.float32))
         else:
             diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
         gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)

@@ -22,6 +22,15 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
 
     def add_SMC_parameters(self, dict_sigmas, EM=False):
         # noise parameters.
+        # self.logvar_k = tf.math.log(dict_sigmas['k'])
+        # self.logvar_q = tf.math.log(dict_sigmas['q'])
+        # self.logvar_v = tf.math.log(dict_sigmas['v'])
+        # self.logvar_z = tf.math.log(dict_sigmas['z'])
+        # self.logvar_k_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
+        # self.logvar_q_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
+        # self.logvar_v_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
+        # self.logvar_z_grad = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
+
         if EM:
             self.logvar_k = tf.math.log(dict_sigmas['k'])
             self.logvar_q = tf.math.log(dict_sigmas['q'])
@@ -51,10 +60,11 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         :return:
         '''
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
+        logvar_ = tf.stop_gradient(logvar)
         if len(tf.shape(logvar)) == 0:
-            noise = tf.exp(logvar * 0.5) * gaussian_noise
+            noise = tf.exp(logvar_ * 0.5) * gaussian_noise
         else:
-            diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
+            diag_std = tf.linalg.diag_part(tf.exp(logvar_ * 0.5))
             std_tiled = tf.reshape(diag_std, (1,1,1,diag_std.shape[0]))
             std_tiled = tf.tile(std_tiled, [gaussian_noise.shape[0], gaussian_noise.shape[1], gaussian_noise.shape[2], 1])
             noise = tf.math.multiply(gaussian_noise, std_tiled)
