@@ -35,8 +35,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         :return:
         '''
         assert len(tf.shape(logvar)) == 0
+        logvar_ = tf.stop_gradient(logvar)
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-        noise = tf.exp(logvar * 0.5) * gaussian_noise
+        noise = tf.exp(logvar_ * 0.5) * gaussian_noise
         return params + noise
 
     def create_masks(self, inputs, K, timestep):
