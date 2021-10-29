@@ -104,6 +104,13 @@ class Algo:
             selfbleu = None
         return (mean_bleu, var_bleu), selfbleu
 
+    def get_inputs_targets(self, inputs, targets):
+        if len(inputs.shape) == 4:
+            inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
+        elif len(inputs.shape) == 2:
+            inp, tar = inputs[:, :self.past_len], targets[:, :self.past_len]
+        return inp, tar
+
     def test(self, **kwargs):
         self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
         metrics_sampling = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
@@ -111,10 +118,7 @@ class Algo:
         out_file_text_sampling = os.path.join(self.out_folder, "text_sampling.txt")
         out_file_text_greedy = os.path.join(self.out_folder, "text_greedy.txt")
         for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
-            if len(inputs.shape) == 4:
-                inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
-            elif len(inputs.shape) == 2:
-                inp, tar = inputs[:, :self.past_len], targets[:,:self.past_len]
+            inp, tar = self.get_inputs_targets(inputs, targets)
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-"*30 + "SAMPLING GENERATION" + '-'*30)
@@ -126,10 +130,13 @@ class Algo:
 
     def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
         if not self.inference_resample:
-            particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
+            particles, dict_top_words, particles_norm = self.inference_multistep_best_particle(inputs=inputs,
                                                                                  targets=targets, attention_mask=attention_mask, past_len=self.past_len,
                                                                                  future_len=future_len, decoding=decoding) # shape (1,P,len,1)
-        else:# #TODO: put a min between self.future_len and len_decoded target.
+            # particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
+            #                                                                      targets=targets, attention_mask=attention_mask, past_len=self.past_len,
+            #                                                                      future_len=future_len, decoding=decoding) # shape (1,P,len,1)
+        else:
             particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
                                                                                  targets=targets,
                                                                                  attention_mask=attention_mask,
