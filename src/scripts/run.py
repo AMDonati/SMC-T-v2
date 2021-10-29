@@ -72,7 +72,7 @@ def get_parser():
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
-    parser.add_argument("-past_len", type=int, default=4, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-past_len", type=int, default=2, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     parser.add_argument("-test_samples", type=int, default=3, help="number of test samples.")

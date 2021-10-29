@@ -19,7 +19,7 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="clevr"
 DATA_PATH="data/clevr"
-OUTPUT_PATH="output/NLP/CLEVR/max_seq_len20"
+OUTPUT_PATH="output/NLP/CLEVR/NEW_EXP"
 D_MODEL=32
 DFF=32
 BS=32

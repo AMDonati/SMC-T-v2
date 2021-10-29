@@ -117,16 +117,16 @@ class Algo:
         metrics_greedy = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
         out_file_text_sampling = os.path.join(self.out_folder, "text_sampling.txt")
         out_file_text_greedy = os.path.join(self.out_folder, "text_greedy.txt")
-        for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
+        for (inputs, targets, attention_mask) in self.test_dataset.take(len(self.test_dataset)):
             inp, tar = self.get_inputs_targets(inputs, targets)
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-"*30 + "SAMPLING GENERATION" + '-'*30)
             metrics_sampling = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_sampling, out_file_text=out_file_text_sampling, decoding="sampling")
-            self.logger.info("-" * 30 + "GREEDY GENERATION" + '-' * 30)
-            metrics_greedy = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
+            #self.logger.info("-" * 30 + "GREEDY GENERATION" + '-' * 30)
+            #metrics_greedy = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics_greedy, out_file_text=out_file_text_greedy, decoding="greedy")
         self._save_and_log_metrics(metrics_sampling, decoding='sampling')
-        self._save_and_log_metrics(metrics_greedy, decoding="greedy")
+        #self._save_and_log_metrics(metrics_greedy, decoding="greedy")
 
     def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
         if not self.inference_resample:
@@ -143,8 +143,9 @@ class Algo:
                                                                                  past_len=self.past_len,
                                                                                  future_len=future_len, decoding=decoding)
         decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
-                             range(particles.shape[1])] if self.distribution else [
-            self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
+                             range(particles.shape[1])]
+            #if self.distribution else [
+            #self.dataset.tokenizer.decode(tf.squeeze(particles).numpy())]
         gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
         (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,
                                                                     decoded_target=decoded_targets)

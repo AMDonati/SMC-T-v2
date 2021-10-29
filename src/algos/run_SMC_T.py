@@ -187,7 +187,11 @@ class SMCTAlgo(Algo):
             return inputs, None, None
 
     def inference_multistep_best_particle(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling', num_samples=10):
-        P = self.smc_transformer.cell.num_particles
+        if self.smc_transformer.cell.noise:
+            P = self.smc_transformer.cell.num_particles
+        else:
+            self.smc_transformer.cell.num_particles = num_samples
+            P = num_samples
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
         self.smc_transformer.seq_len = past_len
@@ -196,10 +200,9 @@ class SMCTAlgo(Algo):
         for i in range(future_len + 1):
             (preds, _), _, filtering_weights = self.smc_transformer(inputs, targets, attention_mask)  # K,V shape (1, P, 40, D)
             if i == 0:
-                #TODO: get last resampling weights. (if computed.)
                 indice = tf.random.categorical(filtering_weights[:,:,-1], 1)  # (B,P,1)
                 indice = tf.squeeze(indice)
-                last_pred = tf.expand_dims(preds[:, indice, -1, :], axis=1)#TODO instead: sample one trajectory, and then duplicates it ten times.
+                last_pred = tf.expand_dims(preds[:, indice, -1, :], axis=1)
                 last_pred = tf.tile(last_pred, multiples=[1,P, 1])
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
@@ -235,8 +238,7 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_stop_resampling(past_len)
         for i in range(future_len + 1):
             (preds, _), _, _ = self.smc_transformer(inputs, targets, attention_mask)  # K,V shape (1, P, 40, D)
-            #TODO: get last resampling weights. (if computed.)
-            last_pred = preds[:, :, -1, :] #TODO instead: sample one trajectory, and then duplicates it ten times.
+            last_pred = preds[:, :, -1, :]
             if decoding == "sampling":
                 dict_top_k_words = self._extract_top_k_words(last_pred)
                 list_top_k_words.append(dict_top_k_words)
@@ -276,9 +278,4 @@ class SMCTAlgo(Algo):
         last_pred = tf.squeeze(last_pred, axis=0)
         logits_norm = tf.norm(last_pred, axis=-1) # shape (B)
         return list(np.round(logits_norm.numpy(), 4))
-
-
-
-    #TODO: from last_pred: extract top_k words & probas (last_pred = logits).
-    # TODO: from last_pred extract norm.
 
