@@ -1,7 +1,8 @@
 import tensorflow as tf
 
 def compute_categorical_cross_entropy(targets, preds, num_particles, attention_mask=None):
-    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+    ce = tf.keras.losses.SparseCategoricalCrossentropy(reduction="none")
+    preds = tf.nn.softmax(preds, axis=-1)
     # resampling_weights = smc_transformer.cell.list_weights[-1] #TODO: add comparison with best particle.
     # best_particles = tf.math.argmax(resampling_weights)
     ce_metric_avg_pred = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
