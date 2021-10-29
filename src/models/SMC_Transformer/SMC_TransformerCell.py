@@ -151,7 +151,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                 K, V, R = tf.split(KVR, num_or_size_splits=3, axis=-1)
             # Getting internal noises for computing the loss.
             internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
-            output = [r, attn_weights, internal_noises]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
+            output = [r, attn_weights, internal_noises, w]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
         else:
             output = [r, attn_weights]
 

@@ -195,7 +195,8 @@ class SMCTAlgo(Algo):
             self.smc_transformer.cell.add_stop_resampling(past_len)
         for i in range(future_len + 1):
             (preds, _), _, _ = self.smc_transformer(inputs, targets, attention_mask)  # K,V shape (1, P, 40, D)
-            last_pred = preds[:, :, -1, :]
+            #TODO: get last resampling weights. (if computed.)
+            last_pred = preds[:, :, -1, :] #TODO instead: sample one trajectory, and then duplicates it ten times.
             if decoding == "sampling":
                 dict_top_k_words = self._extract_top_k_words(last_pred)
                 list_top_k_words.append(dict_top_k_words)

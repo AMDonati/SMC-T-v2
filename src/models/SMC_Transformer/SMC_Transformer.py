@@ -166,9 +166,9 @@ class SMC_Transformer(tf.keras.Model):
         self.cell.cell_count = 0  # additional counter to avoid duplicate of first timestep.
 
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-        outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
-        R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        attn_weights = outputs[1]
+        #outputs = [tf.squeeze(out, axis=-2) for out in outputs if len(out.shape) == 4] # [R=logits before last layer, attention weights, (internal noises)]
+        R = tf.transpose(tf.squeeze(outputs[0], axis=-2), perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
+        attn_weights = tf.squeeze(outputs[1], axis=-2)
         if len(tf.shape(attn_weights)) == 4: # one-head case
             attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
         attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
@@ -183,11 +183,18 @@ class SMC_Transformer(tf.keras.Model):
         self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
 
         if self.cell.noise:
-            self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
-            self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
+            noise_q = outputs[-2][0]
+            self.noise_q = tf.transpose(tf.squeeze(noise_q, axis=-2), perm=[0, 2, 1, 3])
+            noise_z = outputs[-2][1]
+            self.noise_z = tf.transpose(tf.squeeze(noise_z, axis=-2), perm=[0, 2, 1, 3])
+            #self.noise_q = tf.transpose(outputs[-2][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
+            #self.noise_z = tf.transpose(outputs[-2][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
+            last_filtering_weights = tf.transpose(outputs[-1], perm=[0, 2, 1]) # B,P,S
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z] #TODO: resampled also the other noises.
+        else:
+            last_filtering_weights = tf.ones(shape=(pred.shape[0], pred.shape[1], pred.shape[2]), dtype=tf.float32)
 
-        return (pred, pred_resampl), (K, V, R_resampl), attn_weights
+        return (pred, pred_resampl), (K, V, R_resampl), last_filtering_weights
 
 
 if __name__ == "__main__":
