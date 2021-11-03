@@ -1,9 +1,6 @@
 import os
 import numpy as np
 import tensorflow as tf
-from src.preprocessing.utils import split_synthetic_dataset
-from sklearn.preprocessing import StandardScaler
-import h5py
 
 class Dataset:
     def __init__(self, data_path, BATCH_SIZE=32, name="synthetic", model=None, BUFFER_SIZE=500, max_size_test=3000, max_samples=None):
