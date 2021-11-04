@@ -19,14 +19,14 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="clevr"
 DATA_PATH="data/clevr"
-OUTPUT_PATH="output/NLP/CLEVR/NEW_EXP"
+OUTPUT_PATH="output/NLP/CLEVR/NEW_EXP/multiD_noise"
 D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=10
 EP=20
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.5  -test_samples 30 -max_seq_len 20 -noise_dim "multi"
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.1  -test_samples 30 -max_seq_len 20 -noise_dim "multi"
 #OUTPUT_PATH="output/NLP/CLEVR/multiD_noise/multiple_init"
 #srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -test_samples 30 -max_seq_len 20 -noise_dim "multi"
 
