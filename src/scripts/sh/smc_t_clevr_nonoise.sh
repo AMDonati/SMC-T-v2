@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=CLEVR-smc-t-None
-#SBATCH --qos=qos_gpu-t4
+#SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8g
 #SBATCH --output=slurm_out/sst/smc_t-None-%j.out
 #SBATCH --error=slurm_out/sst/smc_t-None-%j.err
-#SBATCH --time=100:00:00
+#SBATCH --time=20:00:00
 #SBATCH -A ktz@gpu
 
 export TMPDIR=$JOBSCRATCH

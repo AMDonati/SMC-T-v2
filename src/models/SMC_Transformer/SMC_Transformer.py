@@ -187,8 +187,6 @@ class SMC_Transformer(tf.keras.Model):
             self.noise_q = tf.transpose(tf.squeeze(noise_q, axis=-2), perm=[0, 2, 1, 3])
             noise_z = outputs[-2][1]
             self.noise_z = tf.transpose(tf.squeeze(noise_z, axis=-2), perm=[0, 2, 1, 3])
-            #self.noise_q = tf.transpose(outputs[-2][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
-            #self.noise_z = tf.transpose(outputs[-2][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
             last_filtering_weights = tf.transpose(outputs[-1], perm=[0, 2, 1]) # B,P,S
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z] #TODO: resampled also the other noises.
         else:
