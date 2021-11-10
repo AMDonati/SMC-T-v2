@@ -36,7 +36,7 @@ class ROCDataset:
         dataset = pd.read_pickle(dataset_path)
         input_sentence = dataset.sentence1
         target_sentence = dataset.sentence2
-        return input_sentence, target_sentence, None
+        return input_sentence, target_sentence
 
     def _reshape(self, array, num_dim=4):
         if num_dim == 4:
@@ -75,8 +75,8 @@ class ROCDataset:
         tfdataloader = tfdataset.batch(batch_size, drop_remainder=True)
         return tfdataloader
 
-    def get_test_dataloader(self, data, batch_size, num_dim=4):
-        inputs, targets, attn_mask = data
+    def get_test_dataloader(self, data, num_dim=4):
+        inputs, targets = data
         inputs = inputs.to_list()
         targets = targets.to_list()
         inputs = [tf.constant(inp, dtype=tf.int32, shape=self._get_test_shape(inp, num_dim)) for inp in inputs]
@@ -86,7 +86,7 @@ class ROCDataset:
     def data_to_dataset(self, train_data, val_data, test_data, num_dim=4):
         train_dataset = self.get_dataloader(train_data, self.batch_size, num_dim, seq_len=True)
         val_dataset = self.get_dataloader(val_data, self.batch_size, num_dim)
-        test_dataset = self.get_test_dataloader(test_data, 1, num_dim)
+        test_dataset = self.get_test_dataloader(test_data, num_dim)
         return train_dataset, val_dataset, test_dataset
 
     def check_dataset(self, dataset):

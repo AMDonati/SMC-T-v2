@@ -51,7 +51,6 @@ class Algo:
 
     def load_datasets(self, num_dim=4, num_dim_targets=None):
         train_data, val_data, test_data = self.dataset.get_datasets()
-        #self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
@@ -120,6 +119,20 @@ class Algo:
             test_samples = test_samples_sampling if decoding == "sampling" else 10
             self.test_(decoding=decoding, test_samples=test_samples)
             self.logger.info('-'*80)
+
+    def test_ROC_(self, decoding="sampling", test_samples=None):
+        inputs, targets = self.test_dataset
+        if test_samples is None:
+            test_samples = len(inputs)
+            for (inp, tar) in zip(inputs[:test_samples], targets[:test_samples]):
+                pass
+        #     test_samples = len(self.test_dataset)
+        # for (inputs, targets, attention_mask) in self.test_dataset.take(test_samples):
+        #     inp, tar = self.get_inputs_targets(inputs, targets)
+        #     decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
+        #     future_len = max(self.future_len, len_future_targets)
+        #     self.logger.info("-"*30 + "{} GENERATION".format(decoding) + '-'*30)
+        #TODO: change this part.
 
 
     def test_(self, decoding="sampling", test_samples=None):
