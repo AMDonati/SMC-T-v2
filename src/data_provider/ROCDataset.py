@@ -3,15 +3,11 @@ Create a questions Dataset to train the language model.
 Inspired from: https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel
 '''
 import json
-import h5py
 import numpy as np
-from src.data_provider.text_functions import decode
 from src.data_provider.CLEVR_tokenizer import Tokenizer
 import tensorflow as tf
 import os
-from nltk import word_tokenize
 import pandas as pd
-import collections
 
 
 # TODO: add a max samples here: select 350,000 questions.
