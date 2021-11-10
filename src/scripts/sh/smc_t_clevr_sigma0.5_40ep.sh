@@ -29,6 +29,6 @@ EP=40
 
 set -x
 echo "now processing task id:: " ${SLURM_ARRAY_TASK_ID}
-OUT_PATH=output/NLP/CLEVR/NEW_EXP/${SLURM_ARRAY_TASK_ID}
+OUT_PATH=output/NLP/CLEVR/NEW_EXP/sigma0.5_40ep/${SLURM_ARRAY_TASK_ID}
 
 srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path ${OUT_PATH} -smc True -particles $PARTICLES -sigmas 0.5 -max_seq_len 20 -full_model True
