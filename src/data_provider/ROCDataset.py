@@ -32,6 +32,12 @@ class ROCDataset:
         attention_mask = np.array([seq for seq in dataset.attention_mask.values])
         return input_sentence, target_sentence, attention_mask
 
+    def get_test_dataset_elements(self, dataset_path):
+        dataset = pd.read_pickle(dataset_path)
+        input_sentence = dataset.sentence1
+        target_sentence = dataset.sentence2
+        return input_sentence, target_sentence, None
+
     def _reshape(self, array, num_dim=4):
         if num_dim == 4:
             array = array[:, np.newaxis, :, np.newaxis]
@@ -39,18 +45,28 @@ class ROCDataset:
             array = array[:, :, np.newaxis]
         return array
 
+    def _get_test_shape(self, element, num_dim=4):
+        if num_dim == 4:
+            shape = (1, 1, len(element), 1)
+        elif num_dim == 3:
+            shape = (1, len(element), 1)
+        elif num_dim == 2:
+            shape = (1, len(element))
+        return shape
+
         # words to remove.
         # "$": 4509, "%": 7129, "&": 534, "'": 823, "''": 9236,
 
     def get_datasets(self):
         train_data = self.get_dataset_elements(os.path.join(self.data_path, "train_set.pkl"))
         val_data = self.get_dataset_elements(os.path.join(self.data_path, "val_set.pkl"))
-        test_data = self.get_dataset_elements(os.path.join(self.data_path, "test_set.pkl"))
+        test_data = self.get_test_dataset_elements(os.path.join(self.data_path, "test_set.pkl"))
         return train_data, val_data, test_data
 
-    def get_dataloader(self, data, batch_size, num_dim=4):
+    def get_dataloader(self, data, batch_size, num_dim=4, seq_len=False):
         inputs, targets, attn_mask = data
-        self.seq_len = inputs.shape[1]
+        if seq_len:
+            self.seq_len = inputs.shape[1]
         inputs, targets, attn_mask = self._reshape(inputs, num_dim=num_dim), self._reshape(targets,
                                                                                            num_dim=num_dim), self._reshape(
             attn_mask, num_dim=num_dim)
@@ -59,10 +75,18 @@ class ROCDataset:
         tfdataloader = tfdataset.batch(batch_size, drop_remainder=True)
         return tfdataloader
 
+    def get_test_dataloader(self, data, batch_size, num_dim=4):
+        inputs, targets, attn_mask = data
+        inputs = inputs.to_list()
+        targets = targets.to_list()
+        inputs = [tf.constant(inp, dtype=tf.int32, shape=self._get_test_shape(inp, num_dim)) for inp in inputs]
+        targets = [tf.constant(tar, dtype=tf.int32, shape=self._get_test_shape(tar, num_dim)) for tar in targets]
+        return (inputs, targets)
+
     def data_to_dataset(self, train_data, val_data, test_data, num_dim=4):
-        train_dataset = self.get_dataloader(train_data, self.batch_size, num_dim)
+        train_dataset = self.get_dataloader(train_data, self.batch_size, num_dim, seq_len=True)
         val_dataset = self.get_dataloader(val_data, self.batch_size, num_dim)
-        test_dataset = self.get_dataloader(test_data, 1, num_dim)
+        test_dataset = self.get_test_dataloader(test_data, 1, num_dim)
         return train_dataset, val_dataset, test_dataset
 
     def check_dataset(self, dataset):

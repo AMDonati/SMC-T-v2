@@ -14,14 +14,15 @@ def load_data(data_path):
     return df
 
 def get_sentences(df, max_samples=20000):
-    sentences = df.sentence1[:max_samples]
-    return sentences
+    df["sentence_1_2"] = df.sentence1 + " " + df.sentence2
+    sentences = df.sentence_1_2[:max_samples]
+    return sentences, df["sentence1"][:max_samples], df["sentence2"][:max_samples]
 
 
-def split_train_test(sentences, train_size=10000, val_size=5000, test_size=5000):
+def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=5000, test_size=5000):
     train_sentences = sentences[:train_size]
     val_sentences = sentences[train_size:train_size + val_size]
-    test_sentences = sentences[train_size + val_size:train_size + val_size + test_size]
+    test_sentences = sentences_1_and_2[train_size + val_size:train_size + val_size + test_size]
     paths = ["data/ROC/train_set.pkl", "data/ROC/val_set.pkl", "data/ROC/test_set.pkl"]
     for df, path in zip([train_sentences, val_sentences, test_sentences], paths):
         df.to_pickle(path)
@@ -31,6 +32,13 @@ def split_train_test(sentences, train_size=10000, val_size=5000, test_size=5000)
     # test_data = split_dataset_elements(test_sentences)
     return train_sentences, val_sentences, test_sentences
 
+def tokenize_test(sentences, vocab):
+    tokenize_func = lambda t: word_tokenize(t)
+    tok_to_id_func = lambda t: [vocab[w] for w in t if w in vocab.keys()]
+    tokenized_sentences = sentences.apply(tokenize_func)
+    tokens_id = tokenized_sentences.apply(tok_to_id_func)
+    len_sentences = tokens_id.apply(len)
+    return tokens_id, len_sentences
 
 def tokenize(sentences, vocab):
     tokenize_func = lambda t: word_tokenize(t)
@@ -48,13 +56,6 @@ def tokenize(sentences, vocab):
     df["attention_mask"] = len_sentences.apply(lambda t: [1] * (t - 1) + [0] * (max_len - (t - 1)))
     print("max len", max_len)
     return df, len_sentences
-
-
-def split_dataset_elements(dataset):
-    input_sentence = np.array([seq for seq in dataset.input_sentence.values])
-    target_sentence = np.array([seq for seq in dataset.target_sentence.values])
-    attention_mask = np.array([seq for seq in dataset.attention_mask.values])
-    return input_sentence, target_sentence, attention_mask
 
 
 def clean_text(sentences):
@@ -94,11 +95,14 @@ def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
 
 def preprocess_data(data_path):
     df = load_data(data_path)
-    sentences = get_sentences(df)
-    sentences = clean_text(sentences)
+    sentences, sentences_1, sentences_2 = get_sentences(df)
+    sentences, sentences_1, sentences_2 = clean_text(sentences), clean_text(sentences_1), clean_text(sentences_2)
     tokens, vocab = get_vocab(sentences)
     padded_sentences, len_sentences = tokenize(sentences, vocab)
-    train_sentences, val_sentences, test_sentences = split_train_test(padded_sentences)
+    sentences_1, len_sentences_1 = tokenize_test(sentences_1, vocab)
+    sentences_2, len_sentences_2 = tokenize_test(sentences_2, vocab)
+    sentences_1_and_2 = pd.concat([sentences_1, sentences_2], axis=1)
+    train_sentences, val_sentences, test_sentences = split_train_test(padded_sentences, sentences_1_and_2)
     return train_sentences, val_sentences, test_sentences
 
 
