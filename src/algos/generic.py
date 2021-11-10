@@ -110,6 +110,13 @@ class Algo:
             inp, tar = inputs[:, :self.past_len], targets[:, :self.past_len]
         return inp, tar
 
+    def get_inputs_targets_ROC(self, past):
+        if len(past.shape) == 4:
+            past_inp, past_tar = past[:,:,:-1,:], past[:,:,1:, :]
+        elif len(past.shape) == 2:
+            past_inp, past_tar = past[:, :-1], past[:, 1:]
+        return past_inp, past_tar
+
     def test(self, **kwargs):
         self.logger.info(
             "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
@@ -121,18 +128,21 @@ class Algo:
             self.logger.info('-'*80)
 
     def test_ROC_(self, decoding="sampling", test_samples=None):
+        metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
+        out_file_text = os.path.join(self.out_folder, "text_{}.txt".format(decoding))
         inputs, targets = self.test_dataset
         if test_samples is None:
             test_samples = len(inputs)
-            for (inp, tar) in zip(inputs[:test_samples], targets[:test_samples]):
-                pass
-        #     test_samples = len(self.test_dataset)
-        # for (inputs, targets, attention_mask) in self.test_dataset.take(test_samples):
-        #     inp, tar = self.get_inputs_targets(inputs, targets)
-        #     decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
-        #     future_len = max(self.future_len, len_future_targets)
-        #     self.logger.info("-"*30 + "{} GENERATION".format(decoding) + '-'*30)
-        #TODO: change this part.
+        for (past, future) in zip(inputs[:test_samples], targets[:test_samples]):
+            inp, tar = self.get_inputs_targets_ROC(past)
+            len_future_targets = len(tf.squeeze(future).numpy())
+            decoded_targets = self.dataset.tokenizer.decode([tf.squeeze(future).numpy()])
+            future_len = max(self.future_len, len_future_targets)
+            self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
+            metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=None,
+                                          decoded_targets=decoded_targets, future_len=future_len, metrics=metrics,
+                                          out_file_text=out_file_text, decoding=decoding)
+        self._save_and_log_metrics(metrics, decoding=decoding)
 
 
     def test_(self, decoding="sampling", test_samples=None):
@@ -150,9 +160,6 @@ class Algo:
 
     def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
         if not self.inference_resample:
-            # particles, dict_top_words, particles_norm = self.inference_multistep_best_particle(inputs=inputs,
-            #                                                                      targets=targets, attention_mask=attention_mask, past_len=self.past_len,
-            #                                                                      future_len=future_len, decoding=decoding) # shape (1,P,len,1)
             particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
                                                                                  targets=targets, attention_mask=attention_mask, past_len=self.past_len,
                                                                                  future_len=future_len, decoding=decoding) # shape (1,P,len,1)
@@ -171,6 +178,8 @@ class Algo:
             if val is not None:
                 metrics[key].append(val)
         with open(out_file_text, 'a') as f:
+            f.write('\n' + "GROUND TRUTH:" + decoded_targets)
+            f.write('\n' + '-' * 30 + '\n')
             f.write('\n'.join(decoded_particles))
             f.write('\n'+'-'*60+'\n')
         if dict_top_words is not None:
