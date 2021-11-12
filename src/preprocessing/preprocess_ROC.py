@@ -19,7 +19,7 @@ def get_sentences(df, max_samples=20000):
     return sentences, df["sentence1"][:max_samples], df["sentence2"][:max_samples]
 
 
-def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=5000, test_size=5000):
+def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=3000, test_size=5000):
     train_sentences = sentences[:train_size]
     val_sentences = sentences[train_size:train_size + val_size]
     test_sentences = sentences_1_and_2[train_size + val_size:train_size + val_size + test_size]
@@ -27,9 +27,6 @@ def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=50
     for df, path in zip([train_sentences, val_sentences, test_sentences], paths):
         df.to_pickle(path)
     print("saving dataset splits in pkl files...")
-    # train_data = split_dataset_elements(train_sentences)
-    # val_data = split_dataset_elements(val_sentences)
-    # test_data = split_dataset_elements(test_sentences)
     return train_sentences, val_sentences, test_sentences
 
 def tokenize_test(sentences, vocab):
@@ -40,7 +37,7 @@ def tokenize_test(sentences, vocab):
     len_sentences = tokens_id.apply(len)
     return tokens_id, len_sentences
 
-def tokenize(sentences, vocab):
+def tokenize(sentences, vocab, max_len=20):
     tokenize_func = lambda t: word_tokenize(t)
     tok_to_id_func = lambda t: [vocab[w] for w in t if w in vocab.keys()]
     tokenized_sentences = sentences.apply(tokenize_func)
@@ -49,11 +46,13 @@ def tokenize(sentences, vocab):
     df["input_sentence"] = tokens_id.apply(lambda t: t[:-1])
     df["target_sentence"] = tokens_id.apply(lambda t: t[1:])
     len_sentences = tokens_id.apply(len)
-    max_len = len_sentences.max() - 1
+    # filtering sentence of length max_len max.
+    df = df[len_sentences <= (max_len + 1)]
+    len_sentences_ = len_sentences[len_sentences <= (max_len + 1)]
     pad_func = lambda t: t + [0] * (max_len - len(t))
     df["input_sentence"] = df.input_sentence.apply(pad_func)
     df["target_sentence"] = df.target_sentence.apply(pad_func)
-    df["attention_mask"] = len_sentences.apply(lambda t: [1] * (t - 1) + [0] * (max_len - (t - 1)))
+    df["attention_mask"] = len_sentences_.apply(lambda t: [1] * (t - 1) + [0] * (max_len - (t - 1)))
     print("max len", max_len)
     return df, len_sentences
 
@@ -82,7 +81,6 @@ def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
         unique_tokens.remove(token)
     unique_tokens.sort()
     vocab = {v: k for k, v in enumerate(unique_tokens)}
-    # TODO: remove indesirable tokens.
     print("vocab length:", len(vocab))
     print("saving vocab...")
     with open("data/ROC/vocab.json", "w") as f:
