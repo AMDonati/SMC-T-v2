@@ -24,6 +24,7 @@ class QuestionsDataset():
         self.output_size = len(self.vocab_questions)
         self.tokenizer = Tokenizer(self.vocab_questions)
         self.seq_len = max_seq_len
+        self.name = "clevr"
 
     def get_vocab(self):
         with open(self.vocab_path, 'r') as f:

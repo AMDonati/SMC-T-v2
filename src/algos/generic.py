@@ -49,16 +49,16 @@ class Algo:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
         # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
-    def load_datasets(self, num_dim=4, num_dim_targets=None):
+    def load_datasets(self, num_dim=4):
         train_data, val_data, test_data = self.dataset.get_datasets()
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
-                                                                                num_dim=num_dim,
-                                                                                num_dim_targets=num_dim_targets)
+                                                                                num_dim=num_dim)
         self.dataset.check_dataset(train_dataset)
         self.dataset.check_dataset(val_dataset)
-        self.dataset.check_dataset(test_dataset)
+        if self.dataset.name != "roc":
+            self.dataset.check_dataset(test_dataset)
         self.output_size = self.dataset.output_size
         self.logger.info("output size: {}".format(self.output_size))
         self.num_features = 1
@@ -124,7 +124,10 @@ class Algo:
         test_samples_sampling = kwargs["test_samples"]
         for decoding in decodings:
             test_samples = test_samples_sampling if decoding == "sampling" else 10
-            self.test_(decoding=decoding, test_samples=test_samples)
+            if self.dataset.name == "roc":
+                self.test_ROC_(decoding=decoding, test_samples=test_samples)
+            else:
+                self.test_(decoding=decoding, test_samples=test_samples)
             self.logger.info('-'*80)
 
     def test_ROC_(self, decoding="sampling", test_samples=None):
@@ -136,7 +139,7 @@ class Algo:
         for (past, future) in zip(inputs[:test_samples], targets[:test_samples]):
             inp, tar = self.get_inputs_targets_ROC(past)
             len_future_targets = len(tf.squeeze(future).numpy())
-            decoded_targets = self.dataset.tokenizer.decode([tf.squeeze(future).numpy()])
+            decoded_targets = self.dataset.tokenizer.decode(tf.squeeze(future).numpy())
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
             metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=None,

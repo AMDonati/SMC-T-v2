@@ -3,6 +3,7 @@ from datasets import load_from_disk
 from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
 from src.data_provider.CLEVRDataset import QuestionsDataset
+from src.data_provider.ROCDataset import ROCDataset
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -102,6 +103,8 @@ def run(args):
         dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
     elif args.dataset == "clevr":
         dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+    elif args.dataset == "roc":
+        dataset = ROCDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

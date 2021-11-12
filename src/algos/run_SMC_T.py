@@ -245,7 +245,7 @@ class SMCTAlgo(Algo):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
-        self.smc_transformer.seq_len = past_len
+        self.smc_transformer.seq_len = inputs.shape[-2]
         # stopping resampling when ground-truth is not available.
         if self.smc_transformer.cell.noise:
             self.smc_transformer.cell.add_stop_resampling(past_len)
