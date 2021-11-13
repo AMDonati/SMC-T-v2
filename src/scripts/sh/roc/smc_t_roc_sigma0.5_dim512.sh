@@ -17,8 +17,8 @@ conda activate smc-t
 
 export PYTHONPATH=src:${PYTHONPATH}
 
-DATASET="clevr"
-DATA_PATH="data/clevr"
+DATASET="roc"
+DATA_PATH="data/ROC"
 OUTPUT_PATH="output/NLP/ROC"
 D_MODEL=512
 DFF=512
