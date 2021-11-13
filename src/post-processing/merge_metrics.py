@@ -10,7 +10,7 @@ def get_parser():
                         help="data folder containing experiments")
     #parser.add_argument('-bottom_folder', type=int, default=1)
     #parser.add_argument('-top_folder', type=int, default=1)
-    parser.add_argument('-precision', type=int, default=4)
+    parser.add_argument('-precision', type=int, default=2)
     return parser
 
 def str_to_float_in_csv(df, index="train_loss", sep=","):
@@ -72,7 +72,11 @@ def merge_one_experiment(path="output/temp", precision=4):
         stats_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics.csv"))
         if len(dirs) > 1:
             all_metrics_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics_per_run.csv"))
+    merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
+    merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
+    merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
     merge_metrics.to_csv(os.path.join(path, "merge_metrics.csv"))
+    merge_metrics_latex.to_latex(os.path.join(path, "merge_metrics.txt"))
 
 # def merge_one_experiment(args):
 #     dirs = [f.path for f in os.scandir(args.path) if f.is_dir()]
