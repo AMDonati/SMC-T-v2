@@ -100,8 +100,6 @@ class SSTDataset():
     def get_tf_dataset(self, dataset, batch_size, num_dim=4, num_dim_targets=None):
         features = {x: tf.keras.preprocessing.sequence.pad_sequences(dataset[x], padding="post",
                                                                      truncating="post", maxlen=self.max_seq_len, value=self.PAD_IDX) for x in ['input_ids', 'target_ids']}
-        features["attention_mask"] = tf.keras.preprocessing.sequence.pad_sequences(dataset["attention_mask"], padding="post",
-                                                                     truncating="post", maxlen=self.max_seq_len) # attention mask. Padding with zero.
 
         if num_dim == 4:
             features_ = {k:v[:, np.newaxis, :, np.newaxis] for k,v in features.items()}
@@ -122,11 +120,13 @@ class SSTDataset():
         if self.max_samples is not None:
             features_ = {k: v[:self.max_samples] for k, v in features_.items()}
             print("reducing train dataset to {} samples".format(self.max_samples))
+
         if self.tokenizer.__class__ == GPT2Tokenizer:
             tfdataset = tf.data.Dataset.from_tensor_slices((features_["input_ids"], features_["target_ids"], features_["attention_mask"]))
         elif self.tokenizer.__class__ == SSTTokenizer:
             tfdataset = tf.data.Dataset.from_tensor_slices(
                 (features_["input_ids"], features_["target_ids"], None))
+
         tfdataloader = tfdataset.batch(batch_size=batch_size, drop_remainder=True)
         next(iter(tfdataset))
         return tfdataset, tfdataloader
@@ -161,6 +161,7 @@ class SSTDataset():
                     assert inp[:,:,1:,:] == tar[:,:,:-1,:], "error in inputs/targets of dataset"
                 elif inp.shape == 3:
                     assert inp[:, 1:, :] == tar[:, :-1, :], "error in inputs/targets of dataset"
+
 
 
 if __name__ == '__main__':

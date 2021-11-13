@@ -121,8 +121,23 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
         ">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
+def _log_model_variances(smc_transformer, logger):
+    if len(smc_transformer.cell.attention_smc.logvar_k.shape) == 0:
+        logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
+        tf.math.exp(smc_transformer.cell.attention_smc.logvar_k).numpy(),
+        tf.math.exp(smc_transformer.cell.attention_smc.logvar_q).numpy(),
+        tf.math.exp(smc_transformer.cell.attention_smc.logvar_v).numpy(),
+        tf.math.exp(smc_transformer.cell.attention_smc.logvar_z).numpy()))
+    else:
+        logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
+            tf.math.exp(tf.linalg.diag_part(smc_transformer.cell.attention_smc.logvar_k)).numpy(),
+            tf.math.exp(tf.linalg.diag_part(smc_transformer.cell.attention_smc.logvar_q)).numpy(),
+            tf.math.exp(tf.linalg.diag_part(smc_transformer.cell.attention_smc.logvar_v)).numpy(),
+            tf.math.exp(tf.linalg.diag_part(smc_transformer.cell.attention_smc.logvar_z)).numpy()))
+
+
 def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val_dataset, output_path, ckpt_manager, logger,
-                          start_epoch, num_train, EM_param=-0.6):
+                          start_epoch, num_train, EM_param=None):
 
     losses_history = {"train_loss":[], "train_mse_metric":[], "train_ppl":[], "val_loss":[], "val_mse_metric": [], "val_ppl":[]}
 
@@ -162,22 +177,20 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                                                                        smc_transformer=smc_transformer,
                                                                        optimizer=optimizer,
                                                                        it=it,
-                                                                       attention_mask=attn_mask,
-                                                                       EM_param=EM_param)
+                                                                       attention_mask=attn_mask, EM_param=EM_param)
             train_loss[0] += train_loss_batch
 
             if smc_transformer.cell.noise:
-                print('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                    smc_transformer.cell.attention_smc.sigma_k,
-                    smc_transformer.cell.attention_smc.sigma_q,
-                    smc_transformer.cell.attention_smc.sigma_v,
-                    smc_transformer.cell.attention_smc.sigma_z))
                 train_loss[1] += train_metric_avg_pred
+
+        # save smc transformer weights.
+        smc_transformer.save_weights(os.path.join(output_path, "model"))
 
         for batch_val, (inp, tar, attn_mask) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar, attention_mask=attn_mask)  # shape (B,1,S,F_y)
             val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
             val_loss[0] += val_loss_batch
+
             if smc_transformer.cell.noise:
                 val_metric_avg_pred = compute_categorical_cross_entropy(targets=tar, preds=preds_val, num_particles=smc_transformer.cell.num_particles,
                                                                     attention_mask=attn_mask)
@@ -195,11 +208,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             losses_history["val_mse_metric"].append(val_loss[1].numpy())
             losses_history["train_ppl"] = np.exp(losses_history["train_mse_metric"])
             losses_history["val_ppl"] = np.exp(losses_history["val_mse_metric"])
-            logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
-                smc_transformer.cell.attention_smc.sigma_k,
-                smc_transformer.cell.attention_smc.sigma_q,
-                smc_transformer.cell.attention_smc.sigma_v,
-                smc_transformer.cell.attention_smc.sigma_z))
+            _log_model_variances(smc_transformer, logger)
         else:
             losses_history["train_ppl"] = np.exp(losses_history["train_loss"])
             losses_history["val_ppl"]= np.exp(losses_history["val_loss"])

@@ -35,6 +35,7 @@ def create_look_ahead_mask(size):
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
     return mask  # (seq_len, seq_len)
 
+
 def resample(params, i_t):
     """
     :param params: attention parameters tensor to be reshaped (K or V) > shape (B,P,S,D)
@@ -44,6 +45,7 @@ def resample(params, i_t):
     the trajectories of the attention parameters resampling according to i_t.
     """
     return tf.gather(params, i_t, axis=1, batch_dims=1)
+
 
 if __name__ == "__main__":
 

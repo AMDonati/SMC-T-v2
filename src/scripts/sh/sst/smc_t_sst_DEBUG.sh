@@ -24,5 +24,5 @@ D_MODEL=32
 DFF=32
 BS=32
 
-python src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep 1 -output_path $OUTPUT_PATH -smc True -particles 10
+#python src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep 1 -output_path $OUTPUT_PATH -smc True -particles 10
 python src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep 1 -output_path $OUTPUT_PATH -smc False -particles 1

@@ -2,6 +2,8 @@ import argparse
 from datasets import load_from_disk
 from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
+from src.data_provider.CLEVRDataset import QuestionsDataset
+from src.data_provider.ROCDataset import ROCDataset
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -31,9 +33,9 @@ def get_parser():
     # data parameters:
     parser.add_argument("-dataset", type=str, default='dummy_nlp', help='dataset selection')
     parser.add_argument("-data_path", type=str, required=True, help="path for uploading the dataset")
-    parser.add_argument("-max_samples", type=int, default=None, help="max samples for train dataset")
+    parser.add_argument("-max_samples", type=int, default=10000, help="max samples for train dataset")
     parser.add_argument("-min_token_count", type=int, default=1, help="min token count for sst vocabulary.")
-    parser.add_argument("-max_seq_len", type=int, default=51, help="max seq len for ")
+    parser.add_argument("-max_seq_len", type=int, default=30, help="max seq len for ")
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), Bayesian LSTM (bayesian_lstm)")
@@ -61,16 +63,21 @@ def get_parser():
     parser.add_argument("-EM_param", type=float, default=0.6, help='learning rate for EM update.')
     # smc params.
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
-    parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+    parser.add_argument("-sigmas", type=float, default=0.5,
+                                                        help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+    parser.add_argument("-noise_dim", type=str, default="uni", help="1D noise or multi-dim noise.")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
+    parser.add_argument("-EM_param", type=float, help="if not None, use an EM to learn the noise instead of SGD with learning rate equal to EM_param.")
+    parser.add_argument("-inference_resample", type=int, default=0,
+                        help="resampling particles at inference or not.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
-    parser.add_argument("-past_len", type=int, default=5, help="number of timesteps for past timesteps at inference")
+    parser.add_argument("-past_len", type=int, default=4, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
-    parser.add_argument("-test_samples", type=int, default=3, help="number of test samples.")
+    parser.add_argument("-test_samples", type=int, help="number of test samples.")
     # misc:
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
@@ -95,6 +102,10 @@ def run(args):
         else:
             tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
         dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+    elif args.dataset == "clevr":
+        dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+    elif args.dataset == "roc":
+        dataset = ROCDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

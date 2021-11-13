@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 # ----- scaled_dot_product_attention_function & mha function ------------
 
@@ -14,23 +15,50 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         self.dense = tf.keras.layers.Dense(d_model, name='dense_projection_z')
         self.noise = False
 
-    def add_SMC_parameters(self, dict_sigmas):
+    def diagonal_variance_matrix(self, sigmas):
+        return tf.linalg.diag(
+            tf.math.log(tf.constant(sigmas, dtype=tf.float32))
+        )
+
+    def add_SMC_parameters(self, dict_sigmas, EM=False):
         # noise parameters.
-        self.sigma_k = dict_sigmas['k']
-        self.sigma_q = dict_sigmas['q']
-        self.sigma_v = dict_sigmas['v']
-        self.sigma_z = dict_sigmas['z']
+        if EM:
+            self.logvar_k = tf.math.log(dict_sigmas['k'])
+            self.logvar_q = tf.math.log(dict_sigmas['q'])
+            self.logvar_v = tf.math.log(dict_sigmas['v'])
+            self.logvar_z = tf.math.log(dict_sigmas['z'])
+        else:
+            if isinstance(dict_sigmas['k'], list):
+                self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['z']), name="logvar_z")
+            else:
+                self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
         self.noise = True
 
-    def add_noise(self, params, sigma):
+    # def reparameterize(self, mean, logvar):
+    #     eps = tf.random.normal(shape=mean.shape)
+    #     return eps * tf.exp(logvar * .5) + mean
+
+    def add_noise(self, params, logvar):
         '''
         :param params: K,q,V or z. shape (B,P,S,D) for K, V. or shape (B,P,1,D) for q, z.
         :param sigma: scalar or matrix of shape (D,D).
         :return:
         '''
-        assert len(tf.shape(sigma)) == 0
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-        noise = (sigma) ** (1 / 2) * gaussian_noise
+        logvar_ = tf.stop_gradient(logvar)
+        if len(tf.shape(logvar)) == 0:
+            noise = tf.exp(logvar_ * 0.5) * gaussian_noise
+        else:
+            diag_std = tf.linalg.diag_part(tf.exp(logvar_ * 0.5))
+            std_tiled = tf.reshape(diag_std, (1,1,1,diag_std.shape[0]))
+            std_tiled = tf.tile(std_tiled, [gaussian_noise.shape[0], gaussian_noise.shape[1], gaussian_noise.shape[2], 1])
+            noise = tf.math.multiply(gaussian_noise, std_tiled)
         return params + noise
 
     def call(self, inputs, timestep, K, V):
@@ -49,9 +77,9 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         v_ = self.wv(inputs)  # (B,P,1,D)
 
         if self.noise:
-            k = self.add_noise(k_, self.sigma_k)
-            q = self.add_noise(q_, self.sigma_q)
-            v = self.add_noise(v_, self.sigma_v)
+            k = self.add_noise(k_, self.logvar_k)
+            q = self.add_noise(q_, self.logvar_q)
+            v = self.add_noise(v_, self.logvar_v)
             self.noise_k = k - k_
             self.noise_q = q - q_
             self.noise_v = v - v_
@@ -85,7 +113,7 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         z_ = self.dense(z_)
 
         if self.noise:
-            z = self.add_noise(z_, self.sigma_z)
+            z = self.add_noise(z_, self.logvar_z)
             self.noise_z = z - z_ # TODO: remove this one, because we need resampled noise.
         else:
             z = z_

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from src.train.utils import compute_categorical_cross_entropy
+from src.train.utils import compute_categorical_cross_entropy, EM
 
 # -------------------------------- TRAIN STEP FUNCTIONS ---------------------------------------------------------------------
 train_step_signature = [
@@ -28,7 +28,7 @@ def train_step_classic_T(inputs, targets, transformer, optimizer):
 
 # --------------SMC Transformer train_step-----------------------------------------------------------------------------------------------------
 # @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, EM_param=-0.6, attention_mask=None):
+def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_mask=None, EM_param=None):
     '''
     :param it:
     :param inputs:
@@ -45,23 +45,8 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, EM_param=-
                                                        targets=targets,
                                                        attention_mask=attention_mask)  # predictions: shape (B,P,S,F_y) with P=1 during training.
 
-        if smc_transformer.cell.noise:
-            # EM estimation of the noise parameters
-            err_k = smc_transformer.noise_K_resampled * smc_transformer.noise_K_resampled
-            err_k = tf.reduce_mean(err_k, axis=[1,2,3])
-            err_q = smc_transformer.noise_q * smc_transformer.noise_q
-            err_q = tf.reduce_mean(err_q, axis=[1,2,3])
-            err_v = smc_transformer.noise_V_resampled * smc_transformer.noise_V_resampled
-            err_v = tf.reduce_mean(err_v, axis=[1,2,3])
-            err_z = smc_transformer.noise_z * smc_transformer.noise_z
-            err_z = tf.reduce_mean(err_z, axis=[1,2,3])
-
-
-            for j in range(err_v.shape[0]):
-                smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-EM_param) * err_v[j]
-                smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-EM_param) * err_k[j]
-                smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-EM_param) * err_q[j]
-                smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-EM_param)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-EM_param) * err_z[j]
+        if EM_param is not None:
+            smc_transformer = EM(smc_transformer, it=it, EM_param=EM_param)
 
         smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
         loss = smc_loss
@@ -73,7 +58,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, EM_param=-
         # trainable_variables = list(smc_transformer.trainable_variables)
         # trainable_variables_names = [t.name for t in trainable_variables]
         # var_and_grad_dict = dict(zip(trainable_variables_names, gradients))
-        # print('dict of variables and associated gradients', var_and_grad_dict)
+        #print('dict of variables and associated gradients', var_and_grad_dict)
 
     optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
