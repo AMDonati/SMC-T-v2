@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dim512-ROC-CLEVR-smc-t0.5
+#SBATCH --job-name=dim128-ROC-CLEVR-smc-t0.5
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -20,8 +20,8 @@ export PYTHONPATH=src:${PYTHONPATH}
 DATASET="roc"
 DATA_PATH="data/ROC"
 OUTPUT_PATH="output/NLP/ROC"
-D_MODEL=512
-DFF=512
+D_MODEL=128
+DFF=128
 BS=32
 PARTICLES=10
 EP=20
