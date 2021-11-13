@@ -103,18 +103,6 @@ class Algo:
             selfbleu = None
         return (mean_bleu, var_bleu), selfbleu
 
-    def _get_truncated_element(self, element):
-        if len(element.shape) == 4:
-            element_truncated = element[:, :, :self.past_len, :]
-        elif len(element.shape) <= 3:
-            element_truncated = element[:, :self.past_len]
-        return element_truncated
-
-    def test(self, **kwargs):
-        self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
-        for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
-            inp, tar = self._get_truncated_element(inputs), self._get_truncated_element(targets)
     def get_inputs_targets(self, inputs, targets):
         if len(inputs.shape) == 4:
             inp, tar = inputs[:, :, :self.past_len, :], targets[:, :, :self.past_len, :]
@@ -122,12 +110,18 @@ class Algo:
             inp, tar = inputs[:, :self.past_len], targets[:, :self.past_len]
         return inp, tar
 
-    def get_inputs_targets_ROC(self, past):
-        if len(past.shape) == 4:
-            past_inp, past_tar = past[:,:,:-1,:], past[:,:,1:, :]
-        elif len(past.shape) == 2:
-            past_inp, past_tar = past[:, :-1], past[:, 1:]
-        return past_inp, past_tar
+    def _get_truncated_element(self, element):
+        if len(element.shape) == 4:
+            element_truncated = element[:, :, :self.past_len, :]
+        elif len(element.shape) <= 3:
+            element_truncated = element[:, :self.past_len]
+        return element_truncated
+
+    # def test(self, **kwargs):
+    #     self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
+    #     metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
+    #     for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
+    #         inp, tar = self._get_truncated_element(inputs), self._get_truncated_element(targets)
 
     def test(self, **kwargs):
         self.logger.info(
@@ -166,7 +160,7 @@ class Algo:
         if test_samples is None:
             test_samples = len(self.test_dataset)
         for (inputs, targets, attention_mask) in self.test_dataset.take(test_samples):
-            inp, tar = self.get_inputs_targets(inputs, targets)
+            inp, tar = self._get_truncated_element(inputs), self._get_truncated_element(targets)
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             if attention_mask is not None:
                 attention_mask = self._get_truncated_element(attention_mask)

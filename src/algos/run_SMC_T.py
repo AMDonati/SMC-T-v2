@@ -7,6 +7,7 @@ from src.train.train_functions import train_SMC_transformer
 from src.algos.generic import Algo
 import json
 import datetime
+import numpy as np
 
 
 class SMCTAlgo(Algo):
