@@ -49,17 +49,16 @@ class Algo:
             json.dump(dict_hparams, fp, sort_keys=True, indent=4)
         # create_config_file(os.path.join(self.out_folder, "config.ini"), args)
 
-    def load_datasets(self, num_dim=4, num_dim_targets=None):
+    def load_datasets(self, num_dim=4):
         train_data, val_data, test_data = self.dataset.get_datasets()
-        #self.logger.info('num samples in training dataset: {}'.format(len(train_data)))
         train_dataset, val_dataset, test_dataset = self.dataset.data_to_dataset(train_data=train_data,
                                                                                 val_data=val_data,
                                                                                 test_data=test_data,
-                                                                                num_dim=num_dim,
-                                                                                num_dim_targets=num_dim_targets)
+                                                                                num_dim=num_dim)
         self.dataset.check_dataset(train_dataset)
         self.dataset.check_dataset(val_dataset)
-        self.dataset.check_dataset(test_dataset)
+        if self.dataset.name != "roc":
+            self.dataset.check_dataset(test_dataset)
         self.output_size = self.dataset.output_size
         self.logger.info("output size: {}".format(self.output_size))
         self.num_features = 1
@@ -111,6 +110,13 @@ class Algo:
             inp, tar = inputs[:, :self.past_len], targets[:, :self.past_len]
         return inp, tar
 
+    def get_inputs_targets_ROC(self, past):
+        if len(past.shape) == 4:
+            past_inp, past_tar = past[:,:,:-1,:], past[:,:,1:, :]
+        elif len(past.shape) == 2:
+            past_inp, past_tar = past[:, :-1], past[:, 1:]
+        return past_inp, past_tar
+
     def test(self, **kwargs):
         self.logger.info(
             "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
@@ -118,8 +124,28 @@ class Algo:
         test_samples_sampling = kwargs["test_samples"]
         for decoding in decodings:
             test_samples = test_samples_sampling if decoding == "sampling" else 10
-            self.test_(decoding=decoding, test_samples=test_samples)
+            if self.dataset.name == "roc":
+                self.test_ROC_(decoding=decoding, test_samples=test_samples)
+            else:
+                self.test_(decoding=decoding, test_samples=test_samples)
             self.logger.info('-'*80)
+
+    def test_ROC_(self, decoding="sampling", test_samples=None):
+        metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
+        out_file_text = os.path.join(self.out_folder, "text_{}.txt".format(decoding))
+        inputs, targets = self.test_dataset
+        if test_samples is None:
+            test_samples = len(inputs)
+        for (past, future) in zip(inputs[:test_samples], targets[:test_samples]):
+            inp, tar = self.get_inputs_targets_ROC(past)
+            len_future_targets = len(tf.squeeze(future).numpy())
+            decoded_targets = self.dataset.tokenizer.decode(tf.squeeze(future).numpy())
+            future_len = max(self.future_len, len_future_targets)
+            self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
+            metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=None,
+                                          decoded_targets=decoded_targets, future_len=future_len, metrics=metrics,
+                                          out_file_text=out_file_text, decoding=decoding)
+        self._save_and_log_metrics(metrics, decoding=decoding)
 
 
     def test_(self, decoding="sampling", test_samples=None):
@@ -137,9 +163,6 @@ class Algo:
 
     def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
         if not self.inference_resample:
-            # particles, dict_top_words, particles_norm = self.inference_multistep_best_particle(inputs=inputs,
-            #                                                                      targets=targets, attention_mask=attention_mask, past_len=self.past_len,
-            #                                                                      future_len=future_len, decoding=decoding) # shape (1,P,len,1)
             particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
                                                                                  targets=targets, attention_mask=attention_mask, past_len=self.past_len,
                                                                                  future_len=future_len, decoding=decoding) # shape (1,P,len,1)
@@ -158,6 +181,8 @@ class Algo:
             if val is not None:
                 metrics[key].append(val)
         with open(out_file_text, 'a') as f:
+            f.write('\n' + "GROUND TRUTH:" + decoded_targets)
+            f.write('\n' + '-' * 30 + '\n')
             f.write('\n'.join(decoded_particles))
             f.write('\n'+'-'*60+'\n')
         if dict_top_words is not None:
