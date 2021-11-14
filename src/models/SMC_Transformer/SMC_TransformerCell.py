@@ -21,16 +21,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         # store the decoding timestep
         self.dec_timestep = 0
         self.cell_count = 0
-        self.attention_smc = Self_Attention_SMC(d_model=d_model, attn_window=attn_window) if num_heads == 1 else mha_SMC(d_model=d_model, num_heads=num_heads, attn_window=attn_window)
+        self.attention_smc = Self_Attention_SMC(d_model=d_model, num_heads=num_heads, attn_window=attn_window)
         self.d_model = d_model
         self.output_size = output_size
         self.seq_len = seq_len
         self.full_model = full_model
 
-        if self.full_model:
-            self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
-            self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
-            self.ffn = point_wise_feed_forward_network(d_model, dff)
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+        self.ffn = point_wise_feed_forward_network(d_model, dff)
 
         # initializing smc parameters for training
         self.num_particles = 1
@@ -50,7 +49,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
     def init_inference_parameters(self, tokenizer):
-        self.tokenizer=tokenizer
+        self.tokenizer = tokenizer
 
 
     def add_SMC_parameters(self, dict_sigmas, num_particles, EM=False):
@@ -89,7 +88,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         if self.full_model:
             out = self.layernorm1(z + input)
             r = self.ffn(out)
-            r = self.layernorm2(r + out)
+            r = self.layernorm2(r + out) #TODO: put this one before the attention
         else:
             r = z
         predictions = self.output_layer(r)  # (B,P,1,F_y)
@@ -118,15 +117,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim.
         K, V, R = states  # getting states
 
+        # for GPT2 - first layer norm before self-attention block
+        x = self.layernorm1(x)
+
         # self attention:
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
 
-        if self.full_model:
-            out = self.layernorm1(z + x)
-            r = self.ffn(out)
-            r = self.layernorm2(r + out)
-        else:
-            r = z
+        out = self.layernorm2(z + x)
+        r = self.ffn(out)
+        r = r + out
 
         predictions = self.output_layer(r)  # (B,P,1,F_y)
 
@@ -142,8 +141,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w = self.compute_w_classification(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
-            #self.list_weights.append(w.numpy())
-            #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
@@ -161,6 +158,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             self.dec_timestep += 1
 
         return output, new_states
+
+
 
 
 if __name__ == "__main__":
