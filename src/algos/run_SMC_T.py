@@ -85,6 +85,22 @@ class SMCTAlgo(Algo):
                                                          num_particles=args.particles, EM=self.EM)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
             self.logger.info("Sigmas init: {}".format(dict_sigmas))
+        # check the pass forward.
+        for input_example_batch, target_example_batch, attn_mask in self.train_dataset.take(1):
+            (temp_preds, temp_preds_resampl), _, _ = self.smc_transformer(inputs=input_example_batch,
+                                                                          targets=target_example_batch,
+                                                                          attention_mask=attn_mask)
+            self.logger.info("predictions shape: {}".format(temp_preds.shape))
+            print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
+            print('first element and first dim of predictions resampled - t0',
+                  temp_preds_resampl[0, :, 0, 0].numpy())
+            print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
+            print('first element and first dim of predictions resampled - t10',
+                  temp_preds_resampl[0, :, 10, 0].numpy())
+            print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
+            print('first element and first dim of predictions resampled - last timestep',
+                  temp_preds_resampl[0, :, -1, 0].numpy())
+        self.smc_transformer.init_with_gpt2_params()
 
     def _check_consistency_hparams(self, args):
         if args.save_path is not None:

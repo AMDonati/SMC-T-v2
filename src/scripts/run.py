@@ -124,9 +124,9 @@ def run(args):
         algo.train()
     else:
         print("skipping training...")
-        if args.algo == "smc_t":
+        #if args.algo == "smc_t":
             # if needed: initialize Layer norms with GPT2 params.
-            algo.smc_transformer.init_with_gpt2_params()
+            #algo.smc_transformer.init_with_gpt2_params()
 
     algo.test(test_samples=args.test_samples)
 
