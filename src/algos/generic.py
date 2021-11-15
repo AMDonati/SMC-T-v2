@@ -77,9 +77,9 @@ class Algo:
 
     def _decode_targets(self, inputs, targets):
         decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs)[0].numpy()])
-        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
+        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy(), skip_special_tokens=True)
         decoded_target = decoded_first_word + ' ' + decoded_target
-        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets)[self.past_len:].numpy())
+        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets)[self.past_len:].numpy(), skip_special_tokens=True)
         if decoded_future_targets != '':
             len_future_targets = len(decoded_future_targets.split(sep=' '))
         else:
@@ -109,6 +109,13 @@ class Algo:
         elif len(inputs.shape) == 2:
             inp, tar = inputs[:, :self.past_len], targets[:, :self.past_len]
         return inp, tar
+
+    def get_inputs_targets_ROC(self, past):
+        if len(past.shape) == 4:
+            past_inp, past_tar = past[:, :, :-1, :], past[:, :, 1:, :]
+        elif len(past.shape) == 2:
+            past_inp, past_tar = past[:, :-1], past[:, 1:]
+        return past_inp, past_tar
 
     def _get_truncated_element(self, element):
         if len(element.shape) == 4:
@@ -180,7 +187,7 @@ class Algo:
                                                                                  attention_mask=attention_mask,
                                                                                  past_len=self.past_len,
                                                                                  future_len=future_len, decoding=decoding)
-        decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
+        decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy(), skip_special_tokens=True) for p in
                              range(particles.shape[1])]
         gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
         (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,

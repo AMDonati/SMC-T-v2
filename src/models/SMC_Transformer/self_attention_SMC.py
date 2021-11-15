@@ -1,18 +1,33 @@
 import tensorflow as tf
 import numpy as np
+from src.models.classic_layers import Linear
 
 # ----- scaled_dot_product_attention_function & mha function ------------
 
 class Self_Attention_SMC(tf.keras.layers.Layer):
 
-    def __init__(self, d_model, num_heads=1, attn_window=None):
+    def __init__(self, d_model, num_heads=1, attn_window=None, init_variables=None):
         super(Self_Attention_SMC, self).__init__()
         self.d_model = d_model
         self.attn_window = attn_window
-        self.wq = tf.keras.layers.Dense(d_model, name='dense_projection_q')
-        self.wk = tf.keras.layers.Dense(d_model, name='dense_projection_k')
-        self.wv = tf.keras.layers.Dense(d_model, name='dense_projection_v')
-        self.dense = tf.keras.layers.Dense(d_model, name='dense_projection_z')
+
+        #initialize layers
+        if init_variables is None:
+            self.wq = tf.keras.layers.Dense(d_model, name='dense_projection_q')
+            self.wk = tf.keras.layers.Dense(d_model, name='dense_projection_k')
+            self.wv = tf.keras.layers.Dense(d_model, name='dense_projection_v')
+            self.dense = tf.keras.layers.Dense(d_model, name='dense_projection_z')
+        else: # GPT2decoder:
+            w_q, w_k, w_v = tf.split(init_variables['attn/c_attn/weight:0'], 3, axis=-1)
+            b_q, b_k, b_v = tf.split(init_variables['attn/c_attn/bias:0'], 3, axis=-1)
+            self.wq = Linear(name='dense_projection_q', units=d_model, kernel_init=w_q.numpy(), bias_init=b_q.numpy())
+            self.wk = Linear(name='dense_projection_k', units=d_model, kernel_init=w_k.numpy(), bias_init=b_k.numpy())
+            self.wv = Linear(name='dense_projection_v', units=d_model, kernel_init=w_v.numpy(), bias_init=b_v.numpy())
+            w_z, b_z = init_variables['attn/c_proj/weight:0'], init_variables['attn/c_proj/bias:0']
+            self.dense = Linear(name='dense_projection_v', units=d_model, kernel_init=w_z.numpy(), bias_init=b_z.numpy())
+
+        self.layers = [self.wq, self.wk, self.wv, self.dense]
+
         self.noise = False
         self.num_heads = num_heads
         assert d_model % self.num_heads == 0

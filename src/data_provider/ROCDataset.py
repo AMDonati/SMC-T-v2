@@ -8,23 +8,25 @@ from src.data_provider.CLEVR_tokenizer import Tokenizer
 import tensorflow as tf
 import os
 import pandas as pd
+from transformers import GPT2Tokenizer
 
 
 # TODO: add a max samples here: select 350,000 questions.
 class ROCDataset:
-    def __init__(self, data_path, batch_size=32, max_samples=None):
+    def __init__(self, data_path, tokenizer, batch_size=32, max_samples=None):
         self.data_path = data_path
-        self.vocab_path = os.path.join(data_path, "vocab.json")
-        self.batch_size = batch_size
+        self.tokenizer = tokenizer
         self.vocab = self.get_vocab()
+        self.batch_size = batch_size
         self.output_size = len(self.vocab)
-        self.tokenizer = Tokenizer(self.vocab)
         self.name = "roc"
         self.max_samples = max_samples
 
     def get_vocab(self):
-        with open(self.vocab_path, 'r') as f:
-            vocab = json.load(f)
+        if self.tokenizer.__class__ == GPT2Tokenizer:
+            vocab = self.tokenizer.encoder
+        elif self.tokenizer.__class__ == Tokenizer:
+            vocab = self.tokenizer.vocab
         return vocab
 
     def get_dataset_elements(self, dataset_path):
@@ -35,7 +37,11 @@ class ROCDataset:
         if self.max_samples is not None:
             input_sentence = input_sentence[:self.max_samples]
             target_sentence = target_sentence[:self.max_samples]
-        return input_sentence, target_sentence, None
+            attention_mask = attention_mask[:self.max_samples]
+        if self.tokenizer.__class__ == GPT2Tokenizer:
+            return input_sentence, target_sentence, attention_mask
+        elif self.tokenizer.__class__ == Tokenizer:
+            return input_sentence, target_sentence, None
 
     def get_test_dataset_elements(self, dataset_path):
         dataset = pd.read_pickle(dataset_path)
@@ -76,7 +82,9 @@ class ROCDataset:
         if seq_len:
             self.seq_len = inputs.shape[1]
         inputs, targets = self._reshape(inputs, num_dim=num_dim), self._reshape(targets,
-                                                                                           num_dim=num_dim)
+                                                                                num_dim=num_dim)
+        if attn_mask is not None:
+            attn_mask = self._reshape(attn_mask, num_dim=num_dim)
         tfdataset = tf.data.Dataset.from_tensor_slices(
             (inputs, targets, attn_mask))
         tfdataloader = tfdataset.batch(batch_size, drop_remainder=True)

@@ -8,6 +8,7 @@ from src.algos.generic import Algo
 import json
 import datetime
 import numpy as np
+import math
 
 
 class SMCTAlgo(Algo):
@@ -95,6 +96,7 @@ class SMCTAlgo(Algo):
             assert dict_hparams["full_model"] == args.full_model, "consistency error in full_model parameter"
 
     def train(self):
+        self.smc_transformer.training = True
         self.logger.info('hparams...')
         self.logger.info(
             'num layers: {} - num_heads: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
@@ -159,6 +161,7 @@ class SMCTAlgo(Algo):
 
     def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
                                             decoding='sampling'):
+        self.smc_transformer.cell.training = False
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
@@ -201,6 +204,7 @@ class SMCTAlgo(Algo):
 
     def inference_multistep_best_particle(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
                                           decoding='sampling', num_samples=10):
+        self.smc_transformer.training = False
         if self.smc_transformer.cell.noise:
             P = self.smc_transformer.cell.num_particles
         else:
@@ -246,6 +250,7 @@ class SMCTAlgo(Algo):
             return inputs, None, None
 
     def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
+        self.smc_transformer.training = False
         if not self.smc_transformer.cell.noise:
             self.smc_transformer.cell.num_particles = 10
         P = self.smc_transformer.cell.num_particles
@@ -282,7 +287,8 @@ class SMCTAlgo(Algo):
             if i == 0:
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
-                attention_mask = tf.tile(attention_mask, multiples=[1, P, 1, 1])
+                if attention_mask is not None:
+                    attention_mask = tf.tile(attention_mask, multiples=[1, P, 1, 1])
             if i < future_len:  # dummy target (not used when resampling is stopped.)
                 self.smc_transformer.seq_len += 1
             last_pred = tf.expand_dims(last_pred, axis=-2)

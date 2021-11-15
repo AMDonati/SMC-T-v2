@@ -4,6 +4,7 @@ from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
 from src.data_provider.CLEVRDataset import QuestionsDataset
 from src.data_provider.ROCDataset import ROCDataset
+from src.data_provider.CLEVR_tokenizer import Tokenizer
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -11,6 +12,8 @@ from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 from transformers import GPT2Tokenizer
+import json
+import os
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -104,7 +107,16 @@ def run(args):
     elif args.dataset == "clevr":
         dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
     elif args.dataset == "roc":
-        dataset = ROCDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples)
+        if args.num_layers >=1:
+            vocab_path = "data/ROC/vocab.json"
+            with open(vocab_path, 'r') as f:
+                vocab = json.load(f)
+            tokenizer = Tokenizer(vocab)
+            data_path = args.data_path
+        else:
+            tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
+            data_path = os.path.join(args.data_path, "gpt2_tok")
+        dataset = ROCDataset(data_path=data_path, batch_size=args.bs, max_samples=args.max_samples, tokenizer=tokenizer)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 
@@ -112,6 +124,9 @@ def run(args):
         algo.train()
     else:
         print("skipping training...")
+        if args.algo == "smc_t":
+            # if needed: initialize Layer norms with GPT2 params.
+            algo.smc_transformer.init_with_gpt2_params()
 
     algo.test(test_samples=args.test_samples)
 

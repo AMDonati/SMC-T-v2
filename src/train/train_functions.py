@@ -154,6 +154,16 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
         print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
         print('first element and first dim of predictions resampled - last timestep', temp_preds_resampl[0, :, -1, 0].numpy())
 
+    # number of variables - trainable or not.
+    num_variables = len(smc_transformer.variables)
+    num_trainable_var = len(smc_transformer.trainable_variables)
+    print("number of variables:", num_variables)
+    print("number of trainable variables:", num_trainable_var)
+
+
+    # update LN parameters with GPT2 params:
+    smc_transformer.init_with_gpt2_params()
+
     if start_epoch > 0:
         if start_epoch > EPOCHS:
             logger.info("adding {} more epochs to existing training".format(EPOCHS))

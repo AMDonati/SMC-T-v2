@@ -32,7 +32,19 @@ class GPT2Decoder(tf.keras.Model):
         attention_weights = outputs.attentions
         last_hidden_state = tf.reshape(last_hidden_state, shape=(
         bs, num_particles, last_hidden_state.shape[-2], last_hidden_state.shape[-1]))
+        #last_tf_block = self.model.transformer.h.layers[-1]
+        #call() missing 5 required positional arguments: 'layer_past', 'attention_mask', 'head_mask', 'use_cache', and 'output_attentions'
         return last_hidden_state, attention_weights
+
+    def call_fullGPT2(self, input, attention_mask=None):
+        input_ = self._reshape_inputs(input)
+        attention_mask_ = self._reshape_inputs(attention_mask)
+        outputs = self.model(input_ids=input_, attention_mask=attention_mask_, output_hidden_states=True,
+                             output_attentions=True)
+        logits = outputs.logits
+        key_values = outputs.past_key_values[-1]
+        (K,V) = tf.split(key_values, 2, axis=0)
+        return logits, (K,V)
 
     def get_dict_variables(self):
         variables = self.model.variables
@@ -46,8 +58,15 @@ class GPT2Decoder(tf.keras.Model):
                                              self.model_prefix+'ln_f/beta:0']
         selected_var_names = last_layer_variables_names + embeddings_output_variables_names
         selected_variables = {k: v for k, v in dict_variables.items() if k in selected_var_names}
-        renamed_variables = [e.split(self.last_layer_prefix)[1] for e in last_layer_variables_names] + embeddings_output_variables_names
+        renamed_variables = []
+        for key in selected_variables.keys():
+            if self.last_layer_prefix in key:
+                renamed_variables.append(key.split(self.last_layer_prefix)[1])
+            else:
+                renamed_variables.append(key.split(self.model_prefix)[1])
         selected_variables = {k: v for k, v in zip(renamed_variables, list(selected_variables.values()))}
+        for weight in selected_variables.values():
+            weight._trainable = False
         return dict_variables, selected_variables
 
     def check_attention_parameters(self, input, attention_mask=None):
@@ -73,12 +92,29 @@ class GPT2Decoder(tf.keras.Model):
 
 
 if __name__ == '__main__':
-    #gpt2decoder = GPT2Decoder()
+    from src.models.classic_layers import Linear
+    gpt2decoder = GPT2Decoder()
+    # tf.keras.utils.plot_model(
+    #     gpt2decoder.model.transformer.h, to_file='model.png', show_shapes=True,
+    #     show_layer_names=True, expand_nested=True, dpi=96
+    # )
+    #tf_block1 = gpt2decoder.model.transformer.h.layers[-1]
     inputs = tf.random.categorical(tf.math.log([[0.1, 0.1, 0.2, 0.3, 0.15, 0.05, 0.1]]), num_samples=6, dtype=tf.int32)
     print(inputs.numpy)
-    #all_variables, selected_variables = gpt2decoder.get_dict_variables()
-    #(Q, K, V), (K_, V_) = gpt2decoder.check_attention_parameters(inputs)
-    #hidden_state, attention_weights = gpt2decoder(inputs)
+    all_variables, selected_variables = gpt2decoder.get_dict_variables()
+    (Q, K, V), (K_, V_) = gpt2decoder.check_attention_parameters(inputs)
+    hidden_state, attention_weights = gpt2decoder(inputs)
+
+    # get GPT2 logits
+    logits = gpt2decoder.call_fullGPT2(inputs)
+
+    # check iniialization with GPT2weights.
+    kernel_init = selected_variables['attn/c_proj/weight:0']
+    bias_init = selected_variables['attn/c_proj/bias:0']
+    layer = Linear(name="dense_1", units=768, kernel_init=kernel_init.numpy(), bias_init=bias_init.numpy())
+    inputs_ = tf.tile(tf.expand_dims(inputs, axis=-1), multiples=[1,1,768])
+    inputs_ = tf.cast(inputs_, tf.float32)
+    outputs = layer(inputs_)
     print("done")
 
 #

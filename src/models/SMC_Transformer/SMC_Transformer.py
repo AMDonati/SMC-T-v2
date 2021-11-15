@@ -6,6 +6,7 @@ from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 import tensorflow_probability as tfp
+from src.models.classic_layers import Linear
 import math
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
@@ -21,17 +22,15 @@ class SMC_Transformer(tf.keras.Model):
                  rate=0., attn_window=None, reduce_gpt2output=False):
         super(SMC_Transformer, self).__init__()
 
-
         # set Decoder
-
         #GPT2Decoder
         if num_layers == 0:
             self.decoder = GPT2Decoder()
             num_heads = 12
             d_model = 768
+            dff = 3072
             self.layer_norm_final = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm_final')
-
-        self.d_model = d_model
+            _, self.init_variables = self.decoder.get_dict_variables()
 
         if num_layers == 1:
             self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model,
@@ -39,12 +38,14 @@ class SMC_Transformer(tf.keras.Model):
                                                                 dff=dff, full_model=full_model,
                                                                 maximum_position_encoding=maximum_position_encoding,
                                                                 rate=rate, dim=4)
+            self.init_variables = None
         elif num_layers > 1:
             self.decoder = Decoder(num_layers=num_layers - 1, d_model=d_model, output_size=output_size,
                                    num_heads=num_heads,
                                    dff=dff, full_model=full_model,
                                    maximum_position_encoding=maximum_position_encoding,
                                    rate=rate, dim=4)
+            self.init_variables = None
 
             # if reduce_gpt2output:
             #     self.gpt2_projection_layer = tf.keras.layers.Dense(d_model)
@@ -53,50 +54,46 @@ class SMC_Transformer(tf.keras.Model):
             #     self.d_model = 768
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, init_variables=self.init_variables)
 
         # for pre_processing words in the one_layer case.
-        self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
+        self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model, name="embedding") # for classification case.
         self.output_size = output_size
         self.seq_len = seq_len
         self.full_model = full_model
-        self.dff = dff
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.d_model = d_model
+        self.dff = dff
 
-        if self.num_layers == 0:
-            self.init_with_gpt2_params()
+        # if self.num_layers == 0:
+        #     self.init_with_gpt2_params(self.init_variables)
+
+        self.get_layers()
 
     def init_with_gpt2_params(self):
-        _, selected_variables = self.decoder.get_dict_variables()
-        # dict_keys(['ln_1/gamma:0', 'ln_1/beta:0', 'attn/c_attn/weight:0', 'attn/c_attn/bias:0', 'attn/c_proj/weight:0',
-        #            'attn/c_proj/bias:0', 'ln_2/gamma:0', 'ln_2/beta:0', 'mlp/c_fc/weight:0', 'mlp/c_fc/bias:0',
-        #            'mlp/c_proj/weight:0', 'mlp/c_proj/bias:0', 'tfgp_t2lm_head_model/transformer/wpe/embeddings:0',
-        #            'tfgp_t2lm_head_model/transformer/wte/weight:0', 'tfgp_t2lm_head_model/transformer/ln_f/gamma:0',
-        #            'tfgp_t2lm_head_model/transformer/ln_f/beta:0'])
-        self.cell.layernorm1.gamma = selected_variables["ln_1/gamma:0"]
-        self.cell.layernorm1.beta = selected_variables["ln_1/beta:0"]
-        self.cell.layernorm2.gamma = selected_variables["ln_2/gamma:0"]
-        self.cell.layernorm2.beta = selected_variables["ln_2/beta:0"]
-        self.layer_norm_final.gamma = selected_variables[self.decoder.model_prefix+'ln_f/gamma:0']
-        self.layer_norm_final.beta = selected_variables[self.decoder.model_prefix+'ln_f/beta:0']
-        self.set_weights_and_bias_layer(self.cell.attention_smc.dense, selected_variables['attn/c_attn/weight:0'], selected_variables['attn/c_attn/bias:0'])
-        self.set_weights_and_bias_layer(self.cell.ffn.layers[0], selected_variables['mlp/c_fc/weight:0'], selected_variables['mlp/c_fc/bias:0'])
-        self.set_weights_and_bias_layer(self.cell.ffn.layers[1], selected_variables['mlp/c_proj/weight:0'], selected_variables['mlp/c_proj/bias:0'])
-        w_q, w_k, w_v = tf.split(selected_variables['attn/c_proj/weight:0'], 3, axis=-1)
-        b_q, b_k, b_v = tf.split(selected_variables['attn/c_proj/bias:0'], 3, axis=-1)
-        self.set_weights_and_bias_layer(self.cell.attention_smc.wq, w_q, b_q)
-        self.set_weights_and_bias_layer(self.cell.attention_smc.wk, w_k, b_k)
-        self.set_weights_and_bias_layer(self.cell.attention_smc.wv, w_v, b_v)
-        self.set_weights_and_bias_layer(self.cell.output_layer, selected_variables[self.decoder.model_prefix+'wte/weight:0'], None) #TODO: problem here: should be (50257, 768) and not (1, 768)
-        # TODO: missing embedding and output layer (add layernorm: ln_f)
+        if self.init_variables is not None:
+            selected_variables = self.init_variables
+            self.cell.layernorm1.gamma = selected_variables["ln_1/gamma:0"]
+            self.cell.layernorm1.beta = selected_variables["ln_1/beta:0"]
+            for weight in self.cell.layernorm1.weights:
+                weight._trainable = True
+            self.cell.layernorm2.gamma = selected_variables["ln_2/gamma:0"]
+            self.cell.layernorm2.beta = selected_variables["ln_2/beta:0"]
+            for weight in self.cell.layernorm2.weights:
+                weight._trainable = True
+            self.layer_norm_final.gamma = selected_variables['ln_f/gamma:0']
+            self.layer_norm_final.beta = selected_variables['ln_f/beta:0']
+            for weight in self.layer_norm_final.weights:
+                weight._trainable = True
+            print("initializing the SMC Transformer with GPT2 pretrained weights...")
 
-    def set_weights_and_bias_layer(self, layer, weights, bias):
-        layer.add_weight(shape=weights.shape)
-        if bias is not None:
-            layer.add_weight(shape=bias.shape)
-        list_weights = [weights.numpy()] if bias is None else [weights.numpy(), bias.numpy()]
-        layer.set_weights(list_weights)
+    def get_layers(self):
+        layers = self.cell.attention_smc.layers + self.cell.layers
+        if self.num_layers == 0:
+            layers.append(self.layer_norm_final)
+        layers.append(self.cell.output_layer)
+        self.layers_ = layers
 
     def compute_log_gaussian_density(self, logvar, noise):
         if len(tf.shape(logvar)) == 0:
@@ -111,7 +108,6 @@ class SMC_Transformer(tf.keras.Model):
 
     def compute_SMC_loss(self, targets, predictions, attention_mask=None):
         assert self.cell.noise == self.cell.attention_smc.noise
-
         if self.cell.noise:
             list_logvar = [self.cell.attention_smc.logvar_k, self.cell.attention_smc.logvar_q,
                            self.cell.attention_smc.logvar_v,
@@ -126,7 +122,6 @@ class SMC_Transformer(tf.keras.Model):
             smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
         else:
             smc_loss = 0.
-
         classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions, attention_mask=attention_mask)
         total_loss = smc_loss + classic_loss
         return total_loss, classic_loss
@@ -165,7 +160,7 @@ class SMC_Transformer(tf.keras.Model):
         #         input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
-    def call(self, inputs, targets, attention_mask=None):
+    def call(self, inputs, targets, attention_mask=None, training=False):
         '''
         :param inputs: input_data: shape (B,P,S,F_x) with P=1 during training.
         :param targets: target_data: shape (B,P,S,F_y) with P=1 during training. F_y can be different from F_x.
@@ -188,6 +183,10 @@ class SMC_Transformer(tf.keras.Model):
 
         def step_function(inputs, states):
             return self.cell(inputs, states)
+
+        # initialize layer norm params with GPT2 ones:
+        #self.init_with_gpt2_params(self.init_variables)
+
 
         x = tf.transpose(input_tensor_processed,
                          perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
@@ -276,15 +275,31 @@ if __name__ == "__main__":
     print("....................test of computing SMC loss.....................................")
     smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=predictions)
 
-    print(".....................................TEST GPT2 DECODER .....................................................")
-    inputs_ = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]], [[1], [2], [3], [4], [5], [6], [7], [20256], [20256], [20256]]], shape=(2, seq_len), dtype=tf.int32)
-    targets_ = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11]],
-                          [[2], [3], [4], [5], [6], [7], [8], [20256], [20256], [20256]]], shape=(2, seq_len, 1), dtype=tf.int32)
-    targets_ = tf.expand_dims(targets_, axis=1)
-    attention_mask = tf.constant([[1]*10, [1]*7+[0]*3], dtype=tf.int32)
 
-    transformer = SMC_Transformer(d_model=64, output_size=20257, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4, num_layers=0, reduce_gpt2output=True)
+    print(".....................................TEST GPT2 DECODER .....................................................")
+    inputs_ = tf.constant([[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]], [[1], [2], [3], [4], [5], [6], [7], [20256], [20256], [20256]]], shape=(2, 1, seq_len, 1), dtype=tf.int32)
+    targets_ = tf.constant([[[2], [3], [4], [5], [6], [7], [8], [9], [10], [11]],
+                          [[2], [3], [4], [5], [6], [7], [8], [20256], [20256], [20256]]], shape=(2, 1, seq_len, 1), dtype=tf.int32)
+    #targets_ = tf.expand_dims(targets_, axis=1)
+    attention_mask = tf.constant([[1]*10, [1]*7+[0]*3], shape=(2,1,seq_len,1), dtype=tf.int32)
+
+    transformer = SMC_Transformer(d_model=64, output_size=50257, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  attn_window=4, num_layers=0)
+
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs_, targets=targets_,
+                                                            attention_mask=attention_mask)
+    transformer.init_with_gpt2_params()
+
+    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs_, targets=targets_,
+                                                            attention_mask=attention_mask)
+
+    gpt2decoder = transformer.decoder
+    outputs_gpt2, (K_g, V_g) = gpt2decoder.call_fullGPT2(inputs_, attention_mask)
+
+    Kg = tf.reshape(K_g, shape=(2,10,768))
+    K = tf.squeeze(K)
+    predictions = tf.squeeze(predictions)
+
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)
 
