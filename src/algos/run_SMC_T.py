@@ -59,6 +59,10 @@ class SMCTAlgo(Algo):
             if args.smc:
                 out_file = out_file + '__p{}'.format(args.particles)
                 out_file = out_file + '_sigmas_{}'.format(args.sigmas)
+                if args.noise_dim == "multi":
+                    out_file = out_file + '_multiD'
+            if args.temp != 1.:
+                out_file = out_file + '_temp{}'.format(args.temp)
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
         if not os.path.isdir(out_folder):
             os.makedirs(out_folder)
@@ -152,7 +156,7 @@ class SMCTAlgo(Algo):
                                                          num_particles=self.smc_transformer.cell.num_particles)
 
     def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
-                                            decoding='sampling'):
+                                            decoding='sampling', temp=1):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
@@ -173,7 +177,7 @@ class SMCTAlgo(Algo):
                 list_top_k_words.append(dict_top_k_words)
                 particles_norm = self._get_particle_norm(last_pred)
                 list_particles_norm.append(particles_norm)
-                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0)/temp, num_samples=1, dtype=tf.int32)
             elif decoding == "greedy":
                 last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32),
                                            axis=-1)
@@ -239,7 +243,7 @@ class SMCTAlgo(Algo):
         elif decoding == "greedy":
             return inputs, None, None
 
-    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling'):
+    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling', temp=1):
         if not self.smc_transformer.cell.noise:
             self.smc_transformer.cell.num_particles = 10
         P = self.smc_transformer.cell.num_particles
@@ -269,7 +273,7 @@ class SMCTAlgo(Algo):
             particles_norm = self._get_particle_norm(last_pred)
             list_particles_norm.append(particles_norm)
             if decoding == "sampling":
-                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
+                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0)/temp, num_samples=1, dtype=tf.int32)
             elif decoding == "greedy":
                 last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32),
                                            axis=-1)

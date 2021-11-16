@@ -61,7 +61,6 @@ class SMC_Transformer(tf.keras.Model):
         if len(tf.shape(logvar)) == 0:
             diag_logvar = 0.5 * logvar * tf.ones(shape=noise.shape[-1], dtype=tf.float32)
             diag_std = tf.math.exp(diag_logvar)
-            #diag_std = tf.math.exp(tf.constant([0.5 * logvar.numpy()]*noise.shape[-1], dtype=tf.float32))
         else:
             diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
         gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)
@@ -79,15 +78,7 @@ class SMC_Transformer(tf.keras.Model):
             loss_parts, loss_parts_no_log = [], []
 
             for noise, logvar in zip(self.internal_noises, list_logvar):
-                if len(logvar.shape) == 0:
-                    #loss_part = 1 / 2 * (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
-                    loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
-                    #d_model = noise.shape[-1]
-                    #loss_part_1 = (1 / tf.exp(logvar)) * tf.einsum('bijk,bijk->bij', noise, noise)
-                    #loss_part_2 = d_model * tf.math.log(2. * math.pi * tf.math.exp(logvar))*tf.ones(shape=(noise.shape[0], noise.shape[1], noise.shape[-2]))
-                    #loss_part_ = 0.5 * (loss_part_1 + loss_part_2)
-                else:
-                    loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
+                loss_part = self.compute_log_gaussian_density(logvar=logvar, noise=noise)
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dim128-ROC-smc-t-None
+#SBATCH --job-name=temp0.1-dim128-ROC-smc-t-None
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -26,4 +26,4 @@ BS=32
 PARTICLES=1
 EP=20
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20 -temp 0.1
