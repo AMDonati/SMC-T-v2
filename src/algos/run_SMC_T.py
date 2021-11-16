@@ -34,7 +34,7 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
                                                attn_window=args.attn_w, num_layers=args.num_layers,
-                                               num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output)
+                                               num_heads=args.num_heads, init_weights=args.init_weights)
         self.distribution = args.smc
         self.particles = args.particles
         if args.EM_param is not None:

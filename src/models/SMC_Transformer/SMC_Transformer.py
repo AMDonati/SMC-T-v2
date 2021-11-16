@@ -19,7 +19,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None, reduce_gpt2output=False):
+                 rate=0., attn_window=None, init_weights=1):
         super(SMC_Transformer, self).__init__()
 
         # set Decoder
@@ -31,6 +31,8 @@ class SMC_Transformer(tf.keras.Model):
             dff = 3072
             self.layer_norm_final = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm_final')
             _, self.init_variables = self.decoder.get_dict_variables()
+            if init_weights == 0:
+                self.init_variables = None
 
         if num_layers == 1:
             self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model,
@@ -47,12 +49,6 @@ class SMC_Transformer(tf.keras.Model):
                                    rate=rate, dim=4)
             self.init_variables = None
 
-            # if reduce_gpt2output:
-            #     self.gpt2_projection_layer = tf.keras.layers.Dense(d_model)
-            # else:
-            #     self.gpt2_projection_layer = None
-            #     self.d_model = 768
-
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
                                     dff=dff, attn_window=attn_window, num_heads=num_heads, init_variables=self.init_variables)
 
@@ -65,9 +61,6 @@ class SMC_Transformer(tf.keras.Model):
         self.num_heads = num_heads
         self.d_model = d_model
         self.dff = dff
-
-        # if self.num_layers == 0:
-        #     self.init_with_gpt2_params(self.init_variables)
 
         self.get_layers()
 
@@ -213,7 +206,6 @@ class SMC_Transformer(tf.keras.Model):
             R = self.layer_norm_final(R)
 
         pred_resampl = self.cell.output_layer(R_resampl)  # (B,P,S,C) used to compute the categorical cross_entropy loss.
-
         pred = self.cell.output_layer(R)
 
         # computing resampled noises for K, and V.
