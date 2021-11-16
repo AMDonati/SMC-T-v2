@@ -24,7 +24,7 @@ class SMCTAlgo(Algo):
         self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
         if args.num_layers == 0:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2, num_dim_targets=4)
+            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2)
         else:
             self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
@@ -34,7 +34,7 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
                                                attn_window=args.attn_w, num_layers=args.num_layers,
-                                               num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output)
+                                               num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output, rate=args.p_drop)
         self.distribution = args.smc
         self.particles = args.particles
         if args.EM_param is not None:
@@ -100,6 +100,7 @@ class SMCTAlgo(Algo):
             assert dict_hparams["full_model"] == args.full_model, "consistency error in full_model parameter"
 
     def train(self):
+        self.smc_transformer.training = True
         self.logger.info('hparams...')
         self.logger.info(
             'num layers: {} - num_heads: {} - d_model: {} - batch size {} - full model? {} - dff: {} -attn window: {}'.format(
@@ -157,6 +158,7 @@ class SMCTAlgo(Algo):
 
     def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
                                             decoding='sampling', temp=1):
+        self.smc_transformer.training = False
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
@@ -199,6 +201,7 @@ class SMCTAlgo(Algo):
 
     def inference_multistep_best_particle(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
                                           decoding='sampling', num_samples=10):
+        self.smc_transformer.training = False
         if self.smc_transformer.cell.noise:
             P = self.smc_transformer.cell.num_particles
         else:
@@ -244,6 +247,7 @@ class SMCTAlgo(Algo):
             return inputs, None, None
 
     def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling', temp=1):
+        self.smc_transformer.training = False
         if not self.smc_transformer.cell.noise:
             self.smc_transformer.cell.num_particles = 10
         P = self.smc_transformer.cell.num_particles

@@ -121,7 +121,7 @@ class Algo:
         self.logger.info(
             "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
         self.logger.info("--------- sampling with temperature: {}-------------------------------------------------------------".format(kwargs["temp"]))
-        decodings = ["sampling", "greedy"] if self.smc_transformer.cell.noise else ["sampling"]
+        decodings = ["sampling", "greedy"] if self.distribution else ["sampling"]
         test_samples_sampling = kwargs["test_samples"]
         for decoding in decodings:
             test_samples = test_samples_sampling if decoding == "sampling" else 10

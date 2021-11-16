@@ -12,7 +12,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, rate=0., **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -30,12 +30,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+            self.dropout1 = tf.keras.layers.Dropout(rate)
+            self.dropout2 = tf.keras.layers.Dropout(rate)
             self.ffn = point_wise_feed_forward_network(d_model, dff)
 
         # initializing smc parameters for training
         self.num_particles = 1
         self.noise = False
         self.len_resampling = None
+        self.training = False
 
         # output layer for computing the weights
         self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
@@ -122,8 +125,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
 
         if self.full_model:
+            self.dropout1(z, training=self.training)  # (B,S,D)
             out = self.layernorm1(z + x)
             r = self.ffn(out)
+            r = self.dropout2(r, training=self.training)
             r = self.layernorm2(r + out)
         else:
             r = z
