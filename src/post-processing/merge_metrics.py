@@ -8,6 +8,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-path", type=str, required=True,
                         help="data folder containing experiments")
+    parser.add_argument("-to_remove", type=str, default="var_bleu")
     #parser.add_argument('-bottom_folder', type=int, default=1)
     #parser.add_argument('-top_folder', type=int, default=1)
     parser.add_argument('-precision', type=int, default=2)
@@ -37,7 +38,7 @@ def check_train_mse_metric(df):
         values = [float(e) for e in values]
         return values[-1]
 
-def merge_one_experiment(path="output/temp", precision=4):
+def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
     dirs = [f.path for f in os.scandir(path) if f.is_dir()]
     merge_metrics = pd.DataFrame()
     for dir_conf in dirs:
@@ -72,9 +73,11 @@ def merge_one_experiment(path="output/temp", precision=4):
         stats_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics.csv"))
         if len(dirs) > 1:
             all_metrics_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics_per_run.csv"))
+    merge_metrics = merge_metrics.drop(to_remove, axis=0)
     merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
     merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
     merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
+    merge_metrics_latex = merge_metrics_latex.T
     merge_metrics.to_csv(os.path.join(path, "merge_metrics.csv"))
     merge_metrics_latex.to_latex(os.path.join(path, "merge_metrics.txt"))
 
@@ -142,7 +145,7 @@ def merge_one_experiment(path="output/temp", precision=4):
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
-    merge_one_experiment(path=args.path, precision=args.precision)
+    merge_one_experiment(path=args.path, precision=args.precision, to_remove=args.to_remove)
     # if args.bottom_folder == 1:
     #     merge_one_experiment(args)
     # if args.top_folder == 1:
