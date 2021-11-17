@@ -26,7 +26,7 @@ BS=32
 PARTICLES=1
 EP=20
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH -max_seq_len 20 -pdrop 0.1 -temp 0.7
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "lstm" -d_model $D_MODEL -rnn_units $RNN_UNITS -bs $BS -ep $EP -output_path $OUTPUT_PATH -max_seq_len 20 -p_drop 0.1 -temp 0.7
 
 
 
