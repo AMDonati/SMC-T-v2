@@ -29,7 +29,7 @@ class SMC_Transformer(tf.keras.Model):
             num_heads = 12
             d_model = 768
             dff = 3072
-            self.layer_norm_final = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm_final')
+            self.layer_norm_final = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm_final')
             _, self.init_variables = self.decoder.get_dict_variables()
             if init_weights == 0:
                 self.init_variables = None
@@ -278,6 +278,9 @@ if __name__ == "__main__":
     transformer = SMC_Transformer(d_model=64, output_size=50257, seq_len=seq_len, full_model=full_model, dff=dff,
                                   attn_window=4, num_layers=0)
 
+    gpt2decoder = transformer.decoder
+    outputs_gpt2, (K_g, V_g), last_hidden_state = gpt2decoder.call_fullGPT2(inputs_, attention_mask)
+
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs_, targets=targets_,
                                                             attention_mask=attention_mask)
     transformer.init_with_gpt2_params()
@@ -285,12 +288,12 @@ if __name__ == "__main__":
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs_, targets=targets_,
                                                             attention_mask=attention_mask)
 
-    gpt2decoder = transformer.decoder
-    outputs_gpt2, (K_g, V_g) = gpt2decoder.call_fullGPT2(inputs_, attention_mask)
-
     Kg = tf.reshape(K_g, shape=(2,10,768))
     K = tf.squeeze(K)
     predictions = tf.squeeze(predictions)
+
+    # cell output layer with GPT2 weights working.
+    # idem for K,V first element.
 
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         num_particles=num_particles)

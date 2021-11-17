@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import re
 import math
+import json
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -27,16 +28,24 @@ def str_to_float_in_csv(df, index="train_loss", sep=","):
         return values[-1]
 
 def check_train_mse_metric(df):
-    values = df.loc["train_mse_metric"].values[-1]
-    values = values.split(',')
-    values = [e.replace('[', '') for e in values]
-    values = [e.replace(']', '') for e in values]
-    values = [e.replace('\n', '') for e in values]
-    if len(values) == 1 and '' in values:
+    if not "train_mse_metric" in df.index:
         return None
     else:
-        values = [float(e) for e in values]
-        return values[-1]
+        values = df.loc["train_mse_metric"].values[-1]
+        values = values.split(',')
+        values = [e.replace('[', '') for e in values]
+        values = [e.replace(']', '') for e in values]
+        values = [e.replace('\n', '') for e in values]
+        if len(values) == 1 and '' in values:
+            return None
+        else:
+            values = [float(e) for e in values]
+            return values[-1]
+
+def open_config(config_path):
+    with open(config_path, "r"):
+        config = json.load(config_path)
+    return config
 
 def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
     dirs = [f.path for f in os.scandir(path) if f.is_dir()]
@@ -46,7 +55,11 @@ def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
         stats_all_runs_df = pd.DataFrame()
         all_metrics_all_runs_df = pd.DataFrame()
         for dir_experiment in dirs: # level for multiple runs with same config.
-            losses_path = os.path.join(dir_experiment, "smc_t_history_1.csv")
+            config = open_config(os.path.join(dir_experiment, "config.json"))
+            if config["algo"] == "lstm":
+                losses_path = os.path.join(dir_experiment, "rnn_history_1.csv")
+            elif config["algo"] == "smc_t":
+                losses_path = os.path.join(dir_experiment, "smc_t_history_1.csv")
             if os.path.exists(losses_path):
                 losses_exp = pd.read_csv(losses_path, index_col=0, header=None)
                 losses_values = []

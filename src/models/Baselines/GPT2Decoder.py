@@ -41,10 +41,11 @@ class GPT2Decoder(tf.keras.Model):
         attention_mask_ = self._reshape_inputs(attention_mask)
         outputs = self.model(input_ids=input_, attention_mask=attention_mask_, output_hidden_states=True,
                              output_attentions=True)
+        last_hidden_state = outputs.hidden_states[-1]
         logits = outputs.logits
         key_values = outputs.past_key_values[-1]
         (K,V) = tf.split(key_values, 2, axis=0)
-        return logits, (K,V)
+        return logits, (K,V), last_hidden_state
 
     def get_dict_variables(self):
         variables = self.model.variables
@@ -98,7 +99,7 @@ if __name__ == '__main__':
     #     gpt2decoder.model.transformer.h, to_file='model.png', show_shapes=True,
     #     show_layer_names=True, expand_nested=True, dpi=96
     # )
-    #tf_block1 = gpt2decoder.model.transformer.h.layers[-1]
+    tf_block1 = gpt2decoder.model.transformer.h.layers[-1]
     inputs = tf.random.categorical(tf.math.log([[0.1, 0.1, 0.2, 0.3, 0.15, 0.05, 0.1]]), num_samples=6, dtype=tf.int32)
     print(inputs.numpy)
     all_variables, selected_variables = gpt2decoder.get_dict_variables()
@@ -123,3 +124,6 @@ if __name__ == '__main__':
 # layer.trainable = False  # Freeze the layer
 
 # set_weights([weights,bias]) for a dense layer.
+
+#LN_F: epsilon = 1e-5.
+# idem for layer_norm1, layer_norm2.

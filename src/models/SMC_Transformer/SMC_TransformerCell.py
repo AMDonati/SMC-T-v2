@@ -31,8 +31,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.init_variables = init_variables
 
         # initialize layers:
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+        if self.init_variables is not None:
+            self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
+            self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+        else:
+            self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm1')
+            self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm2')
         rate = 0. if self.init_variables is None else 0.1
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
@@ -124,7 +128,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         assert self.noise
         self.len_resampling = len_resampling
 
-    def call(self, inputs, states, training=True):
+    def call(self, inputs, states):
         '''
         :param inputs:
         :param states:
