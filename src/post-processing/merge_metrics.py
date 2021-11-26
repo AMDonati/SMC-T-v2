@@ -3,11 +3,13 @@ import os
 import pandas as pd
 import re
 import math
+import json
 
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-path", type=str, required=True,
                         help="data folder containing experiments")
+    parser.add_argument("-to_remove", type=str, default="var_bleu")
     #parser.add_argument('-bottom_folder', type=int, default=1)
     #parser.add_argument('-top_folder', type=int, default=1)
     parser.add_argument('-precision', type=int, default=2)
@@ -26,18 +28,26 @@ def str_to_float_in_csv(df, index="train_loss", sep=","):
         return values[-1]
 
 def check_train_mse_metric(df):
-    values = df.loc["train_mse_metric"].values[-1]
-    values = values.split(',')
-    values = [e.replace('[', '') for e in values]
-    values = [e.replace(']', '') for e in values]
-    values = [e.replace('\n', '') for e in values]
-    if len(values) == 1 and '' in values:
+    if not "train_mse_metric" in df.index:
         return None
     else:
-        values = [float(e) for e in values]
-        return values[-1]
+        values = df.loc["train_mse_metric"].values[-1]
+        values = values.split(',')
+        values = [e.replace('[', '') for e in values]
+        values = [e.replace(']', '') for e in values]
+        values = [e.replace('\n', '') for e in values]
+        if len(values) == 1 and '' in values:
+            return None
+        else:
+            values = [float(e) for e in values]
+            return values[-1]
 
-def merge_one_experiment(path="output/temp", precision=4):
+def open_config(config_path):
+    with open(config_path, "r") as file:
+        config = json.load(file)
+    return config
+
+def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
     dirs = [f.path for f in os.scandir(path) if f.is_dir()]
     merge_metrics = pd.DataFrame()
     for dir_conf in dirs:
@@ -45,7 +55,11 @@ def merge_one_experiment(path="output/temp", precision=4):
         stats_all_runs_df = pd.DataFrame()
         all_metrics_all_runs_df = pd.DataFrame()
         for dir_experiment in dirs: # level for multiple runs with same config.
-            losses_path = os.path.join(dir_experiment, "smc_t_history_1.csv")
+            config = open_config(os.path.join(dir_experiment, "config.json"))
+            if config["algo"] == "lstm":
+                losses_path = os.path.join(dir_experiment, "rnn_history_1.csv")
+            elif config["algo"] == "smc_t":
+                losses_path = os.path.join(dir_experiment, "smc_t_history_1.csv")
             if os.path.exists(losses_path):
                 losses_exp = pd.read_csv(losses_path, index_col=0, header=None)
                 losses_values = []
@@ -72,6 +86,8 @@ def merge_one_experiment(path="output/temp", precision=4):
         stats_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics.csv"))
         if len(dirs) > 1:
             all_metrics_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics_per_run.csv"))
+    if to_remove in merge_metrics.index:
+        merge_metrics = merge_metrics.drop(to_remove, axis=0)
     merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
     merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
     merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
@@ -143,8 +159,9 @@ def merge_one_experiment(path="output/temp", precision=4):
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
-    merge_one_experiment(path=args.path, precision=args.precision)
+    merge_one_experiment(path=args.path, precision=args.precision, to_remove=args.to_remove)
     # if args.bottom_folder == 1:
     #     merge_one_experiment(args)
     # if args.top_folder == 1:
     #     merge_all_experiments(args)
+
