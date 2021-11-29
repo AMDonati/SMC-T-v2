@@ -55,13 +55,14 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         :return:
         '''
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
-        logvar_ = tf.stop_gradient(logvar)
         if noise is not None:
             noise = tf.math.multiply(gaussian_noise, tf.exp(noise * 0.5))
             noise = tf.stop_gradient(noise)
         elif len(tf.shape(logvar)) == 0:
+            logvar_ = tf.stop_gradient(logvar)
             noise = tf.exp(logvar_ * 0.5) * gaussian_noise
         else:
+            logvar_ = tf.stop_gradient(logvar)
             diag_std = tf.linalg.diag_part(tf.exp(logvar_ * 0.5))
             std_tiled = tf.reshape(diag_std, (1,1,1,diag_std.shape[0]))
             std_tiled = tf.tile(std_tiled, [gaussian_noise.shape[0], gaussian_noise.shape[1], gaussian_noise.shape[2], 1])

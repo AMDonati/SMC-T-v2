@@ -123,7 +123,7 @@ class SMCTAlgo(Algo):
                               start_epoch=self.start_epoch,
                               num_train=1,
                               EM_param=self.EM_param)
-        if self.distribution:
+        if self.distribution and self.smc_transformer.cell.attention_smc.noise_network is None:
             self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
                                                   [self.smc_transformer.cell.attention_smc.logvar_k.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_q.numpy(),

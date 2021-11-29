@@ -7,7 +7,6 @@ import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 import tensorflow_probability as tfp
 import math
-import numpy as np
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -72,15 +71,18 @@ class SMC_Transformer(tf.keras.Model):
         bs = noise.shape[0]
         S = noise.shape[-2]
         logvar = tf.reduce_mean(logvar, axis=1) # same values along all particles.
-        log_probs = np.zeros(shape=(bs, self.cell.num_particles, S))
+        #log_probs = np.zeros(shape=(bs, self.cell.num_particles, S))
+        loss_per_sample = []
         for b in range(bs):
+            loss_per_timestep = []
             for s in range(S):
                 logvar_ = logvar[b,s] # shape (d_model).
                 noise_ = noise[b,:,s] # shape (P, d_model)
                 gauss_ = tfp.distributions.MultivariateNormalDiag(scale_diag=tf.exp(logvar_*0.5))
                 log_prob_ = gauss_.log_prob(noise_)
-                log_probs[b, :, s] = -log_prob_.numpy()
-        return tf.constant(log_probs, dtype=tf.float32) # shape (B,P,S)
+                loss_per_timestep.append(-log_prob_)
+            loss_per_sample.append(tf.stack(loss_per_timestep, axis=-1))
+        return tf.stack(loss_per_sample) # shape (B,P,S)
 
     def get_logvar_from_inputs(self, inputs):
         inputs = self.get_encoded_input(inputs)
