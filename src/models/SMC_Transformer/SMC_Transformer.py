@@ -77,7 +77,7 @@ class SMC_Transformer(tf.keras.Model):
                 noise_ = noise[b,:,s] # shape (P, d_model)
                 gauss_ = tfp.distributions.MultivariateNormalDiag(scale_diag=tf.exp(logvar_*0.5))
                 log_prob_ = gauss_.log_prob(noise_)
-                log_probs[b, :, s] = log_prob_.numpy()
+                log_probs[b, :, s] = -log_prob_.numpy()
         return tf.constant(log_probs, dtype=tf.float32) # shape (B,P,S)
 
     def get_logvar_from_inputs(self, inputs):
