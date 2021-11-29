@@ -1,3 +1,7 @@
+## README for the Application to Natural Language Processing
+The instructions are here: 
+
+
 ## Code for the paper: The Monte Carlo Transformer: a stochastic self-attention model for sequence prediction
 
 ### Requirements
