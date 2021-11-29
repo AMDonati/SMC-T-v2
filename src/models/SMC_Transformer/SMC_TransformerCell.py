@@ -5,13 +5,14 @@ from src.models.SMC_Transformer.self_attention_SMC import Self_Attention_SMC
 from src.models.SMC_Transformer.multi_head_attention_SMC import mha_SMC
 from src.models.SMC_Transformer.transformer_utils import resample
 from src.models.classic_layers import point_wise_feed_forward_network
+from src.eval.language_metrics import gpt2_perplexity_batch, gpt2_perplexity_batch_2
 
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, rate=0., **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -29,12 +30,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+            self.dropout1 = tf.keras.layers.Dropout(rate)
+            self.dropout2 = tf.keras.layers.Dropout(rate)
             self.ffn = point_wise_feed_forward_network(d_model, dff)
 
         # initializing smc parameters for training
         self.num_particles = 1
         self.noise = False
         self.len_resampling = None
+        self.training = False
 
         # output layer for computing the weights
         self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
@@ -48,9 +52,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
-    def add_SMC_parameters(self, dict_sigmas, num_particles):
+    def init_inference_parameters(self, tokenizer):
+        self.tokenizer=tokenizer
+
+
+    def add_SMC_parameters(self, dict_sigmas, num_particles, EM=False):
         self.noise = True
-        self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
+        self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas, EM=EM)
         self.num_particles = num_particles
         #self.list_weights, self.list_indices = [], []
 
@@ -62,20 +70,42 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_norm = w
       return w_norm  # shape (B,P)
 
-    def call_inference(self, inputs, states, timestep):
+    def compute_w_inference(self, predictions, inputs):
+        probs = tf.squeeze(tf.nn.softmax(predictions), axis=-2)
+        values, indices = tf.math.top_k(probs, k=10)
+        indices = tf.expand_dims(indices, axis=-1) # shape (B,P,10,1)
+        list_sentences = [tf.squeeze(tf.concat([inputs, tf.expand_dims(indices[:, :, i], axis=-2)], axis=-2))for i in range(indices.shape[-2])]  # list of tensor of shape (P,S).
+        list_gpt2_ppl = [gpt2_perplexity_batch_2(sentence, tokenizer=self.tokenizer) for sentence in
+                         list_sentences]
+        #list_gpt2_ppl = [gpt2_perplexity_batch(sentence, tokenizer=self.tokenizer, reduction=False) for sentence in list_sentences]
+        gpt2_ppls = tf.stack(list_gpt2_ppl, axis=-1) # shape (B,10)
+        weighted_gpt2_ppls = tf.math.multiply(gpt2_ppls, values)
+        w = tf.reduce_mean(weighted_gpt2_ppls, axis=-1)
+        return w # shape P.
+
+    def call_inference(self, inputs, encoded_inputs, states, timestep):
         K, V = states
+        input = tf.expand_dims(encoded_inputs[:,:,-1,:], axis=-2) #caution, we need here the encoded input and not the raw one....
         # self attention:
-        (z, K, V), attn_weights = self.attention_smc(inputs=inputs, timestep=timestep, K=K, V=V)
+        (z, K, V), attn_weights = self.attention_smc(inputs=input, timestep=timestep, K=K, V=V)
 
         if self.full_model:
-            out = self.layernorm1(z + inputs)
+            out = self.layernorm1(z + input)
             r = self.ffn(out)
             r = self.layernorm2(r + out)
         else:
             r = z
         predictions = self.output_layer(r)  # (B,P,1,F_y)
 
-        return predictions, (K, V)
+        # resampling K,V:
+        if self.noise:
+            w = self.compute_w_inference(predictions=predictions, inputs=inputs)
+            i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
+            w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
+            KV = tf.concat([K,V], axis=-1)
+            KV = resample(KV, i_t)
+            K, V = tf.split(KV, num_or_size_splits=2, axis=-1)
+        return tf.squeeze(predictions, axis=-2), (K, V)
 
     def add_stop_resampling(self, len_resampling):
         assert self.noise
@@ -95,8 +125,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
 
         if self.full_model:
+            self.dropout1(z, training=self.training)  # (B,S,D)
             out = self.layernorm1(z + x)
             r = self.ffn(out)
+            r = self.dropout2(r, training=self.training)
             r = self.layernorm2(r + out)
         else:
             r = z
@@ -118,15 +150,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             #self.list_weights.append(w.numpy())
             #self.list_indices.append(i_t.numpy())
             # resample K, V, and R
-            #print("RESAMPLING WEIGHTS", w.shape)
-            #print("MAX INDICES", tf.reduce_max(i_t).numpy())
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
                 KVR = tf.concat([K,V,R], axis=-1)
                 KVR = resample(KVR, i_t)
                 K, V, R = tf.split(KVR, num_or_size_splits=3, axis=-1)
             # Getting internal noises for computing the loss.
             internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
-            output = [r, attn_weights, internal_noises]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
+            output = [r, attn_weights, internal_noises, w]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
         else:
             output = [r, attn_weights]
 

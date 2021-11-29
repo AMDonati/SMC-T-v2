@@ -6,6 +6,7 @@ from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 import tensorflow_probability as tfp
+import math
 import numpy as np
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
@@ -45,7 +46,7 @@ class SMC_Transformer(tf.keras.Model):
                 self.d_model = 768
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, rate=rate)
 
         # for pre_processing words in the one_layer case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model) # for classification case.
@@ -59,12 +60,13 @@ class SMC_Transformer(tf.keras.Model):
 
     def compute_log_gaussian_density(self, logvar, noise):
         if len(tf.shape(logvar)) == 0:
-            diag_std = tf.math.exp(tf.constant([0.5 * logvar.numpy()]*noise.shape[-1], dtype=tf.float32))
+            diag_logvar = 0.5 * logvar * tf.ones(shape=noise.shape[-1], dtype=tf.float32)
+            diag_std = tf.math.exp(diag_logvar)
         else:
             diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
         gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)
         log_prob = gaussian_distrib.log_prob(noise)
-        return log_prob
+        return -log_prob
 
     def compute_log_gaussian_density_for_noise_net(self, logvar, noise): #TODO: check this function.
         bs = noise.shape[0]
@@ -179,9 +181,9 @@ class SMC_Transformer(tf.keras.Model):
         self.cell.cell_count = 0  # additional counter to avoid duplicate of first timestep.
 
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
-        outputs = [tf.squeeze(out, axis=-2) for out in outputs] # [R=logits before last layer, attention weights, (internal noises)]
-        R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        attn_weights = outputs[1]
+        #outputs = [tf.squeeze(out, axis=-2) for out in outputs if len(out.shape) == 4] # [R=logits before last layer, attention weights, (internal noises)]
+        R = tf.transpose(tf.squeeze(outputs[0], axis=-2), perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
+        attn_weights = tf.squeeze(outputs[1], axis=-2)
         if len(tf.shape(attn_weights)) == 4: # one-head case
             attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
         attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
@@ -196,11 +198,16 @@ class SMC_Transformer(tf.keras.Model):
         self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
 
         if self.cell.noise:
-            self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
-            self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
+            noise_q = outputs[-2][0]
+            self.noise_q = tf.transpose(tf.squeeze(noise_q, axis=-2), perm=[0, 2, 1, 3])
+            noise_z = outputs[-2][1]
+            self.noise_z = tf.transpose(tf.squeeze(noise_z, axis=-2), perm=[0, 2, 1, 3])
+            last_filtering_weights = tf.transpose(outputs[-1], perm=[0, 2, 1]) # B,P,S
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z] #TODO: resampled also the other noises.
+        else:
+            last_filtering_weights = tf.ones(shape=(pred.shape[0], pred.shape[1], pred.shape[2]), dtype=tf.float32)
 
-        return (pred, pred_resampl), (K, V, R_resampl), attn_weights
+        return (pred, pred_resampl), (K, V, R_resampl), last_filtering_weights
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from datasets import load_from_disk
 from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
 from src.data_provider.CLEVRDataset import QuestionsDataset
+from src.data_provider.ROCDataset import ROCDataset
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -61,12 +62,13 @@ def get_parser():
     parser.add_argument("-lr", type=float, default=0.001, help="learning rate")
     # smc params.
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
-    parser.add_argument("-sigmas", type=float, default=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1,
-                                                        0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20, 0.21,
-                                                        0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30, 0.31, 0.32, 0.33],
+    parser.add_argument("-sigmas", type=float, default=0.5,
                                                         help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-noise_dim", type=str, default="uni", help="1D noise or multi-dim noise.")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
+    parser.add_argument("-EM_param", type=float, help="if not None, use an EM to learn the noise instead of SGD with learning rate equal to EM_param.")
+    parser.add_argument("-inference_resample", type=int, default=0,
+                        help="resampling particles at inference or not.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
@@ -74,7 +76,8 @@ def get_parser():
     parser.add_argument("-past_len", type=int, default=4, help="number of timesteps for past timesteps at inference")
     parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
-    parser.add_argument("-test_samples", type=int, default=3, help="number of test samples.")
+    parser.add_argument("-test_samples", type=int, help="number of test samples.")
+    parser.add_argument("-temp", type=float, default=1., help="temperature for sampling text.")
     # misc:
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
@@ -101,6 +104,8 @@ def run(args):
         dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
     elif args.dataset == "clevr":
         dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+    elif args.dataset == "roc":
+        dataset = ROCDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 
@@ -109,7 +114,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=args.test_samples)
+    algo.test(test_samples=args.test_samples, temp=args.temp)
 
 
 if __name__ == '__main__':

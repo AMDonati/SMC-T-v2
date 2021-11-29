@@ -1,3 +1,7 @@
+## README for the Application to Natural Language Processing
+The instructions are [here](https://github.com/AMDonati/SMC-T-v2/blob/nlp22/README_nlp.md). 
+
+
 ## Code for the paper: The Monte Carlo Transformer: a stochastic self-attention model for sequence prediction
 
 ### Requirements

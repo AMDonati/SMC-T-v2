@@ -28,7 +28,7 @@ class RNNAlgo(Algo):
                                                   rnn_drop_rate=args.rnn_drop,
                                                   training=True)
         assert self.past_len < self.seq_len, "past_len should be inferior to the sequence length of the dataset"
-        self.distribution = True if self.p_drop > 0 else False
+        self.distribution = False
         self.future_len = args.future_len if args.future_len is not None else (self.seq_len - self.past_len)
         self._load_ckpt()
 
@@ -69,28 +69,28 @@ class RNNAlgo(Algo):
             np.save(save_path, predictions_test_MC_Dropout.numpy())
         return predictions_test_MC_Dropout
 
-    def inference_multistep(self, inputs, targets=None, attention_mask=None, past_len=4, future_len=5, decoding="sampling"):
+    def inference_multistep(self, inputs, targets=None, attention_mask=None, past_len=4, future_len=5,
+                            decoding="sampling", temp=1):
         '''
             :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
             :param inp_model: array of shape (B,S,F)
             :param mc_samples:
             :return:
         '''
-        list_predictions = []
-        for i in range(self.mc_samples):
-            inp = inputs
-            for t in range(future_len + 1):
-                preds_test = self.lstm(inputs=inp)  # (B,S,1)
-                last_pred = preds_test[:, -1, :]
-                if decoding == "sampling":
-                    last_pred = tf.random.categorical(logits=last_pred, num_samples=1, dtype=tf.int32)
-                elif decoding == "greedy":
-                    last_pred = tf.expand_dims(
-                        tf.math.argmax(last_pred, axis=-1, output_type=tf.int32), axis=-1)
-                inp = tf.concat([inp, last_pred], axis=1)
-            list_predictions.append(inp)
-        preds_test_MC_Dropout = tf.stack(list_predictions, axis=1) # shape (B, mc_samples, seq_len)
-        return preds_test_MC_Dropout, None, None
+        inp = inputs
+        for t in range(future_len + 1):
+            preds_test = self.lstm(inputs=inp, training=False)  # (B,S)
+            last_pred = preds_test[:, -1, :]
+            if decoding == "sampling":
+                last_pred = tf.random.categorical(logits=last_pred / temp, num_samples=10, dtype=tf.int32)
+                last_pred = tf.reshape(last_pred, shape=(last_pred.shape[-1], last_pred.shape[0]))
+            elif decoding == "greedy":
+                last_pred = tf.expand_dims(
+                    tf.math.argmax(last_pred, axis=-1, output_type=tf.int32), axis=-1)
+            if t == 0:
+                inp = tf.tile(inp, multiples=[10, 1])
+            inp = tf.concat([inp, last_pred], axis=1)
+        return tf.expand_dims(inp, axis=0), None, None
 
     def train(self):
         train_LSTM(model=self.lstm,

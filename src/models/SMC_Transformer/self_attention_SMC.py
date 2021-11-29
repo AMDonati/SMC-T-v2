@@ -21,26 +21,32 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             tf.math.log(tf.constant(sigmas, dtype=tf.float32))
         )
 
-    def add_SMC_parameters(self, dict_sigmas):
+    def add_SMC_parameters(self, dict_sigmas, EM=False):
         # noise parameters.
-        if isinstance(dict_sigmas['k'], str):
-            self.noise_network = tf.keras.layers.Dense(4*self.d_model, name='noise_network')
-            self.logvar_k, self.logvar_q, self.logvar_v, self.logvar_z = None, None, None, None
-        elif isinstance(dict_sigmas['k'], list):
-            self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
-            self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
-            self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
-            self.logvar_z = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['z']), name="logvar_z")
+        if EM:
+            self.logvar_k = tf.math.log(dict_sigmas['k'])
+            self.logvar_q = tf.math.log(dict_sigmas['q'])
+            self.logvar_v = tf.math.log(dict_sigmas['v'])
+            self.logvar_z = tf.math.log(dict_sigmas['z'])
         else:
-            self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
-            self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
-            self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
-            self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
+            if isinstance(dict_sigmas['k'], str):
+                self.noise_network = tf.keras.layers.Dense(4*self.d_model, name='noise_network')
+                self.logvar_k, self.logvar_q, self.logvar_v, self.logvar_z = None, None, None, None
+            elif isinstance(dict_sigmas['k'], list):
+                self.logvar_k = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=self.diagonal_variance_matrix(dict_sigmas['z']), name="logvar_z")
+            else:
+                self.logvar_k = tf.Variable(initial_value=tf.math.log(dict_sigmas['k']), name="logvar_k")
+                self.logvar_q = tf.Variable(initial_value=tf.math.log(dict_sigmas['q']), name="logvar_q")
+                self.logvar_v = tf.Variable(initial_value=tf.math.log(dict_sigmas['v']), name="logvar_v")
+                self.logvar_z = tf.Variable(initial_value=tf.math.log(dict_sigmas['z']), name="logvar_z")
         self.noise = True
 
-    def reparameterize(self, mean, logvar):
-        eps = tf.random.normal(shape=mean.shape)
-        return eps * tf.exp(logvar * .5) + mean
+    # def reparameterize(self, mean, logvar):
+    #     eps = tf.random.normal(shape=mean.shape)
+    #     return eps * tf.exp(logvar * .5) + mean
 
     def add_noise(self, params, logvar, noise=None):
         '''
@@ -49,12 +55,14 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         :return:
         '''
         gaussian_noise = tf.random.normal(shape=tf.shape(params), dtype=params.dtype)
+        logvar_ = tf.stop_gradient(logvar)
         if noise is not None:
-            noise = tf.math.multiply(gaussian_noise, tf.exp(noise*0.5))
+            noise = tf.math.multiply(gaussian_noise, tf.exp(noise * 0.5))
+            noise = tf.stop_gradient(noise)
         elif len(tf.shape(logvar)) == 0:
-            noise = tf.exp(logvar * 0.5) * gaussian_noise
+            noise = tf.exp(logvar_ * 0.5) * gaussian_noise
         else:
-            diag_std = tf.linalg.diag_part(tf.exp(logvar * 0.5))
+            diag_std = tf.linalg.diag_part(tf.exp(logvar_ * 0.5))
             std_tiled = tf.reshape(diag_std, (1,1,1,diag_std.shape[0]))
             std_tiled = tf.tile(std_tiled, [gaussian_noise.shape[0], gaussian_noise.shape[1], gaussian_noise.shape[2], 1])
             noise = tf.math.multiply(gaussian_noise, std_tiled)
@@ -88,21 +96,6 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
-
-        #bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
-        # mask_time = np.zeros(shape=K.shape)
-        # mask_time[:,:,timestep,:] = 1
-        # mask_time = tf.constant(mask_time)
-        # mask_future = tf.constant([[0]*timestep + [-1e9] * S], shape=(1,1,S,1))
-        # mask_future = tf.tile(mask_future, multiples=[bs, P, 1, 1])
-        #
-        # K = K + k * mask_time
-        # K = K + mask_future
-        # V = V + v * mask_time
-
-        #TODO: use this instead: tf.sequence_mask(
-    #lengths, maxlen=None, dtype=tf.dtypes.bool, name=None
-#)
 
         K_past = K[:, :, :timestep, :]
         K_future = K[:, :, timestep + 1:, :]
