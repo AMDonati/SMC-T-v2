@@ -13,13 +13,19 @@ def load_data(data_path):
     df = pd.read_csv(data_path)
     return df
 
-def get_sentences(df, max_samples=20000):
+def get_sentences(df, max_samples=None):
     df["sentence_1_2"] = df.sentence1 + " " + df.sentence2
-    sentences = df.sentence_1_2[:max_samples]
-    return sentences, df["sentence1"][:max_samples], df["sentence2"][:max_samples]
+    sentences = df.sentence_1_2
+    sentences_1, sentences_2 = df["sentence1"], df["sentence2"]
+    if max_samples is not None:
+        sentences = sentences[:max_samples]
+        sentences_1 = sentences_1[:max_samples]
+        sentences_2 = sentences_2[:max_samples]
+    return sentences, sentences_1, sentences_2
 
 
-def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=3000, test_size=5000):
+def split_train_test(sentences, sentences_1_and_2, val_size=5000, test_size=3000):
+    train_size = len(sentences) - (val_size + test_size)
     train_sentences = sentences[:train_size]
     val_sentences = sentences[train_size:train_size + val_size]
     test_sentences = sentences_1_and_2[train_size + val_size:train_size + val_size + test_size]
@@ -31,7 +37,7 @@ def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=30
 
 def tokenize_test(sentences, vocab):
     tokenize_func = lambda t: word_tokenize(t)
-    tok_to_id_func = lambda t: [vocab[w] for w in t if w in vocab.keys()]
+    tok_to_id_func = lambda t: [vocab["<SOS>"]]+[vocab[w] for w in t if w in vocab.keys()]+[vocab["<EOS>"]]
     tokenized_sentences = sentences.apply(tokenize_func)
     tokens_id = tokenized_sentences.apply(tok_to_id_func)
     len_sentences = tokens_id.apply(len)
@@ -39,7 +45,7 @@ def tokenize_test(sentences, vocab):
 
 def tokenize(sentences, vocab, max_len=20):
     tokenize_func = lambda t: word_tokenize(t)
-    tok_to_id_func = lambda t: [vocab[w] for w in t if w in vocab.keys()]
+    tok_to_id_func = lambda t: [vocab["<SOS>"]]+[vocab[w] for w in t if w in vocab.keys()]+[vocab["<EOS>"]]
     tokenized_sentences = sentences.apply(tokenize_func)
     tokens_id = tokenized_sentences.apply(tok_to_id_func)
     df = pd.DataFrame()
@@ -56,7 +62,6 @@ def tokenize(sentences, vocab, max_len=20):
     print("max len", max_len)
     return df, len_sentences
 
-
 def clean_text(sentences):
     clean_func1 = lambda t: ' '.join(t.split("-"))
     clean_func2 = lambda t: ' '.join(re.split(r"([0-9]+)([a-z]+)", t, re.I))
@@ -69,10 +74,10 @@ def clean_text(sentences):
     return sentences
 
 
-def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
+def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"],
+              special_tokens=["<PAD>", "<SOS>", "<EOS>"]):  # TODO: add special tokens !
     print("Building vocab....")
     tokenize_func = lambda t: word_tokenize(t.lower())
-    # tokens = word_tokenize(' '.join(sentences))
     tokenized_sentences = sentences.apply(tokenize_func)
     tokenized_sentences = tokenized_sentences.values
     tokens = [w for s in tokenized_sentences for w in s]
@@ -80,7 +85,7 @@ def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
     for token in tokens_to_remove:
         unique_tokens.remove(token)
     unique_tokens.sort()
-    vocab = {v: k for k, v in enumerate(unique_tokens)}
+    vocab = {v: k for k, v in enumerate(special_tokens + unique_tokens)}
     print("vocab length:", len(vocab))
     print("saving vocab...")
     with open("data/ROC/vocab.json", "w") as f:
@@ -97,10 +102,14 @@ def preprocess_data(data_path):
     sentences, sentences_1, sentences_2 = clean_text(sentences), clean_text(sentences_1), clean_text(sentences_2)
     tokens, vocab = get_vocab(sentences)
     padded_sentences, len_sentences = tokenize(sentences, vocab)
+    print("dataset set length:", len(padded_sentences))
     sentences_1, len_sentences_1 = tokenize_test(sentences_1, vocab)
     sentences_2, len_sentences_2 = tokenize_test(sentences_2, vocab)
     sentences_1_and_2 = pd.concat([sentences_1, sentences_2], axis=1)
     train_sentences, val_sentences, test_sentences = split_train_test(padded_sentences, sentences_1_and_2)
+    print("train dataset size", len(train_sentences))
+    print("val dataset size", len(val_sentences))
+    print("test dataset size", len(test_sentences))
     return train_sentences, val_sentences, test_sentences
 
 
