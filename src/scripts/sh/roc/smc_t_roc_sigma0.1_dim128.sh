@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=temp0.1-dim128-CLEVR-smc-t0.1
+#SBATCH --job-name=40-ep-dim128-CLEVR-smc-t0.1
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="roc"
 DATA_PATH="data/ROC"
-OUTPUT_PATH="output/NLP/ROC/40_ep"
+OUTPUT_PATH="output/NLP/ROC"
 D_MODEL=128
 DFF=128
 BS=32
 PARTICLES=10
 EP=40
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.1 -max_seq_len 20 -full_model True -temp 0.1
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc True -particles $PARTICLES -sigmas 0.1 -max_seq_len 20 -full_model True -temp 0.7

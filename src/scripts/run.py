@@ -45,7 +45,7 @@ def get_parser():
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), Bayesian LSTM (bayesian_lstm)")
     parser.add_argument("-num_layers", type=int, default=1,
                         help="number of layers in the network. If == 0, corresponds to adding GPT2Decoder.")
-    parser.add_argument("-init_weights", type=int, default=1,
+    parser.add_argument("-init_weights", type=int, default=0,
                         help="when using GPT2decoder, init weights of the last attention block or not.")
     parser.add_argument("-num_heads", type=int, default=1, help="number of attention heads for Transformer networks")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
@@ -85,7 +85,7 @@ def get_parser():
                         help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     parser.add_argument("-test_samples", type=int, help="number of test samples.")
-    parser.add_argument("-temp", type=float, default=1., help="temperature for sampling text.")
+    parser.add_argument("-temp", type=float, default=0.7, help="temperature for sampling text.")
     # misc:
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")

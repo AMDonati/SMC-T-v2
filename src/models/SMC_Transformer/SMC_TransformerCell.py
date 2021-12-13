@@ -23,7 +23,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         # store the decoding timestep
         self.dec_timestep = 0
         self.cell_count = 0
-        self.attention_smc = Self_Attention_SMC(d_model=d_model, num_heads=num_heads, attn_window=attn_window, init_variables=init_variables)
+        self.attention_smc = Self_Attention_SMC(d_model=d_model, num_heads=num_heads, attn_window=attn_window,
+                                                init_variables=init_variables)
         self.d_model = d_model
         self.output_size = output_size
         self.seq_len = seq_len
@@ -44,7 +45,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w_2, b_2 = init_variables['mlp/c_proj/weight:0'], init_variables['mlp/c_proj/bias:0']
             self.ffn = MLP(name='ffnn', units_1=dff, units_2=d_model, kernel_1_init=w_1.numpy(),
                            kernel_2_init=w_2.numpy(), bias_init_1=b_1.numpy(), bias_init_2=b_2.numpy())
-            self.output_layer = Linear(name="output_layer", units=output_size, use_bias=False, kernel_init=init_variables['wte/weight:0'].numpy().T)
+            self.output_layer = Linear(name="output_layer", units=output_size, use_bias=False,
+                                       kernel_init=init_variables['wte/weight:0'].numpy().T)
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
         self.layers = [self.layernorm1, self.layernorm2, self.ffn]
@@ -65,7 +67,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
     def init_inference_parameters(self, tokenizer):
-        self.tokenizer=tokenizer
+        self.tokenizer = tokenizer
 
     def add_SMC_parameters(self, dict_sigmas, num_particles, EM=False):
         self.noise = True

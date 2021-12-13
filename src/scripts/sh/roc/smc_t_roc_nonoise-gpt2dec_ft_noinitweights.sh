@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="roc"
 DATA_PATH="data/ROC"
-OUTPUT_PATH="output/NLP/ROC/gpt2dec/fine_tuning/no_init_weights"
+OUTPUT_PATH="output/NLP/ROC/gpt2dec/fine_tuning"
 D_MODEL=768
 DFF=3072
 BS=16
 PARTICLES=1
 EP=10
 
-srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20 -num_layers 0 -init_weights 0
+srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20 -num_layers 0 -init_weights 0 -temp 0.7
