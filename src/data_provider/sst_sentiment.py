@@ -18,6 +18,7 @@ class SSTDataset():
         self.batch_size = batch_size
         self.max_samples = max_samples
         self.max_seq_len = max_seq_len
+        self.name = "sst"
 
     def get_len_vocab(self):
         if self.tokenizer.__class__ == GPT2Tokenizer:
@@ -92,13 +93,14 @@ class SSTDataset():
         def split_input_target(example):
             example['target_ids'] = example['input_ids'][1:] #TODO: add SOS Token ?
             example['input_ids'] = example['input_ids'][:-1] #TODO: add EOS Token?
+            example['attention_mask'] = example['attention_mask'][1:]
             return example
         processed_dataset = dataset.map(split_input_target)
         return processed_dataset
 
     def get_tf_dataset(self, dataset, batch_size, num_dim=4, num_dim_targets=None):
         features = {x: tf.keras.preprocessing.sequence.pad_sequences(dataset[x], padding="post",
-                                                                     truncating="post", maxlen=self.max_seq_len, value=self.PAD_IDX) for x in ['input_ids', 'target_ids']}
+                                                                     truncating="post", maxlen=self.max_seq_len, value=self.PAD_IDX) for x in ['input_ids', 'target_ids', 'attention_mask']}
 
         if num_dim == 4:
             features_ = {k:v[:, np.newaxis, :, np.newaxis] for k,v in features.items()}
