@@ -4,6 +4,7 @@ from src.data_provider.class_datasets import Dataset
 from src.data_provider.sst_sentiment import SSTDataset
 from src.data_provider.CLEVRDataset import QuestionsDataset
 from src.data_provider.ROCDataset import ROCDataset
+from src.data_provider.CLEVR_tokenizer import Tokenizer
 from src.data_provider.sst_tokenizer import SSTTokenizer
 from src.algos.run_rnn import RNNAlgo
 from src.algos.run_baseline_T import BaselineTAlgo
@@ -11,6 +12,9 @@ from src.algos.run_SMC_T import SMCTAlgo
 from src.algos.run_fivo import FIVOAlgo
 from src.algos.run_Bayesian_rnn import BayesianRNNAlgo
 from transformers import GPT2Tokenizer
+import json
+import os
+
 
 #  trick for boolean parser args.
 def str2bool(v):
@@ -39,8 +43,10 @@ def get_parser():
     # model parameters:
     parser.add_argument("-algo", type=str, required=True,
                         help="choose between SMC-T(smc_t), Baseline-T(baseline_t), and LSTM algo(lstm), Bayesian LSTM (bayesian_lstm)")
-    parser.add_argument("-num_layers", type=int, default=1, help="number of layers in the network. If == 0, corresponds to adding GPT2Decoder.")
-    parser.add_argument("-reduce_gpt2output", type=int, default=0, help="when using GPT2decoder, reduce or not to d_model the gpt2output of dim 768.")
+    parser.add_argument("-num_layers", type=int, default=1,
+                        help="number of layers in the network. If == 0, corresponds to adding GPT2Decoder.")
+    parser.add_argument("-init_weights", type=int, default=1,
+                        help="when using GPT2decoder, init weights of the last attention block or not.")
     parser.add_argument("-num_heads", type=int, default=1, help="number of attention heads for Transformer networks")
     parser.add_argument("-d_model", type=int, default=8, help="depth of attention parameters")
     parser.add_argument("-full_model", type=str2bool, default=True,
@@ -63,10 +69,11 @@ def get_parser():
     # smc params.
     parser.add_argument("-particles", type=int, default=1, help="number of particles")
     parser.add_argument("-sigmas", type=float, default=0.5,
-                                                        help="values for sigma_k, sigma_q, sigma_v, sigma_z")
+                        help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-noise_dim", type=str, default="uni", help="1D noise or multi-dim noise.")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
-    parser.add_argument("-EM_param", type=float, help="if not None, use an EM to learn the noise instead of SGD with learning rate equal to EM_param.")
+    parser.add_argument("-EM_param", type=float,
+                        help="if not None, use an EM to learn the noise instead of SGD with learning rate equal to EM_param.")
     parser.add_argument("-inference_resample", type=int, default=0,
                         help="resampling particles at inference or not.")
     # output_path params.
@@ -74,7 +81,8 @@ def get_parser():
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
     # inference params.
     parser.add_argument("-past_len", type=int, default=4, help="number of timesteps for past timesteps at inference")
-    parser.add_argument("-future_len", type=int, default=5, help="number of predicted timesteps for multistep forecast.")
+    parser.add_argument("-future_len", type=int, default=5,
+                        help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     parser.add_argument("-test_samples", type=int, help="number of test samples.")
     parser.add_argument("-temp", type=float, default=1., help="temperature for sampling text.")
@@ -85,11 +93,10 @@ def get_parser():
 
     return parser
 
-def run(args):
 
+def run(args):
     # -------------------------------- Upload dataset ----------------------------------------------------------------------------------
     BUFFER_SIZE = 500
-
 
     if args.dataset == "dummy_nlp":
         dataset = Dataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs, name=args.dataset,
@@ -101,11 +108,22 @@ def run(args):
             tokenizer = SSTTokenizer(dataset=dataset, vocab_path=vocab_path)
         else:
             tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
-        dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+        dataset = SSTDataset(tokenizer=tokenizer, batch_size=args.bs, max_samples=args.max_samples,
+                             max_seq_len=args.max_seq_len)
     elif args.dataset == "clevr":
-        dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples, max_seq_len=args.max_seq_len)
+        dataset = QuestionsDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples,
+                                   max_seq_len=args.max_seq_len)
     elif args.dataset == "roc":
-        dataset = ROCDataset(data_path=args.data_path, batch_size=args.bs, max_samples=args.max_samples)
+        if args.num_layers >= 1:
+            vocab_path = "data/ROC/vocab.json"
+            with open(vocab_path, 'r') as f:
+                vocab = json.load(f)
+            tokenizer = Tokenizer(vocab)
+            data_path = args.data_path
+        else:
+            tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
+            data_path = os.path.join(args.data_path, "gpt2_tok")
+        dataset = ROCDataset(data_path=data_path, batch_size=args.bs, max_samples=args.max_samples, tokenizer=tokenizer)
 
     algo = algos[args.algo](dataset=dataset, args=args)
 

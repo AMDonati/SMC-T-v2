@@ -91,7 +91,6 @@ def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
     merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
     merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
     merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
-    merge_metrics_latex = merge_metrics_latex.T
     merge_metrics.to_csv(os.path.join(path, "merge_metrics.csv"))
     merge_metrics_latex.to_latex(os.path.join(path, "merge_metrics.txt"))
 

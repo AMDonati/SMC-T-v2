@@ -148,18 +148,27 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
 
     losses_history = {"train_loss":[], "train_mse_metric":[], "train_ppl":[], "val_loss":[], "val_mse_metric": [], "val_ppl":[]}
 
-    # check the pass forward.
-    for input_example_batch, target_example_batch, attn_mask in train_dataset.take(1):
-        (temp_preds, temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch,
-                                                                 targets=target_example_batch,
-                                                                 attention_mask=attn_mask)
-        logger.info("predictions shape: {}".format(temp_preds.shape))
-        print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
-        print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
-        print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
-        print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
-        print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
-        print('first element and first dim of predictions resampled - last timestep', temp_preds_resampl[0, :, -1, 0].numpy())
+    # # check the pass forward.
+    # for input_example_batch, target_example_batch, attn_mask in train_dataset.take(1):
+    #     (temp_preds, temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch,
+    #                                                              targets=target_example_batch,
+    #                                                              attention_mask=attn_mask)
+    #     logger.info("predictions shape: {}".format(temp_preds.shape))
+    #     print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
+    #     print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
+    #     print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
+    #     print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
+    #     print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
+    #     print('first element and first dim of predictions resampled - last timestep', temp_preds_resampl[0, :, -1, 0].numpy())
+
+    # number of variables - trainable or not.
+    num_variables = len(smc_transformer.variables)
+    num_trainable_var = len(smc_transformer.trainable_variables)
+    print("number of variables:", num_variables)
+    print("number of trainable variables:", num_trainable_var)
+
+    # update LN parameters with GPT2 params:
+    #smc_transformer.init_with_gpt2_params()
 
     if start_epoch > 0:
         if start_epoch > EPOCHS:

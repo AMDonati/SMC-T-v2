@@ -77,9 +77,9 @@ class Algo:
 
     def _decode_targets(self, inputs, targets):
         decoded_first_word = self.dataset.tokenizer.decode([tf.squeeze(inputs)[0].numpy()])
-        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy())
+        decoded_target = self.dataset.tokenizer.decode(tf.squeeze(targets).numpy(), skip_special_tokens=True)
         decoded_target = decoded_first_word + ' ' + decoded_target
-        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets)[self.past_len:].numpy())
+        decoded_future_targets = self.dataset.tokenizer.decode(tf.squeeze(targets)[self.past_len:].numpy(), skip_special_tokens=True)
         if decoded_future_targets != '':
             len_future_targets = len(decoded_future_targets.split(sep=' '))
         else:
@@ -116,6 +116,13 @@ class Algo:
         elif len(past.shape) == 2:
             past_inp, past_tar = past[:, :-1], past[:, 1:]
         return past_inp, past_tar
+
+    def _get_truncated_element(self, element):
+        if len(element.shape) == 4:
+            element_truncated = element[:, :, :self.past_len, :]
+        elif len(element.shape) <= 3:
+            element_truncated = element[:, :self.past_len]
+        return element_truncated
 
     def test(self, **kwargs):
         self.logger.info(
@@ -156,6 +163,8 @@ class Algo:
         for (inputs, targets, attention_mask) in self.test_dataset.take(test_samples):
             inp, tar = self.get_inputs_targets(inputs, targets)
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
+            if attention_mask is not None:
+                attention_mask = self._get_truncated_element(attention_mask)
             future_len = max(self.future_len, len_future_targets)
             self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
             metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask,

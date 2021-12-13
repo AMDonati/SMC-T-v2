@@ -23,10 +23,7 @@ class SMCTAlgo(Algo):
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
-        if args.num_layers == 0:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2)
-        else:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
+        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
                                                output_size=self.output_size,
                                                seq_len=self.seq_len,
@@ -34,7 +31,7 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
                                                attn_window=args.attn_w, num_layers=args.num_layers,
-                                               num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output, rate=args.p_drop)
+                                               num_heads=args.num_heads, rate=args.p_drop, init_weights=args.init_weights)
         self.distribution = args.smc
         self.particles = args.particles
         if args.EM_param is not None:
@@ -92,6 +89,22 @@ class SMCTAlgo(Algo):
                                                          num_particles=args.particles, EM=self.EM)
             assert self.smc_transformer.cell.noise == self.smc_transformer.cell.attention_smc.noise == True
             self.logger.info("Sigmas init: {}".format(dict_sigmas))
+        # check the pass forward.
+        for input_example_batch, target_example_batch, attn_mask in self.train_dataset.take(1):
+            (temp_preds, temp_preds_resampl), _, _ = self.smc_transformer(inputs=input_example_batch,
+                                                                          targets=target_example_batch,
+                                                                          attention_mask=attn_mask)
+            self.logger.info("predictions shape: {}".format(temp_preds.shape))
+            print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
+            print('first element and first dim of predictions resampled - t0',
+                  temp_preds_resampl[0, :, 0, 0].numpy())
+            print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
+            print('first element and first dim of predictions resampled - t10',
+                  temp_preds_resampl[0, :, 10, 0].numpy())
+            print('first element and first dim of predictions - last timestep', temp_preds[0, :, -1, 0].numpy())
+            print('first element and first dim of predictions resampled - last timestep',
+                  temp_preds_resampl[0, :, -1, 0].numpy())
+        self.smc_transformer.init_with_gpt2_params()
 
     def _check_consistency_hparams(self, args):
         if args.save_path is not None:
@@ -158,6 +171,13 @@ class SMCTAlgo(Algo):
             dict_sigmas = {key: math.exp(self.logvar_after_training[key]) for key in ['k', 'q', 'v', 'z']}
             self.smc_transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                                          num_particles=self.smc_transformer.cell.num_particles)
+
+    def _update_attention_mask(self, attention_mask, last_pred):
+        new_padding_mask = tf.where(last_pred == self.dataset.PAD_IDX, x=tf.zeros(last_pred.shape, dtype=tf.int32),
+                                    y=tf.ones(last_pred.shape, dtype=tf.int32))
+        new_padding_mask = tf.cast(new_padding_mask, dtype=tf.int32)
+        attention_mask_ = tf.concat([attention_mask, new_padding_mask], axis=-2)
+        return attention_mask_
 
     def inference_multistep_with_resampling(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
                                             decoding='sampling', temp=1):
@@ -287,6 +307,8 @@ class SMCTAlgo(Algo):
             if i == 0:
                 inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
                 targets = tf.tile(targets, multiples=[1, P, 1, 1])
+                if attention_mask is not None:
+                    attention_mask = tf.tile(attention_mask, multiples=[1, P, 1, 1])
             if i < future_len:  # dummy target (not used when resampling is stopped.)
                 self.smc_transformer.seq_len += 1
             last_pred = tf.expand_dims(last_pred, axis=-2)
@@ -295,6 +317,10 @@ class SMCTAlgo(Algo):
             targets = tf.concat(
                 [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
                 axis=-2)
+            if attention_mask is not None:
+                attention_mask = self._update_attention_mask(attention_mask, last_pred)
+                #attention_mask = tf.concat([attention_mask, tf.ones(shape=(attention_mask.shape[0], attention_mask.shape[1], 1, 1), dtype=tf.int32)],
+                #axis=-2)
         return inputs, list_top_k_words, list_particles_norm
 
 
