@@ -38,14 +38,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             # output layer for computing the weights
             self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
         else:
+            self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm1')
+            self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm2')
             w_1, b_1 = init_variables['mlp/c_fc/weight:0'], init_variables['mlp/c_fc/bias:0']
             w_2, b_2 = init_variables['mlp/c_proj/weight:0'], init_variables['mlp/c_proj/bias:0']
             self.ffn = MLP(name='ffnn', units_1=dff, units_2=d_model, kernel_1_init=w_1.numpy(),
                            kernel_2_init=w_2.numpy(), bias_init_1=b_1.numpy(), bias_init_2=b_2.numpy())
             self.output_layer = Linear(name="output_layer", units=output_size, use_bias=False, kernel_init=init_variables['wte/weight:0'].numpy().T)
-
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
         self.layers = [self.layernorm1, self.layernorm2, self.ffn]

@@ -145,12 +145,6 @@ class SMC_Transformer(tf.keras.Model):
             seq_len = tf.shape(inputs)[-2]
             look_ahead_mask = create_look_ahead_mask(seq_len)
             input_tensor_processed, _ = self.decoder(inputs, look_ahead_mask=look_ahead_mask, attention_mask=attention_mask) #TODO: bug here with GPT2output.
-        # elif self.decoder.__class__ == GPT2Decoder:
-        #     input_tensor_processed, _ = self.decoder(inputs, attention_mask=attention_mask)  # (B,S,D)
-        #     input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1)
-        #     input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.cell.num_particles, 1, 1])
-        #     if self.gpt2_projection_layer is not None and self.decoder.__class__ == GPT2Decoder:
-        #         input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
     def call(self, inputs, targets, attention_mask=None):
