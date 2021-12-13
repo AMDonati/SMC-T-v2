@@ -77,6 +77,9 @@ class SMCTAlgo(Algo):
                     else:
                         raise ValueError(
                             "Error in sigmas argument: should be either a scalar, either a list of length d_model args.")
+                        raise ValueError("Error in sigmas argument: should be either a scalar, either a list of length d_model args.")
+                elif args.noise_dim == "noise_net":
+                    sigmas = args.noise_dim
                 else:
                     sigmas = args.sigmas
                 dict_sigmas = dict(zip(['k', 'q', 'v', 'z'], [sigmas for _ in range(4)]))
@@ -133,7 +136,7 @@ class SMCTAlgo(Algo):
                               start_epoch=self.start_epoch,
                               num_train=1,
                               EM_param=self.EM_param)
-        if self.distribution:
+        if self.distribution and self.smc_transformer.cell.attention_smc.noise_network is None:
             self.sigmas_after_training = dict(zip(['k', 'q', 'v', 'z'],
                                                   [self.smc_transformer.cell.attention_smc.logvar_k.numpy(),
                                                    self.smc_transformer.cell.attention_smc.logvar_q.numpy(),

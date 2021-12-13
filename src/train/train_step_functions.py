@@ -48,7 +48,7 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, attention_
         if EM_param is not None:
             smc_transformer = EM(smc_transformer, it=it, EM_param=EM_param)
 
-        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets, attention_mask=attention_mask)
+        smc_loss, classic_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, inputs=inputs, targets=targets, attention_mask=attention_mask)
         loss = smc_loss
         ce_metric_avg_pred = compute_categorical_cross_entropy(targets=targets, preds=preds, num_particles=smc_transformer.cell.num_particles, attention_mask=attention_mask)
 

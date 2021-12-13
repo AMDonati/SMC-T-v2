@@ -121,8 +121,15 @@ def train_baseline_transformer(transformer, optimizer, EPOCHS, train_dataset, va
         ">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
-def _log_model_variances(smc_transformer, logger):
-    if len(smc_transformer.cell.attention_smc.logvar_k.shape) == 0:
+def _log_model_variances(smc_transformer, inputs, logger):
+    if smc_transformer.cell.attention_smc.noise_network is not None:
+        list_logvar = smc_transformer.get_logvar_from_inputs(inputs)
+        logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
+            tf.reduce_mean(tf.math.exp(list_logvar[0])).numpy(),
+            tf.reduce_mean(tf.math.exp(list_logvar[1])).numpy(),
+            tf.reduce_mean(tf.math.exp(list_logvar[2])).numpy(),
+            tf.reduce_mean(tf.math.exp(list_logvar[3])).numpy()))
+    elif len(smc_transformer.cell.attention_smc.logvar_k.shape) == 0:
         logger.info('sigma_k:{} - sigma_q: {} - sigma_v: {} - sigma_z: {}'.format(
         tf.math.exp(smc_transformer.cell.attention_smc.logvar_k).numpy(),
         tf.math.exp(smc_transformer.cell.attention_smc.logvar_q).numpy(),
@@ -197,7 +204,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
 
         for batch_val, (inp, tar, attn_mask) in enumerate(val_dataset):
             (preds_val, preds_val_resampl), _, _ = smc_transformer(inputs=inp, targets=tar, attention_mask=attn_mask)  # shape (B,1,S,F_y)
-            val_loss_batch, _ = smc_transformer.compute_SMC_loss(targets=tar, predictions=preds_val_resampl)
+            val_loss_batch, _ = smc_transformer.compute_SMC_loss(inputs=inp, targets=tar, predictions=preds_val_resampl)
             val_loss[0] += val_loss_batch
 
             if smc_transformer.cell.noise:
@@ -217,7 +224,7 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
             losses_history["val_mse_metric"].append(val_loss[1].numpy())
             losses_history["train_ppl"] = np.exp(losses_history["train_mse_metric"])
             losses_history["val_ppl"] = np.exp(losses_history["val_mse_metric"])
-            _log_model_variances(smc_transformer, logger)
+            _log_model_variances(smc_transformer, inp, logger)
         else:
             losses_history["train_ppl"] = np.exp(losses_history["train_loss"])
             losses_history["val_ppl"]= np.exp(losses_history["val_loss"])
