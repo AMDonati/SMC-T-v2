@@ -7,67 +7,47 @@ import numpy as np
 from nltk import word_tokenize
 import pandas as pd
 import re
-from transformers import GPT2Tokenizer
-
-gpt_tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
-
-
-def get_PAD_IDX(tokenizer):
-    if tokenizer.__class__ == GPT2Tokenizer:
-        PAD_IDX = 50256
-    else:
-        PAD_IDX = 0
-    return PAD_IDX
 
 
 def load_data(data_path):
     df = pd.read_csv(data_path)
     return df
 
-def get_sentences(df, max_samples=20000):
+def get_sentences(df, max_samples=None):
     df["sentence_1_2"] = df.sentence1 + " " + df.sentence2
-    sentences = df.sentence_1_2[:max_samples]
-    return sentences, df["sentence1"][:max_samples], df["sentence2"][:max_samples]
+    sentences = df.sentence_1_2
+    sentences_1, sentences_2 = df["sentence1"], df["sentence2"]
+    if max_samples is not None:
+        sentences = sentences[:max_samples]
+        sentences_1 = sentences_1[:max_samples]
+        sentences_2 = sentences_2[:max_samples]
+    return sentences, sentences_1, sentences_2
 
 
-def split_train_test(sentences, sentences_1_and_2, train_size=10000, val_size=3000, test_size=5000, gpt_tok=False):
+def split_train_test(sentences, sentences_1_and_2, val_size=5000, test_size=3000):
+    train_size = len(sentences) - (val_size + test_size)
     train_sentences = sentences[:train_size]
     val_sentences = sentences[train_size:train_size + val_size]
     test_sentences = sentences_1_and_2[train_size + val_size:train_size + val_size + test_size]
-    if gpt_tok:
-        paths = ["data/ROC/gpt2_tok/train_set.pkl", "data/ROC/gpt2_tok/val_set.pkl", "data/ROC/gpt2_tok/test_set.pkl"]
-    else:
-        paths = ["data/ROC/train_set.pkl", "data/ROC/val_set.pkl", "data/ROC/test_set.pkl"]
+    paths = ["data/ROC/train_set.pkl", "data/ROC/val_set.pkl", "data/ROC/test_set.pkl"]
     for df, path in zip([train_sentences, val_sentences, test_sentences], paths):
         df.to_pickle(path)
     print("saving dataset splits in pkl files...")
     return train_sentences, val_sentences, test_sentences
 
-def _tokenize(sentences, vocab):
+def tokenize_test(sentences, vocab):
     tokenize_func = lambda t: word_tokenize(t)
-    tok_to_id_func = lambda t: [vocab[w] for w in t if w in vocab.keys()]
+    tok_to_id_func = lambda t: [vocab["<SOS>"]]+[vocab[w] for w in t if w in vocab.keys()]+[vocab["<EOS>"]]
     tokenized_sentences = sentences.apply(tokenize_func)
     tokens_id = tokenized_sentences.apply(tok_to_id_func)
-    return tokens_id
-
-def _tokenize_gpt(sentences):
-    tokenize_func = lambda t: gpt_tokenizer(t)["input_ids"]
-    tokens_id = sentences.apply(tokenize_func)
-    return tokens_id
-
-def tokenize_test(sentences, vocab, gpt_tok=False):
-    if gpt_tok:
-        tokens_id = _tokenize_gpt(sentences)
-    else:
-        tokens_id = _tokenize(sentences, vocab)
     len_sentences = tokens_id.apply(len)
     return tokens_id, len_sentences
 
-def tokenize(sentences, vocab, max_len=20, gpt_tok=False):
-    if gpt_tok:
-        tokens_id = _tokenize_gpt(sentences)
-    else:
-        tokens_id = _tokenize(sentences, vocab)
+def tokenize(sentences, vocab, max_len=20):
+    tokenize_func = lambda t: word_tokenize(t)
+    tok_to_id_func = lambda t: [vocab["<SOS>"]]+[vocab[w] for w in t if w in vocab.keys()]+[vocab["<EOS>"]]
+    tokenized_sentences = sentences.apply(tokenize_func)
+    tokens_id = tokenized_sentences.apply(tok_to_id_func)
     df = pd.DataFrame()
     df["input_sentence"] = tokens_id.apply(lambda t: t[:-1])
     df["target_sentence"] = tokens_id.apply(lambda t: t[1:])
@@ -75,15 +55,12 @@ def tokenize(sentences, vocab, max_len=20, gpt_tok=False):
     # filtering sentence of length max_len max.
     df = df[len_sentences <= (max_len + 1)]
     len_sentences_ = len_sentences[len_sentences <= (max_len + 1)]
-    tokenizer = gpt_tokenizer if gpt_tok else None
-    PAD_IDX = get_PAD_IDX(tokenizer)
-    pad_func = lambda t: t + [PAD_IDX] * (max_len - len(t))
+    pad_func = lambda t: t + [0] * (max_len - len(t))
     df["input_sentence"] = df.input_sentence.apply(pad_func)
     df["target_sentence"] = df.target_sentence.apply(pad_func)
     df["attention_mask"] = len_sentences_.apply(lambda t: [1] * (t - 1) + [0] * (max_len - (t - 1)))
     print("max len", max_len)
     return df, len_sentences
-
 
 def clean_text(sentences):
     clean_func1 = lambda t: ' '.join(t.split("-"))
@@ -97,10 +74,10 @@ def clean_text(sentences):
     return sentences
 
 
-def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
+def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"],
+              special_tokens=["<PAD>", "<SOS>", "<EOS>"]):  # TODO: add special tokens !
     print("Building vocab....")
     tokenize_func = lambda t: word_tokenize(t.lower())
-    # tokens = word_tokenize(' '.join(sentences))
     tokenized_sentences = sentences.apply(tokenize_func)
     tokenized_sentences = tokenized_sentences.values
     tokens = [w for s in tokenized_sentences for w in s]
@@ -108,7 +85,7 @@ def get_vocab(sentences, tokens_to_remove=["$", "%", "'", "''"]):
     for token in tokens_to_remove:
         unique_tokens.remove(token)
     unique_tokens.sort()
-    vocab = {v: k for k, v in enumerate(unique_tokens)}
+    vocab = {v: k for k, v in enumerate(special_tokens + unique_tokens)}
     print("vocab length:", len(vocab))
     print("saving vocab...")
     with open("data/ROC/vocab.json", "w") as f:
@@ -125,24 +102,18 @@ def preprocess_data(data_path):
     sentences, sentences_1, sentences_2 = clean_text(sentences), clean_text(sentences_1), clean_text(sentences_2)
     tokens, vocab = get_vocab(sentences)
     padded_sentences, len_sentences = tokenize(sentences, vocab)
+    print("dataset set length:", len(padded_sentences))
     sentences_1, len_sentences_1 = tokenize_test(sentences_1, vocab)
     sentences_2, len_sentences_2 = tokenize_test(sentences_2, vocab)
     sentences_1_and_2 = pd.concat([sentences_1, sentences_2], axis=1)
     train_sentences, val_sentences, test_sentences = split_train_test(padded_sentences, sentences_1_and_2)
-    return train_sentences, val_sentences, test_sentences
-
-def preprocess_data_gpt2tok(data_path):
-    df = load_data(data_path)
-    sentences, sentences_1, sentences_2 = get_sentences(df)
-    padded_sentences, len_sentences = tokenize(sentences, vocab=None, gpt_tok=True)
-    sentences_1, len_sentences_1 = tokenize_test(sentences_1, vocab=None, gpt_tok=True)
-    sentences_2, len_sentences_2 = tokenize_test(sentences_2, vocab=None, gpt_tok=True)
-    sentences_1_and_2 = pd.concat([sentences_1, sentences_2], axis=1)
-    train_sentences, val_sentences, test_sentences = split_train_test(padded_sentences, sentences_1_and_2, gpt_tok=True)
+    print("train dataset size", len(train_sentences))
+    print("val dataset size", len(val_sentences))
+    print("test dataset size", len(test_sentences))
     return train_sentences, val_sentences, test_sentences
 
 
 if __name__ == '__main__':
     data_path = "data/ROC/ROCStories_winter2017.csv"
-    train_sentences, val_sentences, test_sentences = preprocess_data_gpt2tok(data_path)
+    train_sentences, val_sentences, test_sentences = preprocess_data(data_path)
     print("done")

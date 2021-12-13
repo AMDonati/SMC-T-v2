@@ -124,26 +124,21 @@ class Algo:
             element_truncated = element[:, :self.past_len]
         return element_truncated
 
-    # def test(self, **kwargs):
-    #     self.logger.info("--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-    #     metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
-    #     for (inputs, targets, attention_mask) in self.test_dataset.take(kwargs["test_samples"]):
-    #         inp, tar = self._get_truncated_element(inputs), self._get_truncated_element(targets)
-
     def test(self, **kwargs):
         self.logger.info(
             "--------------------------------------Generating TEXT on test dataset--------------------------------------------")
-        decodings = ["sampling", "greedy"] if self.smc_transformer.cell.noise else ["sampling"]
+        self.logger.info("--------- sampling with temperature: {}-------------------------------------------------------------".format(kwargs["temp"]))
+        decodings = ["sampling", "greedy"] if self.distribution else ["sampling"]
         test_samples_sampling = kwargs["test_samples"]
         for decoding in decodings:
             test_samples = test_samples_sampling if decoding == "sampling" else 10
             if self.dataset.name == "roc":
-                self.test_ROC_(decoding=decoding, test_samples=test_samples)
+                self.test_ROC_(decoding=decoding, test_samples=test_samples, temp=kwargs["temp"])
             else:
-                self.test_(decoding=decoding, test_samples=test_samples)
-            self.logger.info('-'*80)
+                self.test_(decoding=decoding, test_samples=test_samples, temp=kwargs["temp"])
+            self.logger.info('-' * 80)
 
-    def test_ROC_(self, decoding="sampling", test_samples=None):
+    def test_ROC_(self, decoding="sampling", test_samples=None, temp=1):
         metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
         out_file_text = os.path.join(self.out_folder, "text_{}.txt".format(decoding))
         inputs, targets = self.test_dataset
@@ -157,37 +152,45 @@ class Algo:
             self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
             metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=None,
                                           decoded_targets=decoded_targets, future_len=future_len, metrics=metrics,
-                                          out_file_text=out_file_text, decoding=decoding)
+                                          out_file_text=out_file_text, decoding=decoding, temp=temp)
         self._save_and_log_metrics(metrics, decoding=decoding)
 
-
-    def test_(self, decoding="sampling", test_samples=None):
+    def test_(self, decoding="sampling", test_samples=None, temp=1):
         metrics = dict(zip(["mean_bleu", "var_bleu", "gpt2_ppl", "selfbleu"], [[], [], [], []]))
         out_file_text = os.path.join(self.out_folder, "text_{}.txt".format(decoding))
         if test_samples is None:
             test_samples = len(self.test_dataset)
         for (inputs, targets, attention_mask) in self.test_dataset.take(test_samples):
-            inp, tar = self._get_truncated_element(inputs), self._get_truncated_element(targets)
+            inp, tar = self.get_inputs_targets(inputs, targets)
             decoded_targets, len_future_targets = self._decode_targets(inputs, targets)
             if attention_mask is not None:
                 attention_mask = self._get_truncated_element(attention_mask)
             future_len = max(self.future_len, len_future_targets)
-            self.logger.info("-"*30 + "{} GENERATION".format(decoding) + '-'*30)
-            metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask, decoded_targets=decoded_targets, future_len=future_len, metrics=metrics, out_file_text=out_file_text, decoding=decoding)
+            self.logger.info("-" * 30 + "{} GENERATION".format(decoding) + '-' * 30)
+            metrics = self._generate_text(inputs=inp, targets=tar, attention_mask=attention_mask,
+                                          decoded_targets=decoded_targets, future_len=future_len, metrics=metrics,
+                                          out_file_text=out_file_text, decoding=decoding, temp=temp)
         self._save_and_log_metrics(metrics, decoding=decoding)
 
-    def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text, decoding="sampling"):
+    def _generate_text(self, inputs, targets, attention_mask, decoded_targets, future_len, metrics, out_file_text,
+                       decoding="sampling", temp=1):
         if not self.inference_resample:
             particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
-                                                                                 targets=targets, attention_mask=attention_mask, past_len=self.past_len,
-                                                                                 future_len=future_len, decoding=decoding) # shape (1,P,len,1)
-        else:
-            particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
                                                                                  targets=targets,
                                                                                  attention_mask=attention_mask,
                                                                                  past_len=self.past_len,
-                                                                                 future_len=future_len, decoding=decoding)
-        decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy(), skip_special_tokens=True) for p in
+                                                                                 future_len=future_len,
+                                                                                 decoding=decoding,
+                                                                                 temp=temp)  # shape (1,P,len,1)
+        else:
+            particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
+                                                                                                 targets=targets,
+                                                                                                 attention_mask=attention_mask,
+                                                                                                 past_len=self.past_len,
+                                                                                                 future_len=future_len,
+                                                                                                 decoding=decoding,
+                                                                                                 temp=temp)
+        decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
                              range(particles.shape[1])]
         gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
         (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,
@@ -199,7 +202,7 @@ class Algo:
             f.write('\n' + "GROUND TRUTH:" + decoded_targets)
             f.write('\n' + '-' * 30 + '\n')
             f.write('\n'.join(decoded_particles))
-            f.write('\n'+'-'*60+'\n')
+            f.write('\n' + '-' * 60 + '\n')
         if dict_top_words is not None:
             self._log(dict_top_words, string="TOP K WORDS")
         if particles_norm is not None:
@@ -208,7 +211,9 @@ class Algo:
         return metrics
 
     def _save_and_log_metrics(self, metrics, decoding="sampling"):
-        self.logger.info("--------------------------------------------{} GENERATION---------------------------------------------------".format(decoding))
+        self.logger.info(
+            "--------------------------------------------{} GENERATION---------------------------------------------------".format(
+                decoding))
         mean_metrics = dict(zip(list(metrics.keys()), [np.mean(val) for val in list(metrics.values())]))
         metrics_file = os.path.join(self.out_folder, "test_metrics_all_{}.csv".format(decoding))
         write_to_csv(metrics_file, metrics)
@@ -222,7 +227,6 @@ class Algo:
         self.logger.info(metrics)
         self.logger.info(
             "---------------------------------------------------------------------------------------------------------------------------------------------------------")
-
 
     def _log(self, list_elements, string=''):
         for i, elem in enumerate(list_elements):

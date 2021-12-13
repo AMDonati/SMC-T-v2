@@ -50,7 +50,7 @@ class SMC_Transformer(tf.keras.Model):
             self.init_variables = None
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads, init_variables=self.init_variables)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, init_variables=self.init_variables, rate=rate)
 
         # for pre_processing words in the one_layer case.
         self.embedding = tf.keras.layers.Embedding(input_dim=output_size, output_dim=d_model, name="embedding") # for classification case.
@@ -153,7 +153,7 @@ class SMC_Transformer(tf.keras.Model):
         #         input_tensor_processed = self.gpt2_projection_layer(input_tensor_processed)
         return input_tensor_processed
 
-    def call(self, inputs, targets, attention_mask=None, training=False):
+    def call(self, inputs, targets, attention_mask=None):
         '''
         :param inputs: input_data: shape (B,P,S,F_x) with P=1 during training.
         :param targets: target_data: shape (B,P,S,F_y) with P=1 during training. F_y can be different from F_x.
@@ -176,10 +176,6 @@ class SMC_Transformer(tf.keras.Model):
 
         def step_function(inputs, states):
             return self.cell(inputs, states)
-
-        # initialize layer norm params with GPT2 ones:
-        #self.init_with_gpt2_params(self.init_variables)
-
 
         x = tf.transpose(input_tensor_processed,
                          perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.

@@ -85,6 +85,7 @@ def get_parser():
                         help="number of predicted timesteps for multistep forecast.")
     parser.add_argument("-mc_samples", type=int, default=1, help="number of samples for MC Dropout algo.")
     parser.add_argument("-test_samples", type=int, help="number of test samples.")
+    parser.add_argument("-temp", type=float, default=1., help="temperature for sampling text.")
     # misc:
     parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
@@ -131,7 +132,7 @@ def run(args):
     else:
         print("skipping training...")
 
-    algo.test(test_samples=args.test_samples)
+    algo.test(test_samples=args.test_samples, temp=args.temp)
 
 
 if __name__ == '__main__':

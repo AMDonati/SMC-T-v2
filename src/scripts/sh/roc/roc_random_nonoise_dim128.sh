@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dim512-ROC-smc-t-None
+#SBATCH --job-name=RANDOM-dim128-ROC-smc-t-None
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
@@ -19,11 +19,11 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 DATASET="roc"
 DATA_PATH="data/ROC"
-OUTPUT_PATH="output/NLP/ROC"
-D_MODEL=512
-DFF=512
+OUTPUT_PATH="output/NLP/ROC/random"
+D_MODEL=128
+DFF=128
 BS=32
 PARTICLES=1
-EP=20
+EP=0
 
 srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20

@@ -43,8 +43,8 @@ def check_train_mse_metric(df):
             return values[-1]
 
 def open_config(config_path):
-    with open(config_path, "r"):
-        config = json.load(config_path)
+    with open(config_path, "r") as file:
+        config = json.load(file)
     return config
 
 def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
@@ -86,11 +86,11 @@ def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
         stats_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics.csv"))
         if len(dirs) > 1:
             all_metrics_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics_per_run.csv"))
-    merge_metrics = merge_metrics.drop(to_remove, axis=0)
+    if to_remove in merge_metrics.index:
+        merge_metrics = merge_metrics.drop(to_remove, axis=0)
     merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
     merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
     merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
-    merge_metrics_latex = merge_metrics_latex.T
     merge_metrics.to_csv(os.path.join(path, "merge_metrics.csv"))
     merge_metrics_latex.to_latex(os.path.join(path, "merge_metrics.txt"))
 
@@ -163,3 +163,4 @@ if __name__ == '__main__':
     #     merge_one_experiment(args)
     # if args.top_folder == 1:
     #     merge_all_experiments(args)
+

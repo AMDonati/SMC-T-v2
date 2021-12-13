@@ -14,7 +14,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None,
-                 init_variables=None, **kwargs):
+                 init_variables=None, rate=0., **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -31,16 +31,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.init_variables = init_variables
 
         # initialize layers:
-        if self.init_variables is not None:
+        if self.init_variables is None:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
             self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
-        else:
-            self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm1')
-            self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name='layer_norm2')
-        rate = 0. if self.init_variables is None else 0.1
-        self.dropout1 = tf.keras.layers.Dropout(rate)
-        self.dropout2 = tf.keras.layers.Dropout(rate)
-        if init_variables is None:
             self.ffn = point_wise_feed_forward_network(d_model, dff)
             # output layer for computing the weights
             self.output_layer = tf.keras.layers.Dense(output_size, use_bias=False, name='output_layer')
@@ -51,6 +44,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                            kernel_2_init=w_2.numpy(), bias_init_1=b_1.numpy(), bias_init_2=b_2.numpy())
             self.output_layer = Linear(name="output_layer", units=output_size, use_bias=False, kernel_init=init_variables['wte/weight:0'].numpy().T)
 
+        self.dropout1 = tf.keras.layers.Dropout(rate)
+        self.dropout2 = tf.keras.layers.Dropout(rate)
         self.layers = [self.layernorm1, self.layernorm2, self.ffn]
 
         # initializing smc parameters for training
@@ -69,7 +64,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         super(SMC_Transf_Cell, self).__init__(**kwargs)
 
     def init_inference_parameters(self, tokenizer):
-        self.tokenizer = tokenizer
+        self.tokenizer=tokenizer
 
     def add_SMC_parameters(self, dict_sigmas, num_particles, EM=False):
         self.noise = True
@@ -144,13 +139,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         # self attention:
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
 
-        if not self.noise:
-            z = self.dropout1(z, training=self.training)
-        out = self.layernorm2(z + x)
-        r = self.ffn(out)
-        if not self.noise:
+        if self.full_model:
+            self.dropout1(z, training=self.training)  # (B,S,D)
+            out = self.layernorm1(z + x)
+            r = self.ffn(out)
             r = self.dropout2(r, training=self.training)
-        r = r + out
+            r = self.layernorm2(r + out)
+        else:
+            r = z
 
         predictions = self.output_layer(r)  # (B,P,1,F_y)
 
