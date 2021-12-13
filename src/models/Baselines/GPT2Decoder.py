@@ -24,7 +24,7 @@ class GPT2Decoder(tf.keras.Model):
     def call(self, input, attention_mask=None, look_ahead_mask=None):
         bs = input.shape[0]
         num_particles = input.shape[1]
-        input_ = self._reshape_inputs(input)
+        input_ = self._reshape_inputs(input) #TODO: bug here to solve.
         attention_mask_ = self._reshape_inputs(attention_mask)
         outputs = self.model(input_ids=input_, attention_mask=attention_mask_, output_hidden_states=True,
                              output_attentions=True)

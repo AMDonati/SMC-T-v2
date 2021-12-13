@@ -23,10 +23,7 @@ class SMCTAlgo(Algo):
         self.logger = self.create_logger()
         self.ckpt_path = self.create_ckpt_path(args)
         self.save_hparams(args)
-        if args.num_layers == 0:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=2)
-        else:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
+        self.train_dataset, self.val_dataset, self.test_dataset = self.load_datasets(num_dim=4)
         self.smc_transformer = SMC_Transformer(d_model=args.d_model,
                                                output_size=self.output_size,
                                                seq_len=self.seq_len,
@@ -34,7 +31,7 @@ class SMCTAlgo(Algo):
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
                                                attn_window=args.attn_w, num_layers=args.num_layers,
-                                               num_heads=args.num_heads, reduce_gpt2output=args.reduce_gpt2output, rate=args.p_drop, init_weights=args.init_weights)
+                                               num_heads=args.num_heads, rate=args.p_drop, init_weights=args.init_weights)
         self.distribution = args.smc
         self.particles = args.particles
         if args.EM_param is not None:
