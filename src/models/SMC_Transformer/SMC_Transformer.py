@@ -149,11 +149,17 @@ class SMC_Transformer(tf.keras.Model):
         targets = tf.tile(targets, multiples=[1,self.cell.num_particles, 1, 1])
         ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
         classic_loss = ce(y_true=targets, y_pred=predictions)
-        if attention_mask is not None:
+        if attention_mask is None:
+            padding_mask = tf.math.logical_not(tf.math.equal(targets, 0))
+            padding_mask = tf.squeeze(tf.cast(padding_mask, dtype=classic_loss.dtype))  # shape (B,S)
+            classic_loss *= padding_mask
+            classic_loss = tf.reduce_sum(classic_loss) / tf.reduce_sum(padding_mask)
+        else:
             attn_mask = tf.squeeze(tf.tile(attention_mask, multiples=[1, self.cell.num_particles, 1, 1]), axis=-1)
-            attn_mask = tf.cast(attn_mask, dtype=tf.float32)
+            attn_mask = tf.cast(attn_mask, dtype=classic_loss.dtype)
             classic_loss = classic_loss * attn_mask
-        classic_loss = tf.reduce_mean(classic_loss)
+            classic_loss = tf.reduce_sum(classic_loss) / tf.reduce_sum(attn_mask)
+        #classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
     def get_encoded_input(self, inputs, attention_mask=None):
