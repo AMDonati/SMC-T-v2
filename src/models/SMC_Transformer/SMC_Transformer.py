@@ -150,10 +150,11 @@ class SMC_Transformer(tf.keras.Model):
         ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
         classic_loss = ce(y_true=targets, y_pred=predictions)
         if attention_mask is None:
-            padding_mask = tf.math.logical_not(tf.math.equal(targets, 0))
-            padding_mask = tf.squeeze(tf.cast(padding_mask, dtype=classic_loss.dtype))  # shape (B,S)
-            classic_loss *= padding_mask
-            classic_loss = tf.reduce_sum(classic_loss) / tf.reduce_sum(padding_mask)
+            # padding_mask = tf.math.logical_not(tf.math.equal(targets, 0))
+            # padding_mask = tf.squeeze(tf.cast(padding_mask, dtype=classic_loss.dtype))  # shape (B,S)
+            # classic_loss *= padding_mask
+            # classic_loss = tf.reduce_sum(classic_loss) / tf.reduce_sum(padding_mask)
+            classic_loss = tf.reduce_mean(classic_loss)
         else:
             attn_mask = tf.squeeze(tf.tile(attention_mask, multiples=[1, self.cell.num_particles, 1, 1]), axis=-1)
             attn_mask = tf.cast(attn_mask, dtype=classic_loss.dtype)

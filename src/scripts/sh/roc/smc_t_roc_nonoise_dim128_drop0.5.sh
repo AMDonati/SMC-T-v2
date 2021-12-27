@@ -24,6 +24,6 @@ D_MODEL=128
 DFF=128
 BS=32
 PARTICLES=1
-EP=20
+EP=40
 
 srun python -u src/scripts/run.py -dataset $DATASET -data_path $DATA_PATH -algo "smc_t" -d_model $D_MODEL -dff $DFF -bs $BS -ep $EP -output_path $OUTPUT_PATH -smc False -particles $PARTICLES -max_seq_len 20 -temp 0.7 -p_drop 0.5

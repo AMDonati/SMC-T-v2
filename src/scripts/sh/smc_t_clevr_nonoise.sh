@@ -24,7 +24,7 @@ D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=1
-EP=20
+EP=40
 
 set -x
 echo "now processing task id:: " ${SLURM_ARRAY_TASK_ID}

@@ -7,10 +7,11 @@ def compute_categorical_cross_entropy(targets, preds, num_particles, attention_m
     # best_particles = tf.math.argmax(resampling_weights)
     loss_ = ce(y_true=targets, y_pred=tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
     if attention_mask is None:
-        padding_mask = tf.math.logical_not(tf.math.equal(targets, 0))
-        padding_mask = tf.squeeze(tf.cast(padding_mask, dtype=loss_.dtype)) # shape (B,S)
-        loss_ *= padding_mask
-        loss = tf.reduce_sum(loss_)/tf.reduce_sum(padding_mask)
+        # padding_mask = tf.math.logical_not(tf.math.equal(targets, 0))
+        # padding_mask = tf.squeeze(tf.cast(padding_mask, dtype=loss_.dtype)) # shape (B,S)
+        # loss_ *= padding_mask
+        # loss = tf.reduce_sum(loss_)/tf.reduce_sum(padding_mask)
+        loss = tf.reduce_mean(loss_)
     else:
         attn_mask = tf.squeeze(tf.tile(attention_mask, multiples=[1, num_particles, 1, 1]), axis=-1)
         attn_mask = tf.cast(attn_mask, dtype=tf.float32)

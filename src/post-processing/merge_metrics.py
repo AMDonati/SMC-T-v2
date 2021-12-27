@@ -9,7 +9,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-path", type=str, required=True,
                         help="data folder containing experiments")
-    parser.add_argument("-to_remove", type=str, default="var_bleu")
+    parser.add_argument("-to_remove", type=str, default=["train_ce", "train_ppl", "var_bleu"])
     #parser.add_argument('-bottom_folder', type=int, default=1)
     #parser.add_argument('-top_folder', type=int, default=1)
     parser.add_argument('-precision', type=int, default=2)
@@ -86,11 +86,13 @@ def merge_one_experiment(path="output/temp", precision=4, to_remove="var_bleu"):
         stats_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics.csv"))
         if len(dirs) > 1:
             all_metrics_all_runs_df.to_csv(os.path.join(dir_conf, "all_metrics_per_run.csv"))
-    if to_remove in merge_metrics.index:
-        merge_metrics = merge_metrics.drop(to_remove, axis=0)
+    for tr in to_remove:
+        if tr in merge_metrics.index:
+            merge_metrics = merge_metrics.drop(tr, axis=0)
     merge_metrics_latex = merge_metrics.apply(lambda t: t.replace('+/-', '\pm'))
     merge_metrics_latex.columns = [col.replace('_', '-') for col in merge_metrics_latex.columns]
     merge_metrics_latex.index = [ind.replace('_', '-') for ind in merge_metrics_latex.index]
+    merge_metrics_latex = merge_metrics_latex.T
     merge_metrics.to_csv(os.path.join(path, "merge_metrics.csv"))
     merge_metrics_latex.to_latex(os.path.join(path, "merge_metrics.txt"))
 

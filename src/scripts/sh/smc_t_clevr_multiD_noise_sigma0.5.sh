@@ -3,7 +3,7 @@
 #SBATCH --qos=qos_gpu-t3
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:2
-#SBATCH --array=1-3
+#SBATCH --array=1-4
 #SBATCH --cpus-per-task=16
 #SBATCH --output=slurm_out/sst/multiD-noise-smc_t0.5-%j.out
 #SBATCH --error=slurm_out/sst/multiD-noise-smc_t0.5-%j.err
@@ -24,7 +24,7 @@ D_MODEL=32
 DFF=32
 BS=32
 PARTICLES=10
-EP=20
+EP=40
 
 set -x
 echo "now processing task id:" ${SLURM_ARRAY_TASK_ID}
