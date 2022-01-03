@@ -178,7 +178,6 @@ class Algo:
             particles, dict_top_words, particles_norm = self.inference_multistep(inputs=inputs,
                                                                                  targets=targets,
                                                                                  attention_mask=attention_mask,
-                                                                                 past_len=self.past_len,
                                                                                  future_len=future_len,
                                                                                  decoding=decoding,
                                                                                  temp=temp)  # shape (1,P,len,1)
@@ -186,7 +185,6 @@ class Algo:
             particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
                                                                                                  targets=targets,
                                                                                                  attention_mask=attention_mask,
-                                                                                                 past_len=self.past_len,
                                                                                                  future_len=future_len,
                                                                                                  decoding=decoding,
                                                                                                  temp=temp)

@@ -60,6 +60,8 @@ class SMCTAlgo(Algo):
                     out_file = out_file + '_multiD'
             if args.temp != 1.:
                 out_file = out_file + '_temp{}'.format(args.temp)
+            if args.inference_resample:
+                out_file = out_file + '_resampl'
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
         if not os.path.isdir(out_folder):
             os.makedirs(out_folder)
@@ -185,7 +187,7 @@ class SMCTAlgo(Algo):
         P = self.smc_transformer.cell.num_particles
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
-        self.smc_transformer.seq_len = past_len
+        self.smc_transformer.seq_len = inputs.shape[-2]
         self.smc_transformer.cell.init_inference_parameters(self.dataset.tokenizer)
         for i in range(future_len + 1):
             if i == 0:
@@ -222,54 +224,7 @@ class SMCTAlgo(Algo):
         elif decoding == "greedy":
             return inputs, None, None
 
-    def inference_multistep_best_particle(self, inputs, targets, attention_mask=None, past_len=4, future_len=5,
-                                          decoding='sampling', num_samples=10):
-        self.smc_transformer.training = False
-        if self.smc_transformer.cell.noise:
-            P = self.smc_transformer.cell.num_particles
-        else:
-            self.smc_transformer.cell.num_particles = num_samples
-            P = num_samples
-        # forward pass on test_sample_past
-        list_top_k_words, list_particles_norm = [], []
-        self.smc_transformer.seq_len = past_len
-        if self.smc_transformer.cell.noise:
-            self.smc_transformer.cell.add_stop_resampling(past_len)
-        for i in range(future_len + 1):
-            (preds, _), _, filtering_weights = self.smc_transformer(inputs, targets,
-                                                                    attention_mask)  # K,V shape (1, P, 40, D)
-            if i == 0:
-                indice = tf.random.categorical(filtering_weights[:, :, -1], 1)  # (B,P,1)
-                indice = tf.squeeze(indice)
-                last_pred = tf.expand_dims(preds[:, indice, -1, :], axis=1)
-                last_pred = tf.tile(last_pred, multiples=[1, P, 1])
-                inputs = tf.tile(inputs, multiples=[1, P, 1, 1])
-                targets = tf.tile(targets, multiples=[1, P, 1, 1])
-            else:
-                last_pred = preds[:, :, -1, :]
-            if decoding == "sampling":
-                dict_top_k_words = self._extract_top_k_words(last_pred)
-                list_top_k_words.append(dict_top_k_words)
-                particles_norm = self._get_particle_norm(last_pred)
-                list_particles_norm.append(particles_norm)
-                last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0), num_samples=1, dtype=tf.int32)
-            elif decoding == "greedy":
-                last_pred = tf.expand_dims(tf.math.argmax(tf.squeeze(last_pred, axis=0), axis=-1, output_type=tf.int32),
-                                           axis=-1)
-            if i < future_len:  # dummy target (not used when resampling is stopped.)
-                self.smc_transformer.seq_len += 1
-            last_pred = tf.expand_dims(last_pred, axis=-2)
-            last_pred = tf.expand_dims(last_pred, axis=0)
-            inputs = tf.concat([inputs, last_pred], axis=-2)
-            targets = tf.concat(
-                [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
-                axis=-2)
-        if decoding == "sampling":
-            return inputs, list_top_k_words, list_particles_norm
-        elif decoding == "greedy":
-            return inputs, None, None
-
-    def inference_multistep(self, inputs, targets, attention_mask=None, past_len=4, future_len=5, decoding='sampling', temp=1):
+    def inference_multistep(self, inputs, targets, attention_mask=None, future_len=5, decoding='sampling', temp=1):
         self.smc_transformer.training = False
         if not self.smc_transformer.cell.noise:
             self.smc_transformer.cell.num_particles = 10
@@ -277,6 +232,7 @@ class SMCTAlgo(Algo):
         # forward pass on test_sample_past
         list_top_k_words, list_particles_norm = [], []
         self.smc_transformer.seq_len = inputs.shape[-2]
+        past_len = inputs.shape[-2]
         # stopping resampling when ground-truth is not available.
         if self.smc_transformer.cell.noise:
             self.smc_transformer.cell.add_stop_resampling(past_len)
