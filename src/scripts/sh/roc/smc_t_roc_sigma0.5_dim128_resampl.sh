@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=resampl0.5-dim128-ROC-CLEVR-smc-t0.5
-#SBATCH --qos=qos_gpu-t3
+#SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8g
 #SBATCH --output=slurm_out/sst/ROC-smc_t0.5-%j.out
 #SBATCH --error=slurm_out/sst/ROC-smc_t0.5-%j.err
-#SBATCH --time=20:00:00
+#SBATCH --time=100:00:00
 #SBATCH -A ktz@gpu
 
 export TMPDIR=$JOBSCRATCH
