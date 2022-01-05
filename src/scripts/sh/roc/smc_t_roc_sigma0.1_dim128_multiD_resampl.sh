@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=8g
 #SBATCH --output=slurm_out/sst/ROC-smc_t0.1-multi%j.out
 #SBATCH --error=slurm_out/sst/ROC-smc_t0.1-multi-%j.err
-#SBATCH --time=100:00:00
+#SBATCH --time=50:00:00
 #SBATCH -A ktz@gpu
 
 export TMPDIR=$JOBSCRATCH
