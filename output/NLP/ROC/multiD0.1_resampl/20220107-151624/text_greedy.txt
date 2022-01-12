@@ -1,0 +1,140 @@
+
+GROUND TRUTH:she was excited for it .
+------------------------------
+jane was set up on a blind date . she wanted to go to play the man .
+jane was set up on a blind date . she wanted to make cookies . she is having
+jane was set up on a blind date . she was on a dark . she was very
+jane was set up on a blind date . she wanted to the beach . she was very
+jane was set up on a blind date . she was on the beach . she was very
+jane was set up on a blind date . she was scared . she was very young and
+jane was set up on a blind date . she was on a date with her first time
+jane was set up on a blind date .
+jane was set up on a blind date . she was on the beach . she was very
+jane was set up on a blind date . they were having a jet ski trip .
+------------------------------------------------------------
+
+GROUND TRUTH:he was hired to investigate his client 's wife .
+------------------------------
+darren was a private investigator . he had a new park .
+darren was a private investigator . he decided to take a dog .
+darren was a private investigator . he was very nervous .
+darren was a private investigator . he was very nervous .
+darren was a private investigator . he was walking home .
+darren was a private investigator . he was too old car .
+darren was a private investigator . he was very nervous .
+darren was a private investigator . he was very nervous .
+darren was a private investigator . he was very nervous .
+darren was a private investigator . he had been working man .
+------------------------------------------------------------
+
+GROUND TRUTH:he fought hard to get what he wanted and completed his training .
+------------------------------
+when robert joined the army he wanted to defend his country .
+when robert joined the army he wanted to defend his country . he got a gym . he was not that the hospital for the kids would n't
+when robert joined the army he wanted to defend his country .
+when robert joined the army he wanted to defend his country . he was thirteen was n't like he was going to go , she was going to
+when robert joined the army he wanted to defend his country . he was the gym class was in the kids heard tiny cries from the best friend
+when robert joined the army he wanted to defend his country .
+when robert joined the army he wanted to defend his country . he was the gym membership . he was going there was a new toy car was
+when robert joined the army he wanted to defend his country .
+when robert joined the army he wanted to defend his country .
+when robert joined the army he wanted to defend his country .
+------------------------------------------------------------
+
+GROUND TRUTH:he was nervous about it .
+------------------------------
+fred was having his first date with claire . he was nervous .
+fred was having his first date with claire . he was a great time to be a very
+fred was having his first date with claire . he had a baby .
+fred was having his first date with claire . he was nervous .
+fred was having his first date with claire . he was nervous about to go to get a
+fred was having his first date with claire . he was nervous . he wanted to be a
+fred was having his first date with claire . she was nervous about his girlfriend and began taking
+fred was having his first date with claire . he had a good at a movie .
+fred was having his first date with claire . he decided to be a baby in the best
+fred was having his first date with claire . he had a baby .
+------------------------------------------------------------
+
+GROUND TRUTH:there was a magician in the park .
+------------------------------
+tommy went to the park . he was walking home . he saw a toy car .
+tommy went to the park . he was a baseball game .
+tommy went to the park . he was a new home .
+tommy went to the park . he was a garage sale .
+tommy went to the park . he went to the park .
+tommy went to the park . he was a new city . he noticed a store to
+tommy went to the park . he was a garage .
+tommy went to the park . he was a new restaurant .
+tommy went to the park . he was a garage for his friend 's house .
+tommy went to the park . he was a new park . he saw something .
+------------------------------------------------------------
+
+GROUND TRUTH:they went to a movie and got a giant bucket of it .
+------------------------------
+the family loved eating popcorn . the beach .
+the family loved eating popcorn . the dance .
+the family loved eating popcorn . the beach .
+the family loved eating popcorn . they were very hot .
+the family loved eating popcorn . the new rain .
+the family loved eating popcorn . the outdoors .
+the family loved eating popcorn . it .
+the family loved eating popcorn . the outdoors .
+the family loved eating popcorn . they were very hot .
+the family loved eating popcorn . the beach .
+------------------------------------------------------------
+
+GROUND TRUTH:one day she went missing , and was n't seen for weeks and months .
+------------------------------
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+jacob had a little black cat that he loved very much .
+------------------------------------------------------------
+
+GROUND TRUTH:every day she checked out the personal ads in the newspaper .
+------------------------------
+nora dreamed of meeting the perfect man . he was very good at a lot of the kids would not to him .
+nora dreamed of meeting the perfect man . he decided to be a new phone was very good , but he was very
+nora dreamed of meeting the perfect man . he decided to the next day .
+nora dreamed of meeting the perfect man . he decided to the doctor .
+nora dreamed of meeting the perfect man . he decided to the new one day he had a lot of becoming frustrating .
+nora dreamed of meeting the perfect man . the next month .
+nora dreamed of meeting the perfect man . he decided to him .
+nora dreamed of meeting the perfect man . he decided to the doctor .
+nora dreamed of meeting the perfect man . he was in a lot of being a lot of his friends and his friends
+nora dreamed of meeting the perfect man . he decided to the computer was very good at the best friend dared him how
+------------------------------------------------------------
+
+GROUND TRUTH:they spent an hour setting up the tent .
+------------------------------
+the family decided to camp out in the backyard . they were on the their goal of the ingredients together to the
+the family decided to camp out in the backyard . they were having a lot of their items .
+the family decided to camp out in the backyard . they were at the food mixed with the time to the back
+the family decided to camp out in the backyard . they were on the time in the fish tacos for their time
+the family decided to camp out in the backyard . they were on a lot of fun .
+the family decided to camp out in the backyard . they were having a lot of the face and put it was
+the family decided to camp out in the backyard . the dog .
+the family decided to camp out in the backyard . they were having fun to build a lot .
+the family decided to camp out in the backyard . they were on the time in the scent of the back together
+the family decided to camp out in the backyard . the beach .
+------------------------------------------------------------
+
+GROUND TRUTH:sam did n't often ride his bike and had forgotten how to use the gears .
+------------------------------
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+sam decided he wanted to ride his bike to work to get some exercise .
+------------------------------------------------------------

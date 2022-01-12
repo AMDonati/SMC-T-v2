@@ -1,0 +1,4 @@
+mean_bleu,0.1042
+var_bleu,0.00088
+gpt2_ppl,307.45804
+selfbleu,0.65918
