@@ -1,6 +1,0 @@
-train_loss,[65.82267]
-train_mse_metric,[9.908089]
-train_ppl,[20092.234]
-val_loss,[65.69616]
-val_mse_metric,[9.908771]
-val_ppl,[20105.94]
