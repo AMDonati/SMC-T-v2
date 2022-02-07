@@ -4,6 +4,7 @@ import os
 from src.models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from src.models.Baselines.GPT2Decoder import GPT2Decoder
 from src.train.train_functions import train_SMC_transformer
+from src.eval.language_metrics import gpt2_perplexity_batch_2, gpt2_tokenizer
 from src.algos.generic import Algo
 import json
 import datetime
@@ -277,6 +278,41 @@ class SMCTAlgo(Algo):
                 attention_mask = self._update_attention_mask(attention_mask, last_pred)
                 #attention_mask = tf.concat([attention_mask, tf.ones(shape=(attention_mask.shape[0], attention_mask.shape[1], 1, 1), dtype=tf.int32)],
                 #axis=-2)
+        return inputs, list_top_k_words, list_particles_norm
+
+
+    def inference_baseline_gpt(self, inputs, targets, attention_mask=None, future_len=5, decoding='sampling', temp=1):
+        self.smc_transformer.training = False
+        # forward pass on test_sample_past
+        list_top_k_words, list_particles_norm = [], []
+        self.smc_transformer.seq_len = inputs.shape[-2]
+        for i in range(future_len + 1):
+            (preds, _), _, filtering_weights = self.smc_transformer(inputs, targets,
+                                                                    attention_mask)  # K,V shape (1, P, 40, D)
+            last_pred = preds[:, :, -1, :]
+            dict_top_k_words = self._extract_top_k_words(last_pred)
+            list_top_k_words.append(dict_top_k_words)
+            particles_norm = self._get_particle_norm(last_pred)
+            list_particles_norm.append(particles_norm)
+            num_samples = 50 if i == 0 else 1
+            last_pred = tf.random.categorical(logits=tf.squeeze(last_pred, axis=0)/temp, num_samples=num_samples, dtype=tf.int32)
+            if i == 0:
+                inputs = tf.tile(inputs, multiples=[1, 50, 1, 1])
+                targets = tf.tile(targets, multiples=[1, 50, 1, 1])
+                if attention_mask is not None:
+                    attention_mask = tf.tile(attention_mask, multiples=[1, 50, 1, 1])
+            if i < future_len:  # dummy target (not used when resampling is stopped.)
+                self.smc_transformer.seq_len += 1
+            last_pred = last_pred[:,:,tf.newaxis, tf.newaxis] if i == 0 else last_pred[tf.newaxis,:,:, tf.newaxis]
+            inputs = tf.concat([inputs, last_pred], axis=-2)
+            targets = tf.concat(
+                [targets, tf.zeros(shape=(targets.shape[0], targets.shape[1], 1, targets.shape[-1]), dtype=tf.int32)],
+                axis=-2)
+            if attention_mask is not None:
+                attention_mask = self._update_attention_mask(attention_mask, last_pred)
+        ppls = gpt2_perplexity_batch_2(tf.squeeze(inputs), tokenizer=gpt2_tokenizer)
+        values, indices = tf.math.top_k(ppls, k=10)  # shape (10)
+        inputs = tf.gather(inputs, indices, axis=1)  # shape (1,10,1,1)
         return inputs, list_top_k_words, list_particles_norm
 
 

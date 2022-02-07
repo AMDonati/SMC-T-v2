@@ -6,7 +6,7 @@ import numpy as np
 from src.utils.utils_train import write_to_csv, create_config_file
 import json
 import math
-from src.eval.language_metrics import gpt2_perplexity_batch, BLEU_score, SELFBLEU_score
+from src.eval.language_metrics import gpt2_perplexity_batch, BLEU_score, SELFBLEU_score, gpt_perplexity_batch
 
 
 class Algo:
@@ -182,15 +182,23 @@ class Algo:
                                                                                  decoding=decoding,
                                                                                  temp=temp)  # shape (1,P,len,1)
         else:
-            particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
+            if self.distribution:
+                particles, dict_top_words, particles_norm = self.inference_multistep_with_resampling(inputs=inputs,
                                                                                                  targets=targets,
                                                                                                  attention_mask=attention_mask,
                                                                                                  future_len=future_len,
                                                                                                  decoding=decoding,
                                                                                                  temp=temp)
+            else:
+                particles, dict_top_words, particles_norm = self.inference_baseline_gpt(inputs=inputs,
+                                                                                                     targets=targets,
+                                                                                                     attention_mask=attention_mask,
+                                                                                                     future_len=future_len,
+                                                                                                     decoding=decoding,
+                                                                                                     temp=temp)
         decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
                              range(particles.shape[1])]
-        gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
+        gpt2_ppl = gpt_perplexity_batch(decoded_particles)
         (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,
                                                                     decoded_target=decoded_targets)
         for key, val in zip(list(metrics.keys()), [mean_bleu, var_bleu, gpt2_ppl, selfbleu]):

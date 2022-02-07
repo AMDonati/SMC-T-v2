@@ -1,6 +1,6 @@
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 import numpy as np
-from transformers import TFGPT2LMHeadModel, GPT2Tokenizer, GPT2Config
+from transformers import TFGPT2LMHeadModel, GPT2Tokenizer, GPT2Config, OpenAIGPTTokenizer, TFOpenAIGPTLMHeadModel, OpenAIGPTConfig
 import tensorflow as tf
 
 gpt2_config = GPT2Config(vocab_size=50257)
@@ -8,6 +8,12 @@ gpt2_model = TFGPT2LMHeadModel(gpt2_config).from_pretrained("cache/gpt2")
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
 gpt2_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 gpt2_tokenizer.pad_token_id = [50256]
+
+gpt_config = OpenAIGPTConfig(vocab_size=40479)
+gpt_tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+gpt_model = TFOpenAIGPTLMHeadModel.from_pretrained('openai-gpt')
+gpt_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+gpt_tokenizer.pad_token_id = [40478]
 
 def get_weights_bleu_score(n_gram=4):
     if n_gram == 2:
@@ -21,6 +27,28 @@ def get_weights_bleu_score(n_gram=4):
 def gpt2_perplexity(sentence):
     inputs = gpt2_tokenizer(sentence, return_tensors="tf")
     outputs = gpt2_model(input_ids=inputs["input_ids"])
+    logits = outputs["logits"]
+    preds = logits[:, :-1, :]
+    targets = inputs["input_ids"][:, 1:]
+    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+    cross_entropy = tf.reduce_mean(ce(y_true=targets, y_pred=preds)) # (B,1,S)
+    ppl = tf.math.exp(cross_entropy)
+    return round(ppl.numpy(),2)
+
+def gpt2_perplexity_batch_2(sentences, tokenizer=None):
+    sentences = [tokenizer.decode(sentences[i].numpy()) for i in range(sentences.shape[0])]
+    inputs = gpt2_tokenizer(sentences, padding=True, return_tensors="tf")
+    outputs = gpt2_model(**inputs)
+    preds_logits = outputs["logits"][:,:-1]
+    labels = inputs["input_ids"][:,1:]
+    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
+    loss = ce(y_true=labels, y_pred=preds_logits)
+    ppl = tf.exp(tf.reduce_mean(loss, axis=-1))
+    return ppl
+
+def gpt_perplexity(sentence):
+    inputs = gpt_tokenizer(sentence, return_tensors="tf")
+    outputs = gpt_model(input_ids=inputs["input_ids"])
     logits = outputs["logits"]
     preds = logits[:, :-1, :]
     targets = inputs["input_ids"][:, 1:]
@@ -47,16 +75,25 @@ def gpt2_perplexity_batch(sentences, tokenizer=None, reduction=True):
         ppl = round(ppl.numpy(),2)
     return ppl
 
-def gpt2_perplexity_batch_2(sentences, tokenizer=None):
-    sentences = [tokenizer.decode(sentences[i].numpy()) for i in range(sentences.shape[0])]
-    inputs = gpt2_tokenizer(sentences, padding=True, return_tensors="tf")
-    outputs = gpt2_model(**inputs)
-    preds_logits = outputs["logits"][:,:-1]
-    labels = inputs["input_ids"][:,1:]
-    ce = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction="none")
-    loss = ce(y_true=labels, y_pred=preds_logits)
-    ppl = tf.exp(tf.reduce_mean(loss, axis=-1))
+def gpt_perplexity_batch(sentences, tokenizer=None, reduction=True):
+    if tokenizer is not None:
+        P = sentences.shape[0]
+        S = sentences.shape[1]
+        sentences = [tokenizer.decode(sentences[i].numpy()) for i in range(sentences.shape[0])]
+    inputs = gpt_tokenizer(sentences, padding=True, return_tensors="tf")
+    labels = tf.identity(inputs["input_ids"])
+    labels_ = tf.where(inputs["attention_mask"] == 0, x=tf.constant(-100, shape=labels.shape), y=labels)
+    outputs = gpt_model(**inputs, labels=labels_)
+    loss = outputs["loss"]
+    if not reduction and tokenizer is not None:
+        loss = tf.reshape(loss, shape=(P,S-1))
+        ppl = tf.exp(tf.reduce_mean(loss, axis=-1))
+    else:
+        ppl = tf.math.exp(tf.reduce_mean(loss))
+        ppl = round(ppl.numpy(),2)
     return ppl
+
+
 
 def BLEU_score(true_sentence, generated_sentence, split_str=False):
     weights = get_weights_bleu_score(4)
@@ -92,8 +129,15 @@ if __name__ == '__main__':
 
     sentences = [true_sentence, generated_sentence4]
     gpt2_ppl = gpt2_perplexity_batch(sentences)
+    gpt_ppl = gpt_perplexity_batch(sentences)
+    print("GPT PPL", gpt_ppl)
 
     print("checking perplexity formula....")
     print(gpt2_perplexity(true_sentence))
     print(gpt2_perplexity_batch(true_sentence))
+    print("done")
+
+    print("checking gpt perplexity formula....")
+    print(gpt_perplexity(true_sentence))
+    print(gpt_perplexity_batch(true_sentence))
     print("done")

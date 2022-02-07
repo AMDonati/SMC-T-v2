@@ -1,0 +1,6 @@
+train_loss,[9.911516]
+train_mse_metric,[]
+train_ppl,[20161.219]
+val_loss,[9.90472]
+val_mse_metric,[]
+val_ppl,[20024.672]
