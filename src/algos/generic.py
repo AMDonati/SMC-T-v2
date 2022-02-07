@@ -198,7 +198,7 @@ class Algo:
                                                                                                      temp=temp)
         decoded_particles = [self.dataset.tokenizer.decode(tf.squeeze(particles)[p].numpy()) for p in
                              range(particles.shape[1])]
-        gpt2_ppl = gpt2_perplexity_batch(decoded_particles)
+        gpt2_ppl = gpt_perplexity_batch(decoded_particles)
         (mean_bleu, var_bleu), selfbleu = self._evaluate_BLEU_score(decoded_particles=decoded_particles,
                                                                     decoded_target=decoded_targets)
         for key, val in zip(list(metrics.keys()), [mean_bleu, var_bleu, gpt2_ppl, selfbleu]):
