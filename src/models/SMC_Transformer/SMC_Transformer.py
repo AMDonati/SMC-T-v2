@@ -120,7 +120,7 @@ class SMC_Transformer(tf.keras.Model):
         logvar_k, logvar_q, logvar_v, logvar_z = tf.split(self.cell.attention_smc.noise_network(inputs), num_or_size_splits=4, axis=-1)
         return [logvar_k, logvar_q, logvar_v, logvar_z]
 
-    def compute_SMC_loss(self, inputs, targets, predictions, attention_mask=None): #TODO: add inputs here.
+    def compute_SMC_loss(self, inputs, targets, predictions, attention_mask=None):
         assert self.cell.noise == self.cell.attention_smc.noise
         if self.cell.noise:
             if self.cell.attention_smc.noise_network is None:
