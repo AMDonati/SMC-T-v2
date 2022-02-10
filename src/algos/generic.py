@@ -6,7 +6,7 @@ import numpy as np
 from src.utils.utils_train import write_to_csv, create_config_file
 import json
 import math
-from src.eval.language_metrics import gpt2_perplexity_batch, BLEU_score, SELFBLEU_score, gpt_perplexity_batch
+from src.eval.language_metrics import gpt2_perplexity_batch, BLEU_score, SELFBLEU_score
 
 
 class Algo:
