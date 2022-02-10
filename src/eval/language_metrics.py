@@ -9,11 +9,11 @@ gpt2_tokenizer = GPT2Tokenizer.from_pretrained("cache/gpt2")
 gpt2_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 gpt2_tokenizer.pad_token_id = [50256]
 
-gpt_config = OpenAIGPTConfig(vocab_size=40479)
-gpt_tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
-gpt_model = TFOpenAIGPTLMHeadModel.from_pretrained('openai-gpt')
-gpt_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-gpt_tokenizer.pad_token_id = [40478]
+# gpt_config = OpenAIGPTConfig(vocab_size=40479)
+# gpt_tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+# gpt_model = TFOpenAIGPTLMHeadModel.from_pretrained('openai-gpt')
+# gpt_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+# gpt_tokenizer.pad_token_id = [40478]
 
 def get_weights_bleu_score(n_gram=4):
     if n_gram == 2:
