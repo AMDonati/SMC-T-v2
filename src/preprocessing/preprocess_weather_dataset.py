@@ -7,7 +7,7 @@ import numpy as np
 from src.preprocessing.utils import split_dataset_into_seq
 import argparse
 
-def split_weather_dataset(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT, VAL_SPLIT=0.5,
+def split_weather_dataset(file_path, fname, col_name, index_name, history, step, index_end, TRAIN_SPLIT, VAL_SPLIT=0.5,
                           VAL_SPLIT_cv=0.9, cv=False, save_path=None):
 
     zip_path = tf.keras.utils.get_file(
@@ -36,7 +36,7 @@ def split_weather_dataset(file_path, fname, col_name, index_name, history, step,
     uni_data = (uni_data - data_mean) / data_std
     stats = (data_mean, data_std)
 
-    data_in_seq = split_dataset_into_seq(uni_data, 0, None, history, step)
+    data_in_seq = split_dataset_into_seq(uni_data, 0, index_end, history, step)
 
     if not cv:
         # save_paths:
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument("-history", type=int, default=600, help="history of past observations.")
     # history =  6 * 24 * 4 + 6 * 4 # 25 timesteps sampled every 4 hours (every 24 samples).  > time-window of 4 days for temperature sampled every 4 hours. temperature recorded every 10min.
     parser.add_argument("-step", type=int, default=24, help="sample step.")
+    parser.add_argument("-index_end", type=int, help="end of index for selecting a max number of samples.")
     # step = 6 * 4  # sample a temperature every 4 hours (samples taken every 10 mins.)
     args = parser.parse_args()
 
@@ -115,5 +116,6 @@ if __name__ == '__main__':
                                                                                   TRAIN_SPLIT=args.TRAIN_SPLIT,
                                                                                   history=args.history,
                                                                                   step=args.step,
+                                                                                  index_end=args.index_end,
                                                                                   cv=False,
                                                                                   save_path=args.data_path)

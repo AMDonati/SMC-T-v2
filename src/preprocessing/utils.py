@@ -77,7 +77,9 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
         indices = range(i - history_size, i, step)
         data.append(dataset[indices])
     print("final i", i)
-    return np.array(data)
+    #if max_samples is not None:
+        #data = data[:max_samples]
+    return np.array(data, dtype=np.float32)
 
 
 def split_synthetic_dataset(x_data, TRAIN_SPLIT, save_path=None, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
