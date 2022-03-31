@@ -38,10 +38,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, sigma_obs_
     '''
 
     assert len(tf.shape(inputs)) == len(tf.shape(targets)) == 4
-    #sigma_obs_update = int(709/32) * 8
 
     with tf.GradientTape() as tape:
-        (preds, preds_resampl), _, _ = smc_transformer(inputs=inputs,
+        (preds, preds_resampl), _, smc_loss = smc_transformer(inputs=inputs,
                                                        targets=targets)  # predictions: shape (B,P,S,F_y) with P=1 during training.
         targets_tiled = tf.tile(targets, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
         classic_loss = tf.keras.losses.MSE(targets_tiled, preds_resampl)  # (B,P,S)
@@ -59,11 +58,6 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, sigma_obs_
             err_z = smc_transformer.noise_z * smc_transformer.noise_z
             err_z = tf.reduce_mean(err_z, axis=[1,2,3])
 
-            # smc_transformer.cell.attention_smc.sigma_v = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_v + it ** (-0.6) * err_v
-            # smc_transformer.cell.attention_smc.sigma_k = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_k + it ** (-0.6) * err_k
-            # smc_transformer.cell.attention_smc.sigma_q = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_q + it ** (-0.6) * err_q
-            # smc_transformer.cell.attention_smc.sigma_z = (1 - it ** (-0.6)) * smc_transformer.cell.attention_smc.sigma_z + it ** (-0.6) * err_z
-
             if it >= sigma_obs_update:
                 it_obs = it - sigma_obs_update
                 # EM estimation of Sigma_obs:
@@ -79,7 +73,6 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, sigma_obs_
                 if it >= sigma_obs_update:
                     smc_transformer.cell.Sigma_obs = (1 - it_obs ** (-0.6)) * smc_transformer.cell.Sigma_obs + it_obs ** (-0.6) * new_sigma_obs[j]
 
-            smc_loss = smc_transformer.compute_SMC_loss(predictions=preds_resampl, targets=targets_tiled)
             loss = smc_loss
             mse_metric_avg_pred = tf.keras.losses.MSE(targets, tf.reduce_mean(preds, axis=1, keepdims=True))  # (B,1,S)
             mse_metric_avg_pred = tf.reduce_mean(mse_metric_avg_pred)

@@ -52,7 +52,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
         self.num_particles = num_particles
         self.Sigma_obs = sigma_obs
-        self.list_weights, self.list_indices = [], []
+        self.list_weights, self.list_states = [], []
 
     def compute_w_regression(self, predictions, y):
         '''
@@ -129,12 +129,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
             self.list_weights.append(w.numpy())
-            self.list_indices.append(i_t.numpy())
             # resample K, V, and R
             if self.len_resampling is None or self.dec_timestep < self.len_resampling:
-                K = resample(params=K, i_t=i_t)
-                V = resample(params=V, i_t=i_t)
-                R = resample(params=R, i_t=i_t)
+                K = resample(params=K, i_t=i_t) # (B,P,S,D)
+                V = resample(params=V, i_t=i_t) # (B,P,S,D)
+                R = resample(params=R, i_t=i_t) # (B,P,S,D)
             # Getting internal noises for computing the loss.
             internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
             output = [r, attn_weights, internal_noises]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
@@ -142,6 +141,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             output = [r, attn_weights]
 
         new_states = NestedState(K=K, V=V, R=R)
+        if self.noise:
+            self.list_states.append(new_states)
         self.cell_count += 1
         if self.cell_count > 1:
             self.dec_timestep += 1

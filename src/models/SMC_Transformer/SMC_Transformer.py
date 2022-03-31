@@ -4,6 +4,7 @@ from src.models.SMC_Transformer.SMC_TransformerCell import SMC_Transf_Cell
 from src.models.Baselines.Transformer_without_enc import Decoder
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
+import tensorflow_probability as tfp
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -14,14 +15,16 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 class SMC_Transformer(tf.keras.Model):
 
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1, maximum_position_encoding=50,
-                 rate=0., attn_window=None):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1,
+                 maximum_position_encoding=50,
+                 rate=0., attn_window=None, fix_lag=4):
         super(SMC_Transformer, self).__init__()
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
                                     dff=dff, attn_window=attn_window, num_heads=num_heads)
 
-        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model, num_heads=num_heads,
+        self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model,
+                                                            num_heads=num_heads,
                                                             dff=dff, full_model=full_model,
                                                             maximum_position_encoding=maximum_position_encoding,
                                                             rate=rate, dim=4)
@@ -35,33 +38,48 @@ class SMC_Transformer(tf.keras.Model):
         self.dff = dff
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.fix_lag = fix_lag
 
-    def compute_SMC_loss(self, targets, predictions):
-        assert self.cell.noise == self.cell.attention_smc.noise == True
-        list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
-                       self.cell.attention_smc.sigma_v, \
-                       self.cell.attention_smc.sigma_z]  # (D,D) or scalar.
-        loss_parts, loss_parts_no_log = [], []
-
-        for noise, Sigma in zip(self.internal_noises, list_Sigmas):
-            loss_part = 1 / 2 * (1 / Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
-            loss_parts.append(loss_part)
-        smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
-        smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
-        smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
-
+    def compute_classic_loss(self, targets, predictions):
         # "classic loss" part:
-        diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32)  # shape (B,P,S,F_y)
+        diff = tf.cast(targets, tf.float32) - tf.cast(predictions, tf.float32)  # shape (B,P,1,F_y)
         classic_loss = 1 / 2 * (1 / self.cell.Sigma_obs) * tf.einsum('bijk,bijk->bij', diff, diff)
         classic_loss = tf.reduce_mean(classic_loss)
+        return classic_loss
+
+    def compute_SMC_loss(self, targets, predictions, noises):  # TODO: refacto loss with tfp.distributions.
+        assert self.cell.noise == self.cell.attention_smc.noise
+        if self.cell.noise:
+            list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
+                           self.cell.attention_smc.sigma_v,
+                           self.cell.attention_smc.sigma_z]  # (D,D) or scalar.
+            loss_parts, loss_parts_no_log = [], []
+            for noise, Sigma in zip(noises, list_Sigmas):
+                loss_part = self.compute_log_gaussian_density(sigma=Sigma, noise=noise)
+                loss_part_ = 1 / 2 * (1 / Sigma) * tf.einsum('bik,bik->bi', noise, noise)
+                loss_parts.append(loss_part)
+            smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P)
+            smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P)
+            smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
+        else:
+            smc_loss = 0.
+
+        # "classic loss" part:
+        classic_loss = self.compute_classic_loss(targets=targets, predictions=predictions)
 
         total_loss = smc_loss + classic_loss
         return total_loss
 
+    def compute_log_gaussian_density(self, sigma, noise):
+        diag_std = (sigma) ** (1 / 2) * tf.ones(shape=noise.shape[-1], dtype=tf.float32)
+        gaussian_distrib = tfp.distributions.MultivariateNormalDiag(scale_diag=diag_std)
+        log_prob = gaussian_distrib.log_prob(noise)
+        return -log_prob
+
     def get_encoded_input(self, inputs):
         if tf.shape(inputs)[1] == 1:
             inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
-        if self.decoder is None:                                             # tiling inputs if needed on the particles dimensions.
+        if self.decoder is None:  # tiling inputs if needed on the particles dimensions.
             input_tensor_processed = self.input_dense_projection(inputs)  # (B,P,S,D)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         else:
@@ -70,6 +88,9 @@ class SMC_Transformer(tf.keras.Model):
             input_tensor_processed, _ = self.decoder(inputs, training=False, look_ahead_mask=look_ahead_mask)  # (B,S,D)
 
         return input_tensor_processed
+
+    def compute_effective_lag(self, timestep):
+        return min(timestep + self.fix_lag, self.seq_len)
 
     def call(self, inputs, targets):
         '''
@@ -97,7 +118,8 @@ class SMC_Transformer(tf.keras.Model):
 
         x = tf.transpose(input_tensor_processed,
                          perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
-        targets = tf.transpose(targets, perm=[0, 2, 1, 3])
+        targets = tf.transpose(targets, perm=[0, 2, 1,
+                                              3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & the RNN layer.
         inputs_for_rnn = NestedInput(x=x, y=targets)  # y > (B,P,S,F_y), #x > (B,S,P,D))
         last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                                 inputs=inputs_for_rnn,
@@ -108,26 +130,41 @@ class SMC_Transformer(tf.keras.Model):
         # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------
         outputs = [tf.squeeze(out, axis=-2) for out in outputs]
         R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
-        attn_weights = outputs[1]
-        if len(tf.shape(attn_weights)) == 4: # one-head case
-            attn_weights = tf.expand_dims(attn_weights, axis=-2) # (B,S,P,H,S)
-        attn_weights = tf.transpose(attn_weights, perm=[0, 2, 3, 1, 4]) # (B,P,H,S,S)
-        # states
-        K, V, R_resampl = new_states[0], new_states[1], new_states[2]  # (B,P,S,D)
 
-        pred_resampl = self.final_layer(R_resampl)  # (B,P,S,C) used to compute the categorical cross_entropy loss.
+        preds_resampl = self.final_layer(new_states[
+                                             2])  # (B,P,S,C) used to compute the categorical cross_entropy loss. new_states[2] is R_resampled.
         pred = self.final_layer(R)
 
-        # computing resampled noises for K, and V.
-        self.noise_K_resampled = K - self.cell.attention_smc.wk(input_tensor_processed)
-        self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
+        # ------------------ computing (timestep-wise) SMC loss for fix-lag smoother ------------------------------------------------------
+        if self.cell.noise:
+            loss = []
+            self.noise_K_resampled, self.noise_V_resampled = [], []
+            for t in range(self.seq_len):
+                lag = self.compute_effective_lag(t)
+                state = self.cell.list_states[lag]
+                noise_K_resampl = state.K[:, :, t] - self.cell.attention_smc.wk(input_tensor_processed[:, :, t])
+                noise_V_resampl = state.V[:, :, t] - self.cell.attention_smc.wv(input_tensor_processed[:, :, t])
+                noises = [noise_K_resampl, tf.squeeze(self.cell.attention_smc.noise_q, axis=-2), noise_V_resampl,
+                          tf.squeeze(self.cell.attention_smc.noise_z, axis=-2)]
+                pred_resampl = tf.expand_dims(self.final_layer(state.R)[:, :, t], axis=-2)  # shape (B,P,1,F_y)
+                loss_timestep = self.compute_SMC_loss(targets=tf.expand_dims(targets[:, t], axis=-2),
+                                                      predictions=pred_resampl, noises=noises)
+                loss.append(loss_timestep)
+                self.noise_K_resampled.append(noise_K_resampl)
+                self.noise_V_resampled.append(noise_V_resampl)
+            loss = tf.stack(loss, axis=0)
+            loss = tf.reduce_mean(loss, axis=0)
+            self.noise_K_resampled = tf.stack(self.noise_K_resampled, axis=-2) # shape (B,P,S,D)
+            self.noise_V_resampled = tf.stack(self.noise_V_resampled, axis=-2)  # shape (B,P,S,D)
+        else:
+            loss = 0.
 
         if self.cell.noise:
             self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
             self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z]
 
-        return (pred, pred_resampl), (K, V, R_resampl), attn_weights
+        return (pred, preds_resampl), new_states, loss
 
 
 if __name__ == "__main__":
@@ -154,16 +191,15 @@ if __name__ == "__main__":
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
                                   attn_window=4)
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+    (predictions, _), (K, V, R), loss = transformer(inputs=inputs, targets=targets)
 
     print('predictions', predictions.shape)
     print('K', K.shape)
-    print('attention weights', attn_weights.shape)
-
+    print('loss', loss)
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
-
-    print("..............................TEST MULTI-LAYER / ONE-HEAD CASE ...............................................")
+    print(
+        "..............................TEST MULTI-LAYER / ONE-HEAD CASE ...............................................")
 
     transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
                                   num_layers=2, num_heads=1)
@@ -178,11 +214,11 @@ if __name__ == "__main__":
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         sigma_obs=sigma_obs,
                                         num_particles=num_particles)
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+    (predictions, _), (K, V, R), loss = transformer(inputs=inputs, targets=targets)
 
     print('predictions', predictions.shape)
     print('K', K.shape)
-    print('attention weights', attn_weights.shape)
+    print('loss', loss)
 
     print(
         "..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")
@@ -210,7 +246,7 @@ if __name__ == "__main__":
 
     print('TESTING NOT RESAMPLING FOR INFERENCE....')
     transformer.cell.add_stop_resampling(5)
-    (pred, pred_resampl), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+    (pred, pred_resampl), (K, V, R), loss = transformer(inputs=inputs, targets=targets)
 
     # ------------------------------------------- test of compute_smc_loss -------------------------------------------------------------------------
     # test of tf.einsum:

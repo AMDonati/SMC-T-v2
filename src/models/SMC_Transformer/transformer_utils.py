@@ -40,7 +40,6 @@ def resample(params, i_t):
     """
         :param params: attention parameters tensor to be reshaped (K or V) > shape (B,P,S,D)
         :param i_t: current set of indices at time t > shape (B,P)
-        :param t: decoding timestep (int from 0 until seq_len-1)
         :return:
         the trajectories of the attention parameters resampling according to i_t.
         """
