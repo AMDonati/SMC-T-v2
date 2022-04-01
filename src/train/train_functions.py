@@ -123,16 +123,16 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
     losses_history = {"train_loss":[], "train_mse_metric":[], "val_loss":[], "val_mse_metric": []}
 
     # check the pass forward.
-    for input_example_batch, target_example_batch in train_dataset.take(1):
-        (temp_preds, temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch,
-                                                                 targets=target_example_batch)
-        logger.info("predictions shape: {}".format(temp_preds.shape))
-        print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
-        print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
-        print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
-        print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
-        print('first element and first dim of predictions - t24', temp_preds[0, :, -1, 0].numpy())
-        print('first element and first dim of predictions resampled - t24', temp_preds_resampl[0, :, -1, 0].numpy())
+    # for input_example_batch, target_example_batch in train_dataset.take(1):
+    #     (temp_preds, temp_preds_resampl), _, _ = smc_transformer(inputs=input_example_batch,
+    #                                                              targets=target_example_batch)
+    #     logger.info("predictions shape: {}".format(temp_preds.shape))
+    #     print('first element and first dim of predictions - t0', temp_preds[0, :, 0, 0].numpy())
+    #     print('first element and first dim of predictions resampled - t0', temp_preds_resampl[0, :, 0, 0].numpy())
+    #     print('first element and first dim of predictions - t10', temp_preds[0, :, 10, 0].numpy())
+    #     print('first element and first dim of predictions resampled - t10', temp_preds_resampl[0, :, 10, 0].numpy())
+    #     print('first element and first dim of predictions - t24', temp_preds[0, :, -1, 0].numpy())
+    #     print('first element and first dim of predictions resampled - t24', temp_preds_resampl[0, :, -1, 0].numpy())
 
     if start_epoch > 0:
         if start_epoch > EPOCHS:

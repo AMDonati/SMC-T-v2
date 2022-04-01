@@ -5,6 +5,7 @@ from src.models.Baselines.Transformer_without_enc import Decoder
 from src.models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import collections
 import tensorflow_probability as tfp
+import math
 
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
@@ -38,7 +39,10 @@ class SMC_Transformer(tf.keras.Model):
         self.dff = dff
         self.num_layers = num_layers
         self.num_heads = num_heads
-        self.fix_lag = fix_lag
+        if fix_lag is not None:
+            self.fix_lag = fix_lag
+        else:
+            self.fix_lag = self.seq_len
 
     def compute_classic_loss(self, targets, predictions):
         # "classic loss" part:
@@ -47,7 +51,7 @@ class SMC_Transformer(tf.keras.Model):
         classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
-    def compute_SMC_loss(self, targets, predictions, noises):  # TODO: refacto loss with tfp.distributions.
+    def compute_SMC_loss(self, targets, predictions, noises, check_loss=False):  # TODO: refacto loss with tfp.distributions.
         assert self.cell.noise == self.cell.attention_smc.noise
         if self.cell.noise:
             list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
@@ -56,7 +60,14 @@ class SMC_Transformer(tf.keras.Model):
             loss_parts, loss_parts_no_log = [], []
             for noise, Sigma in zip(noises, list_Sigmas):
                 loss_part = self.compute_log_gaussian_density(sigma=Sigma, noise=noise)
-                loss_part_ = 1 / 2 * (1 / Sigma) * tf.einsum('bik,bik->bi', noise, noise)
+                if check_loss:
+                    d_model = noise.shape[-1]
+                    loss_part_1 = (1 / Sigma) * tf.einsum('bik,bik->bi', noise, noise)
+                    loss_part_2 = d_model * tf.math.log(2. * math.pi * Sigma)*tf.ones(shape=(noise.shape[0], noise.shape[1]))
+                    loss_part_ = 0.5 * (loss_part_1 + loss_part_2)
+                    diff = tf.reduce_mean(loss_part - loss_part_)
+                    if tf.math.abs(diff) >= 1e-5:
+                        print("LOSS NOT EGAL TO LOG GAUSSIAN DENSITY...")
                 loss_parts.append(loss_part)
             smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P)
             smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P)
@@ -90,7 +101,7 @@ class SMC_Transformer(tf.keras.Model):
         return input_tensor_processed
 
     def compute_effective_lag(self, timestep):
-        return min(timestep + self.fix_lag, self.seq_len)
+        return min(timestep + self.fix_lag, self.seq_len) - 1
 
     def call(self, inputs, targets):
         '''
@@ -141,6 +152,7 @@ class SMC_Transformer(tf.keras.Model):
             self.noise_K_resampled, self.noise_V_resampled = [], []
             for t in range(self.seq_len):
                 lag = self.compute_effective_lag(t)
+                #print("LAG", lag)
                 state = self.cell.list_states[lag]
                 noise_K_resampl = state.K[:, :, t] - self.cell.attention_smc.wk(input_tensor_processed[:, :, t])
                 noise_V_resampl = state.V[:, :, t] - self.cell.attention_smc.wv(input_tensor_processed[:, :, t])
@@ -163,6 +175,9 @@ class SMC_Transformer(tf.keras.Model):
             self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
             self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z]
+
+            # reset list states:
+            self.cell.list_states = []
 
         return (pred, preds_resampl), new_states, loss
 
@@ -268,5 +283,5 @@ if __name__ == "__main__":
     temp_mu_3 = tf.concat([temp_mu, 2 * temp_mu], axis=1)
     mult3_2 = tf.einsum('bijk,bijk->bij', temp_mu_3, temp_mu_3)
 
-    smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
-    print('smc loss', smc_loss.numpy())
+    #smc_loss = transformer.compute_SMC_loss(targets=targets, predictions=pred)
+    #print('smc loss', smc_loss.numpy())

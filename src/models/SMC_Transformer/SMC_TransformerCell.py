@@ -141,7 +141,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             output = [r, attn_weights]
 
         new_states = NestedState(K=K, V=V, R=R)
-        if self.noise:
+        if self.noise and self.cell_count > 0:
+            # print("-"*10)
+            # print("CELL COUNT", self.cell_count)
+            # print("DECODING TIMESTEP", self.dec_timestep)
+            # state_ = new_states.K[0,0,:,0].numpy()
+            # print("STATE", state_)
+            # print("-" * 10)
             self.list_states.append(new_states)
         self.cell_count += 1
         if self.cell_count > 1:

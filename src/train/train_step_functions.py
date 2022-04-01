@@ -43,6 +43,9 @@ def train_step_SMC_T(inputs, targets, smc_transformer, optimizer, it, sigma_obs_
         (preds, preds_resampl), _, smc_loss = smc_transformer(inputs=inputs,
                                                        targets=targets)  # predictions: shape (B,P,S,F_y) with P=1 during training.
         targets_tiled = tf.tile(targets, multiples=[1, smc_transformer.cell.num_particles, 1, 1])
+
+        #xx = tape.gradient(smc_loss, smc_transformer.cell.layernorm1.weights)
+
         classic_loss = tf.keras.losses.MSE(targets_tiled, preds_resampl)  # (B,P,S)
         classic_loss = tf.reduce_mean(classic_loss)  # mean over all dimensions.
 

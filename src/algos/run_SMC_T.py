@@ -29,7 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, fix_lag=args.fix_lag)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -42,15 +42,8 @@ class SMCTAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            # out_file = '{}_Recurrent_T_depth_{}_bs_{}_fullmodel_{}_dff_{}_attn_w_{}'.format(args.dataset, args.d_model,
-            # self.bs, args.full_model,
-            # args.dff, args.attn_w)
-            out_file = '{}_l{}_h{}_d{}_{}p'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles)
+            out_file = '{}_l{}_h{}_d{}_{}p_lag{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles, args.fix_lag)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-            # if args.smc:
-            #     out_file = out_file + '__p_{}'.format(args.particles)
-            #     out_file = out_file + '_SigmaObs_{}'.format(args.sigma_obs)
-            #     out_file = out_file + '_sigmas_{}'.format(args.sigmas)
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
             if not os.path.isdir(out_folder):
                 os.makedirs(out_folder)

@@ -71,6 +71,7 @@ def get_parser():
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
+    parser.add_argument("-fix_lag", type=int, help="fix-lag param in fix-lag smoother.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
@@ -82,9 +83,9 @@ def get_parser():
     parser.add_argument("-mc_samples", type=int, default=100, help="number of samples for MC Dropout algo.")
     # misc:
     parser.add_argument("-lambda_QD", type=float, default=1.0, help="lambda parameter for loss QD.")
-    parser.add_argument("-save_distrib", type=str2bool, default=False, help="save predictive distribution on test set.")
+    parser.add_argument("-save_distrib", type=str2bool, default=True, help="save predictive distribution on test set.")
     parser.add_argument("-save_plot", type=str2bool, default=True, help="save plots on test set.")
-    parser.add_argument("-save_particles", type=str2bool, default=False, help="save predicted particles on test set.")
+    parser.add_argument("-save_particles", type=str2bool, default=True, help="save predicted particles on test set.")
 
     return parser
 
