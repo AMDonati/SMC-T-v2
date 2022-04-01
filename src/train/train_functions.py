@@ -199,6 +199,19 @@ def train_SMC_transformer(smc_transformer, optimizer, EPOCHS, train_dataset, val
                 smc_transformer.cell.attention_smc.sigma_v,
                 smc_transformer.cell.attention_smc.sigma_z))
 
+        if smc_transformer.cell.ESS:
+            # monitoring the mean percent of resamples per epoch
+            num_of_resamples = tf.stack(smc_transformer.cell.percent_resamples)
+            mean_num_of_resamples = tf.reduce_mean(num_of_resamples).numpy()
+            zero_resamples = num_of_resamples.shape[0] - tf.math.count_nonzero(num_of_resamples).numpy()
+            logger.info("-"*20)
+            logger.info("MEAN PERCENT OF RESAMPLES: {}".format(mean_num_of_resamples))
+            logger.info("NUMBER OF TIMES WITH NO RESAMPLING: {}".format(zero_resamples))
+            logger.info(
+                "% OF TIMES WITH NO RESAMPLING: {}".format(round(100 * zero_resamples / num_of_resamples.shape[0]), 1))
+            logger.info("-" * 20)
+            smc_transformer.percent_resamples = []
+
         ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 

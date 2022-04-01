@@ -29,7 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, ESS=args.ess)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -46,6 +46,8 @@ class SMCTAlgo(Algo):
             # self.bs, args.full_model,
             # args.dff, args.attn_w)
             out_file = '{}_l{}_h{}_d{}_{}p'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles)
+            if args.ess:
+                out_file = out_file + '_ESS'
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             # if args.smc:
             #     out_file = out_file + '__p_{}'.format(args.particles)

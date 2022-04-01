@@ -71,6 +71,7 @@ def get_parser():
     parser.add_argument("-sigmas", type=float, default=0.5, help="values for sigma_k, sigma_q, sigma_v, sigma_z")
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
+    parser.add_argument("-ess", type=str2bool, default=False, help="Using Effective Sampling Size in the smoothing algo or not.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
