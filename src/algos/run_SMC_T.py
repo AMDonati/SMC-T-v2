@@ -48,6 +48,8 @@ class SMCTAlgo(Algo):
             out_file = '{}_l{}_h{}_d{}_{}p'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles)
             if args.ess:
                 out_file = out_file + '_ESS'
+            if args.attn_w is not None:
+                out_file = out_file + '_attn-w{}'
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             # if args.smc:
             #     out_file = out_file + '__p_{}'.format(args.particles)

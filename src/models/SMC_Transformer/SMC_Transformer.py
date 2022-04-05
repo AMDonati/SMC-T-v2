@@ -35,6 +35,7 @@ class SMC_Transformer(tf.keras.Model):
         self.dff = dff
         self.num_layers = num_layers
         self.num_heads = num_heads
+        self.attn_window = attn_window
 
     def compute_SMC_loss(self, targets, predictions):
         assert self.cell.noise == self.cell.attention_smc.noise == True
@@ -46,6 +47,7 @@ class SMC_Transformer(tf.keras.Model):
         for noise, Sigma in zip(self.internal_noises, list_Sigmas):
             loss_part = 1 / 2 * (1 / Sigma) * tf.einsum('bijk,bijk->bij', noise, noise)
             loss_parts.append(loss_part)
+
         smc_loss = tf.stack(loss_parts, axis=0)  # (4,B,P,S)
         smc_loss = tf.reduce_sum(smc_loss, axis=0)  # sum of loss parts. # (B,P,S)
         smc_loss = tf.reduce_mean(smc_loss)  # mean over all other dims.
@@ -85,12 +87,15 @@ class SMC_Transformer(tf.keras.Model):
             targets = tf.tile(targets, multiples=[1, self.cell.num_particles, 1, 1])
 
         # 'dummy' initialization of cell's internal state for memory efficiency.
-        shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len,
+        shape_R = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len,
                  self.d_model)  # S+1: trick because of dummy init.
+        R0 = tf.zeros(shape=shape_R, dtype=tf.float32)
+        shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.attn_window + 1,
+                 self.d_model) if self.attn_window is not None else shape_R # attn_window + 1: takes attn_window in the past + self_attention of current element:
         K0 = tf.zeros(shape=shape, dtype=tf.float32)
         initial_state = NestedState(K=K0,
                                     V=K0,
-                                    R=K0)
+                                    R=R0)
 
         def step_function(inputs, states):
             return self.cell(inputs, states)
@@ -119,13 +124,29 @@ class SMC_Transformer(tf.keras.Model):
         pred = self.final_layer(R)
 
         # computing resampled noises for K, and V.
-        self.noise_K_resampled = K - self.cell.attention_smc.wk(input_tensor_processed)
-        self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
+        # if self.attn_window is None:
+        #     local_input = input_tensor_processed
+        # else:
+        #     local_input = input_tensor_processed[:, :, -(self.attn_window+1):, :]
+
+        if self.attn_window is None:
+            self.noise_K_resampled = K - self.cell.attention_smc.wk(input_tensor_processed)
+            self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
+        else:
+            past_K = tf.stack(self.cell.full_K, axis=-2)
+            full_K = tf.concat([past_K, K], axis=-2)
+            past_V = tf.stack(self.cell.full_V, axis=-2)
+            full_V = tf.concat([past_V, V], axis=-2)
+            self.noise_K_resampled = full_K - self.cell.attention_smc.wk(input_tensor_processed)
+            self.noise_V_resampled = full_V - self.cell.attention_smc.wv(input_tensor_processed)
 
         if self.cell.noise:
             self.noise_q = tf.transpose(outputs[-1][0, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D).
             self.noise_z = tf.transpose(outputs[-1][1, :, :, :, :], perm=[0, 2, 1, 3])  # (B,P,S,D)
             self.internal_noises = [self.noise_K_resampled, self.noise_q, self.noise_V_resampled, self.noise_z]
+
+        # reinit full states (when having an attention window):
+        self.cell.reinit_full_states()
 
         return (pred, pred_resampl), (K, V, R_resampl), attn_weights
 
@@ -152,13 +173,12 @@ if __name__ == "__main__":
 
     print("..............................TEST ONE LAYER CASE ...........................................")
 
-    transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
-                                  attn_window=4)
-    (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+    transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff)
+    #(predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 
-    print('predictions', predictions.shape)
-    print('K', K.shape)
-    print('attention weights', attn_weights.shape)
+    #print('predictions', predictions.shape)
+    #print('K', K.shape)
+    #print('attention weights', attn_weights.shape)
 
 
     # --------------------------------------------  TEST MULTI-LAYER CASE -------------------------------------
@@ -178,11 +198,24 @@ if __name__ == "__main__":
     transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
                                         sigma_obs=sigma_obs,
                                         num_particles=num_particles)
+    #(predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
+
+    #print('predictions', predictions.shape)
+    #print('K', K.shape)
+    #print('attention weights', attn_weights.shape)
+
+    print("------------------------------TEST SMC TRANSFORMER WITH ATTENTION WINDOW ---------------------------------------")
+    transformer = SMC_Transformer(d_model=d_model, output_size=1, seq_len=seq_len, full_model=full_model, dff=dff,
+                                  num_layers=2, num_heads=1, attn_window=4)
+    transformer.cell.add_SMC_parameters(dict_sigmas=dict_sigmas,
+                                        sigma_obs=sigma_obs,
+                                        num_particles=num_particles)
     (predictions, _), (K, V, R), attn_weights = transformer(inputs=inputs, targets=targets)
 
     print('predictions', predictions.shape)
     print('K', K.shape)
     print('attention weights', attn_weights.shape)
+
 
     print(
         "..............................TEST MULTI-LAYER / MULTI-HEAD CASE ...............................................")

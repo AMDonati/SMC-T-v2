@@ -37,6 +37,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.noise = False
         self.len_resampling = None
 
+        # When having an attn window
+        self.full_K, self.full_V = [], []
+
         # output layer for computing the weights
         self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
         # internal states: K,V,R. size without batch_dim.
@@ -106,6 +109,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         assert self.noise
         self.len_resampling = len_resampling
 
+    def update_full_state(self, past_states):
+        ''' When having an attention window. saving iteratively the past states that are removed in the attention window.'''
+        if self.attention_smc.attn_window is not None:
+            if self.dec_timestep <= self.attention_smc.attn_window:
+                pass
+            else:
+                self.full_K.append(past_states[0][:,:,0,:])
+                self.full_V.append(past_states[1][:,:,0,:])
+        else:
+            pass
+
+    def reinit_full_states(self):
+        if self.attention_smc.attn_window is not None:
+            self.full_K, self.full_V = [], []
+        else:
+            pass
+
     def call(self, inputs, states):
         '''
         :param inputs:
@@ -115,6 +135,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         x, y = tf.nest.flatten(inputs)  # unnesting inputs x: shape (B,P,D), y = shape(B,P,D) with P=1 during training.
         x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim.
         K, V, R = states  # getting states
+
+        # when having an attention window: saving full history of states (K,V) for the loss
+        self.update_full_state([K,V])
+        #if self.attention_smc.attn_window is not None:
+            #print("LEN FULL STATES", len(self.full_K))
 
         # self attention:
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
