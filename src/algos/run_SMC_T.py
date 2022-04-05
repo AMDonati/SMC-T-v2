@@ -29,7 +29,8 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, fix_lag=args.fix_lag)
+                                               attn_window=args.attn_w, num_layers=args.num_layers,
+                                               num_heads=args.num_heads, fix_lag=args.fix_lag)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -42,7 +43,8 @@ class SMCTAlgo(Algo):
         if args.save_path is not None:
             return args.save_path
         else:
-            out_file = '{}_l{}_h{}_d{}_{}p_lag{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model, args.particles, args.fix_lag)
+            out_file = '{}_l{}_h{}_d{}_{}p_lag{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model,
+                                                         args.particles, args.fix_lag)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
             if not os.path.isdir(out_folder):
@@ -254,14 +256,14 @@ class SMCTAlgo(Algo):
     def get_predictive_distribution(self, inputs, targets, save_path=None):
         if self.distribution:
             particles, mean_preds = inference_onestep(smc_transformer=self.smc_transformer, inputs=inputs,
-                                                          targets=targets,
-                                                          save_path=None, past_len=0)
+                                                      targets=targets,
+                                                      save_path=None, past_len=0)
             sigma_obs = tf.math.sqrt(self.smc_transformer.cell.Sigma_obs)
             distrib_per_timestep = get_distrib_all_timesteps(particles, sigma_obs=sigma_obs,
-                                                                 P=self.smc_transformer.cell.num_particles,
-                                                                 save_path_distrib=save_path,
-                                                                 N_est=self.mc_samples,
-                                                                 len_future=self.seq_len)
+                                                             P=self.smc_transformer.cell.num_particles,
+                                                             save_path_distrib=save_path,
+                                                             N_est=self.mc_samples,
+                                                             len_future=self.seq_len)
             distrib_per_timestep = tf.constant(distrib_per_timestep, dtype=tf.float32)
             return distrib_per_timestep
 
@@ -286,23 +288,28 @@ class SMCTAlgo(Algo):
             return distrib_per_timestep
 
     def compute_test_loss(self, save_particles=False):
-        test_loss, MEAN_PREDS = [], []
+        test_loss, MEAN_PREDS, RESAMPLED_PREDS, PREDS = [], [], [], []
         for (inp, tar) in self.test_dataset:
             (preds_test, preds_test_resampl), _, _ = self.smc_transformer(inputs=inp,
                                                                           targets=tar)  # predictions test are the ones not resampled.
             test_metric_avg_pred = tf.keras.losses.MSE(tar,
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
-            #test_metric_avg_pred = tf.keras.losses.MSE(inp,
-                                                       #tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred).numpy()
             mean_preds = tf.reduce_mean(preds_test, axis=1)
             test_loss.append(test_metric_avg_pred)
             MEAN_PREDS.append(mean_preds)
+            RESAMPLED_PREDS.append(preds_test_resampl)
+            PREDS.append(preds_test)
+        PREDS = tf.reshape(tf.stack(PREDS, axis=0),
+                           shape=(-1, preds_test.shape[-3], preds_test.shape[-2], preds_test.shape[-1]))
+        RESAMPLED_PREDS = tf.reshape(tf.stack(RESAMPLED_PREDS, axis=0),
+                                     shape=(-1, preds_test_resampl.shape[-3], preds_test_resampl.shape[-2],
+                                            preds_test_resampl.shape[-1]))
         if save_particles:
-            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
-            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
-            print('preds particles shape', preds_test.shape)
-            print('preds particles resampled shape', preds_test_resampl.shape)
+            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), PREDS.numpy())
+            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), RESAMPLED_PREDS.numpy())
+            print('preds particles shape', PREDS.shape)
+            print('preds particles resampled shape', RESAMPLED_PREDS.shape)
             self.logger.info("saving predicted particles on test set...")
         MEAN_PREDS = tf.stack(MEAN_PREDS, axis=0)
         return np.mean(test_loss), MEAN_PREDS
