@@ -295,23 +295,28 @@ class SMCTAlgo(Algo):
             return distrib_per_timestep
 
     def compute_test_loss(self, save_particles=False):
-        test_loss, MEAN_PREDS = [], []
+        test_loss, MEAN_PREDS, RESAMPLED_PREDS, PREDS = [], [], [], []
         for (inp, tar) in self.test_dataset:
             (preds_test, preds_test_resampl), _, _ = self.smc_transformer(inputs=inp,
                                                                           targets=tar)  # predictions test are the ones not resampled.
             test_metric_avg_pred = tf.keras.losses.MSE(tar,
                                                        tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
-            #test_metric_avg_pred = tf.keras.losses.MSE(inp,
-                                                       #tf.reduce_mean(preds_test, axis=1, keepdims=True))  # (B,1,S)
             test_metric_avg_pred = tf.reduce_mean(test_metric_avg_pred).numpy()
             mean_preds = tf.reduce_mean(preds_test, axis=1)
             test_loss.append(test_metric_avg_pred)
             MEAN_PREDS.append(mean_preds)
+            RESAMPLED_PREDS.append(preds_test_resampl)
+            PREDS.append(preds_test)
+        PREDS = tf.reshape(tf.stack(PREDS, axis=0),
+                               shape=(-1, preds_test.shape[-3], preds_test.shape[-2], preds_test.shape[-1]))
+        RESAMPLED_PREDS = tf.reshape(tf.stack(RESAMPLED_PREDS, axis=0),
+                                         shape=(-1, preds_test_resampl.shape[-3], preds_test_resampl.shape[-2],
+                                                preds_test_resampl.shape[-1]))
         if save_particles:
-            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), preds_test.numpy())
-            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), preds_test_resampl.numpy())
-            print('preds particles shape', preds_test.shape)
-            print('preds particles resampled shape', preds_test_resampl.shape)
+            np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), PREDS.numpy())
+            np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), RESAMPLED_PREDS.numpy())
+            print('preds particles shape', PREDS.shape)
+            print('preds particles resampled shape', RESAMPLED_PREDS.shape)
             self.logger.info("saving predicted particles on test set...")
         MEAN_PREDS = tf.stack(MEAN_PREDS, axis=0)
         return np.mean(test_loss), MEAN_PREDS
