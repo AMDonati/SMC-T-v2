@@ -123,16 +123,11 @@ class SMC_Transformer(tf.keras.Model):
         pred_resampl = self.final_layer(R_resampl)  # (B,P,S,C) used to compute the categorical cross_entropy loss.
         pred = self.final_layer(R)
 
-        # computing resampled noises for K, and V.
-        # if self.attn_window is None:
-        #     local_input = input_tensor_processed
-        # else:
-        #     local_input = input_tensor_processed[:, :, -(self.attn_window+1):, :]
-
-        if self.attn_window is None:
+        if len(self.cell.full_K) == 0:
             self.noise_K_resampled = K - self.cell.attention_smc.wk(input_tensor_processed)
             self.noise_V_resampled = V - self.cell.attention_smc.wv(input_tensor_processed)
         else:
+            #print("len past states", len(self.cell.full_K))
             past_K = tf.stack(self.cell.full_K, axis=-2)
             full_K = tf.concat([past_K, K], axis=-2)
             past_V = tf.stack(self.cell.full_V, axis=-2)
