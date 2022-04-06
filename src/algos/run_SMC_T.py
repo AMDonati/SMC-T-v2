@@ -49,7 +49,7 @@ class SMCTAlgo(Algo):
             if args.ess:
                 out_file = out_file + '_ESS'
             if args.attn_w is not None:
-                out_file = out_file + '_attn-w{}'
+                out_file = out_file + '_attn-w{}'.format(args.attn_w)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             # if args.smc:
             #     out_file = out_file + '__p_{}'.format(args.particles)
