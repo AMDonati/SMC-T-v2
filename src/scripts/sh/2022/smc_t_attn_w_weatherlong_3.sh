@@ -17,8 +17,8 @@ conda activate smc-t
 
 export PYTHONPATH=src:${PYTHONPATH}
 
-srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess 0 -cv 0 -attn_window 125 -multistep 1 -past_len 72 -future_len 30
-srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess True -cv 0 -attn_window 125 -multistep 1 -past_len 72 -future_len 30
+srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess 0 -cv 0 -attn_w 125 -multistep 1 -past_len 72 -future_len 30
+srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess True -cv 0 -attn_w 125 -multistep 1 -past_len 72 -future_len 30
 srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess 0 -cv 0 -multistep 1 -past_len 72 -future_len 30
 srun python -u src/scripts/run.py -dataset "synthetic" -dataset_model 1 -data_path "data/weather_long" -algo "smc_t" -d_model 32 -dff 32 -bs 256 -ep 50 -particles 10 -smc True -output_path "output/WEATHER_LONG/attn_window" -alpha 0.8 -mc_samples 1000 -ess True -cv 0 -multistep 1 -past_len 72 -future_len 30
 
