@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=fixlag-weather
+#SBATCH --job-name=w2fixlag-weather
 #SBATCH --qos=qos_gpu-t4
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=8g
-#SBATCH --output=slurm_out/fixlag-synthetic-%j.out
-#SBATCH --error=slurm_out/fixlag-synthetic-%j.err
+#SBATCH --output=slurm_out/fixlag-weather2-%j.out
+#SBATCH --error=slurm_out/fixlag-weather2-%j.err
 #SBATCH --time=100:00:00
 #SBATCH -A ktz@gpu
 
