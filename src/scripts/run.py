@@ -118,7 +118,7 @@ def run(args):
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, max_samples=args.max_samples)
 
-    elif args.dataset == 'weather':
+    elif args.dataset == 'weather' or args.dataset == "weather_long":
         BUFFER_SIZE = 5000
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, max_samples=args.max_samples)
