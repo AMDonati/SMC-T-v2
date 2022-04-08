@@ -11,7 +11,7 @@ NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
-    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, **kwargs):
+    def __init__(self, d_model, output_size, seq_len, full_model, dff, num_heads=1, attn_window=None, ESS=True, **kwargs):
         '''
         :param attn_window:
         :param full_model:
@@ -25,6 +25,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.output_size = output_size
         self.seq_len = seq_len
         self.full_model = full_model
+        self.ESS = ESS
 
         if self.full_model:
             self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
@@ -35,6 +36,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.num_particles = 1
         self.noise = False
         self.len_resampling = None
+
+        # When having an attn window
+        self.full_K, self.full_V = [], []
 
         # output layer for computing the weights
         self.output_layer = tf.keras.layers.Dense(output_size, name='output_layer')
@@ -52,6 +56,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         self.attention_smc.add_SMC_parameters(dict_sigmas=dict_sigmas)
         self.num_particles = num_particles
         self.Sigma_obs = sigma_obs
+        self.list_weights, self.list_indices = [], []
+        if self.ESS:
+            self.percent_resamples = []
         self.list_weights, self.list_states = [], []
 
     def compute_w_regression(self, predictions, y):
@@ -78,6 +85,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         assert len(tf.shape(w)) == 2
         return w
 
+    def compute_ESS(self, filtering_weigths):
+        # B,P
+        w_squared = tf.math.square(filtering_weigths)
+        ESS_inv = tf.reduce_sum(w_squared, axis=-1)
+        return 1/ESS_inv
+
     def call_inference(self, inputs, states, timestep):
         K, V = states
         # self attention:
@@ -97,6 +110,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         assert self.noise
         self.len_resampling = len_resampling
 
+    def update_full_state(self, past_states):
+        ''' When having an attention window. saving iteratively the past states that are removed in the attention window.'''
+        if self.attention_smc.attn_window is not None:
+            if self.dec_timestep <= self.attention_smc.attn_window:
+                pass
+            else:
+                self.full_K.append(past_states[0][:,:,0,:])
+                self.full_V.append(past_states[1][:,:,0,:])
+        else:
+            pass
+
+    def reinit_full_states(self):
+        if self.attention_smc.attn_window is not None:
+            self.full_K, self.full_V = [], []
+        else:
+            pass
+
     def call(self, inputs, states):
         '''
         :param inputs:
@@ -106,6 +136,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         x, y = tf.nest.flatten(inputs)  # unnesting inputs x: shape (B,P,D), y = shape(B,P,D) with P=1 during training.
         x, y = tf.expand_dims(x, axis=-2), tf.expand_dims(y, axis=-2)  # adding sequence dim.
         K, V, R = states  # getting states
+
+        # when having an attention window: saving full history of states (K,V) for the loss
+        self.update_full_state([K,V])
+        #if self.attention_smc.attn_window is not None:
+            #print("LEN FULL STATES", len(self.full_K))
 
         # self attention:
         (z, K, V), attn_weights = self.attention_smc(inputs=x, timestep=self.dec_timestep, K=K, V=V)
@@ -128,12 +163,29 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
             w = self.compute_w_regression(predictions=predictions, y=y)
             i_t = tf.random.categorical(w, self.num_particles)  # (B,P,1)
             w, i_t = tf.stop_gradient(w), tf.stop_gradient(i_t)
-            self.list_weights.append(w.numpy())
-            # resample K, V, and R
-            if self.len_resampling is None or self.dec_timestep < self.len_resampling:
-                K = resample(params=K, i_t=i_t) # (B,P,S,D)
-                V = resample(params=V, i_t=i_t) # (B,P,S,D)
-                R = resample(params=R, i_t=i_t) # (B,P,S,D)
+            # self.list_weights.append(w.numpy())
+            # self.list_indices.append(i_t.numpy())
+
+            if self.ESS:
+                ESS = self.compute_ESS(w) # shape (B)
+                cond = ESS < self.num_particles / 2
+                num_of_resamples = tf.reduce_sum(tf.cast(cond, tf.float32))
+                self.percent_resamples.append((tf.cast(num_of_resamples, tf.int32)/ESS.shape[0]))
+                #print("RESAMPLING {} elements over {} elements".format(num_of_resamples, ESS.shape[0]))
+                if num_of_resamples > 1: # at least one element of the batch needs resampling:
+                    j_t = tf.where(cond[:, tf.newaxis], i_t,
+                                   tf.constant(list(range(self.num_particles)), dtype=tf.int64))
+                    # resample K, V, and R
+                    if self.len_resampling is None or self.dec_timestep < self.len_resampling:
+                        K = resample(params=K, i_t=j_t)
+                        V = resample(params=V, i_t=j_t)
+                        R = resample(params=R, i_t=j_t)
+            else:
+                # resample K, V, and R
+                if self.len_resampling is None or self.dec_timestep < self.len_resampling:
+                    K = resample(params=K, i_t=i_t)
+                    V = resample(params=V, i_t=i_t)
+                    R = resample(params=R, i_t=i_t)
             # Getting internal noises for computing the loss.
             internal_noises = [self.attention_smc.noise_q, self.attention_smc.noise_z]
             output = [r, attn_weights, internal_noises]  # attn_weights > shape (B,P,1,S). noises: (B,P,1,D).
@@ -142,12 +194,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
         new_states = NestedState(K=K, V=V, R=R)
         if self.noise and self.cell_count > 0:
-            # print("-"*10)
-            # print("CELL COUNT", self.cell_count)
-            # print("DECODING TIMESTEP", self.dec_timestep)
-            # state_ = new_states.K[0,0,:,0].numpy()
-            # print("STATE", state_)
-            # print("-" * 10)
             self.list_states.append(new_states)
         self.cell_count += 1
         if self.cell_count > 1:

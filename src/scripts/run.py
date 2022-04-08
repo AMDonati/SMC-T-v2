@@ -72,6 +72,7 @@ def get_parser():
     parser.add_argument("-sigma_obs", type=float, default=0.5, help="values for sigma obs")
     parser.add_argument("-smc", type=str2bool, default=False, help="Recurrent Transformer with or without smc algo")
     parser.add_argument("-fix_lag", type=int, help="fix-lag param in fix-lag smoother.")
+    parser.add_argument("-ess", type=str2bool, default=False, help="Using Effective Sampling Size in the smoothing algo or not.")
     # output_path params.
     parser.add_argument("-output_path", type=str, required=True, help="path for output folder")
     parser.add_argument("-save_path", type=str, help="path for saved model folder (if loading ckpt)")
@@ -118,7 +119,7 @@ def run(args):
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, max_samples=args.max_samples)
 
-    elif args.dataset == 'weather' or args.dataset == "weather_long":
+    elif args.dataset == 'weather' or args.dataset == 'weather_long':
         BUFFER_SIZE = 5000
         dataset = StandardizedDataset(data_path=args.data_path, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=args.bs,
                                       name=args.dataset, max_samples=args.max_samples)

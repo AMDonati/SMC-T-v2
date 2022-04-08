@@ -18,11 +18,11 @@ class SMC_Transformer(tf.keras.Model):
 
     def __init__(self, d_model, output_size, seq_len, full_model, dff, num_layers=1, num_heads=1,
                  maximum_position_encoding=50,
-                 rate=0., attn_window=None, fix_lag=4):
+                 rate=0., attn_window=None, fix_lag=4, ESS=False):
         super(SMC_Transformer, self).__init__()
 
         self.cell = SMC_Transf_Cell(d_model=d_model, output_size=output_size, seq_len=seq_len, full_model=full_model,
-                                    dff=dff, attn_window=attn_window, num_heads=num_heads)
+                                    dff=dff, attn_window=attn_window, num_heads=num_heads, ESS=ESS)
 
         self.decoder = None if num_layers == 1 else Decoder(num_layers=num_layers - 1, d_model=d_model,
                                                             num_heads=num_heads,
@@ -43,6 +43,7 @@ class SMC_Transformer(tf.keras.Model):
             self.fix_lag = fix_lag
         else:
             self.fix_lag = self.seq_len
+        self.attn_window = attn_window
 
     def compute_classic_loss(self, targets, predictions):
         # "classic loss" part:
@@ -90,7 +91,7 @@ class SMC_Transformer(tf.keras.Model):
     def get_encoded_input(self, inputs):
         if tf.shape(inputs)[1] == 1:
             inputs = tf.tile(inputs, multiples=[1, self.cell.num_particles, 1, 1])
-        if self.decoder is None:  # tiling inputs if needed on the particles dimensions.
+        if self.decoder is None:                                             # tiling inputs if needed on the particles dimensions.
             input_tensor_processed = self.input_dense_projection(inputs)  # (B,P,S,D)
             input_tensor_processed *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         else:
@@ -117,12 +118,15 @@ class SMC_Transformer(tf.keras.Model):
             targets = tf.tile(targets, multiples=[1, self.cell.num_particles, 1, 1])
 
         # 'dummy' initialization of cell's internal state for memory efficiency.
-        shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len,
+        shape_R = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.seq_len,
                  self.d_model)  # S+1: trick because of dummy init.
+        R0 = tf.zeros(shape=shape_R, dtype=tf.float32)
+        shape = (tf.shape(input_tensor_processed)[0], tf.shape(input_tensor_processed)[1], self.attn_window + 1,
+                 self.d_model) if self.attn_window is not None else shape_R # attn_window + 1: takes attn_window in the past + self_attention of current element:
         K0 = tf.zeros(shape=shape, dtype=tf.float32)
         initial_state = NestedState(K=K0,
                                     V=K0,
-                                    R=K0)
+                                    R=R0)
 
         def step_function(inputs, states):
             return self.cell(inputs, states)
@@ -151,12 +155,21 @@ class SMC_Transformer(tf.keras.Model):
         if self.cell.noise:
             loss = []
             self.noise_K_resampled, self.noise_V_resampled, preds_resampl = [], [], []
+
             for t in range(self.seq_len):
                 lag = self.compute_effective_lag(t)
                 #print("LAG", lag)
                 state = self.cell.list_states[lag]
-                noise_K_resampl = state.K[:, :, t] - self.cell.attention_smc.wk(input_tensor_processed[:, :, t])
-                noise_V_resampl = state.V[:, :, t] - self.cell.attention_smc.wv(input_tensor_processed[:, :, t])
+                if len(self.cell.full_K) == 0:
+                    K = state.K
+                    V = state.V
+                else:
+                    past_K = tf.stack(self.cell.full_K, axis=-2)
+                    K = tf.concat([past_K, state.K], axis=-2)
+                    past_V = tf.stack(self.cell.full_V, axis=-2)
+                    V = tf.concat([past_V, state.V], axis=-2)
+                noise_K_resampl = K[:, :, t] - self.cell.attention_smc.wk(input_tensor_processed[:, :, t])
+                noise_V_resampl = V[:, :, t] - self.cell.attention_smc.wv(input_tensor_processed[:, :, t])
                 noises = [noise_K_resampl, tf.squeeze(self.cell.attention_smc.noise_q, axis=-2), noise_V_resampl,
                           tf.squeeze(self.cell.attention_smc.noise_z, axis=-2)]
                 pred_resampl = tf.expand_dims(self.final_layer(state.R)[:, :, t], axis=-2)  # shape (B,P,1,F_y)
@@ -181,6 +194,9 @@ class SMC_Transformer(tf.keras.Model):
 
             # reset list states:
             self.cell.list_states = []
+
+        # reinit full states (when having an attention window):
+        self.cell.reinit_full_states()
 
         return (pred, preds_resampl), new_states, loss
 
