@@ -52,18 +52,22 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
             k = self.add_noise(k_, self.sigma_k)
             q = self.add_noise(q_, self.sigma_q)
             v = self.add_noise(v_, self.sigma_v)
-            self.noise_k = k - k_  # TODO: remove this one because we need resampled noise.
+            self.noise_k = k - k_
             self.noise_q = q - q_
-            self.noise_v = v - v_  # TODO: remove this one, because we need resampled noise.
+            self.noise_v = v - v_
         else:
             k, q, v = k_, q_, v_
 
-        K_past = K[:, :, :timestep, :]
-        K_future = K[:, :, timestep + 1:, :]
-        K = tf.concat([K_past, k, K_future], axis=2)  # (B,P,S,D)
-        V_past = V[:, :, :timestep, :]
-        V_future = V[:, :, timestep + 1:, :]
-        V = tf.concat([V_past, v, V_future], axis=2)  # (B,P,S,D)
+        if self.attn_window is None or timestep <= self.attn_window:
+            K_past = K[:, :, :timestep, :]
+            K_future = K[:, :, timestep + 1:, :]
+            K = tf.concat([K_past, k, K_future], axis=2)  # (B,P,S,D)
+            V_past = V[:, :, :timestep, :]
+            V_future = V[:, :, timestep + 1:, :]
+            V = tf.concat([V_past, v, V_future], axis=2)  # (B,P,S,D)
+        else:
+            K = tf.concat([K[:,:,1:,:],k], axis=2) # (B,P,\delta,D)
+            V = tf.concat([V[:, :, 1:, :], v], axis=2)  # (B,P,\delta,D)
 
         # Computation of z from K,V,q.
         matmul_qk = tf.matmul(q, K, transpose_b=True)  # (B, P, 1, S)
@@ -71,14 +75,13 @@ class Self_Attention_SMC(tf.keras.layers.Layer):
         dk = tf.cast(tf.shape(K)[-1], tf.float32)
         scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)  # (B,P,1,S)
         bs, P, S = tf.shape(K)[0], tf.shape(K)[1], tf.shape(K)[2]
-        if self.attn_window is not None and timestep > self.attn_window:
-            scaled_attention_logits_masked = tf.concat([-1e9 * tf.ones(shape=(bs, P, 1, timestep - self.attn_window)),
-                                                        scaled_attention_logits[:, :, :, timestep - self.attn_window:timestep + 1],
-                                                        -1e9 * tf.ones(shape=(bs, P, 1, S - (timestep + 1)))], axis=-1)
-        else:
+
+        if self.attn_window is None or timestep <= self.attn_window:
             scaled_attention_logits_masked = tf.concat([scaled_attention_logits[:, :, :, :timestep + 1],
                                                     -1e9 * tf.ones(shape=(
                                                     bs, P, 1, S - (timestep + 1)))], axis=-1)
+        else:
+            scaled_attention_logits_masked = scaled_attention_logits
         # softmax to get pi:
         attention_weights = tf.nn.softmax(scaled_attention_logits_masked, axis=-1)  # (B, P, 1, S)
         z_ = tf.matmul(attention_weights, V)  # (B,P,1,S)

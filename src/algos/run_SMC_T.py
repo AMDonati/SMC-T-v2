@@ -29,8 +29,7 @@ class SMCTAlgo(Algo):
                                                full_model=args.full_model,
                                                dff=args.dff,
                                                maximum_position_encoding=args.pe,
-                                               attn_window=args.attn_w, num_layers=args.num_layers,
-                                               num_heads=args.num_heads, fix_lag=args.fix_lag)
+                                               attn_window=args.attn_w, num_layers=args.num_layers, num_heads=args.num_heads, ESS=args.ess, fix_lag=args.fix_lag)
         self.distribution = args.smc
         self.particles = args.particles
         self._init_SMC_T(args=args)
@@ -45,6 +44,10 @@ class SMCTAlgo(Algo):
         else:
             out_file = '{}_l{}_h{}_d{}_{}p_lag{}'.format(args.algo, args.num_layers, args.num_heads, args.d_model,
                                                          args.particles, args.fix_lag)
+            if args.ess:
+                out_file = out_file + '_ESS'
+            if args.attn_w is not None:
+                out_file = out_file + '_attn-w{}'.format(args.attn_w)
             datetime_folder = "{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             out_folder = os.path.join(self.output_path, out_file, datetime_folder)
             if not os.path.isdir(out_folder):
@@ -301,10 +304,10 @@ class SMCTAlgo(Algo):
             RESAMPLED_PREDS.append(preds_test_resampl)
             PREDS.append(preds_test)
         PREDS = tf.reshape(tf.stack(PREDS, axis=0),
-                           shape=(-1, preds_test.shape[-3], preds_test.shape[-2], preds_test.shape[-1]))
+                               shape=(-1, preds_test.shape[-3], preds_test.shape[-2], preds_test.shape[-1]))
         RESAMPLED_PREDS = tf.reshape(tf.stack(RESAMPLED_PREDS, axis=0),
-                                     shape=(-1, preds_test_resampl.shape[-3], preds_test_resampl.shape[-2],
-                                            preds_test_resampl.shape[-1]))
+                                         shape=(-1, preds_test_resampl.shape[-3], preds_test_resampl.shape[-2],
+                                                preds_test_resampl.shape[-1]))
         if save_particles:
             np.save(os.path.join(self.out_folder, "particles_preds_test.npy"), PREDS.numpy())
             np.save(os.path.join(self.out_folder, "resampled_particles_preds_test.npy"), RESAMPLED_PREDS.numpy())
