@@ -51,7 +51,7 @@ class SMC_Transformer(tf.keras.Model):
         classic_loss = tf.reduce_mean(classic_loss)
         return classic_loss
 
-    def compute_SMC_loss(self, targets, predictions, noises, check_loss=False):  # TODO: refacto loss with tfp.distributions.
+    def compute_SMC_loss(self, targets, predictions, noises, check_loss=False):
         assert self.cell.noise == self.cell.attention_smc.noise
         if self.cell.noise:
             list_Sigmas = [self.cell.attention_smc.sigma_k, self.cell.attention_smc.sigma_q,
@@ -142,14 +142,15 @@ class SMC_Transformer(tf.keras.Model):
         outputs = [tf.squeeze(out, axis=-2) for out in outputs]
         R = tf.transpose(outputs[0], perm=[0, 2, 1, 3])  # (B,P,S,D) # R not resampled.
 
-        preds_resampl = self.final_layer(new_states[
+        if not self.cell.noise:
+            preds_resampl = self.final_layer(new_states[
                                              2])  # (B,P,S,C) used to compute the categorical cross_entropy loss. new_states[2] is R_resampled.
         pred = self.final_layer(R)
 
         # ------------------ computing (timestep-wise) SMC loss for fix-lag smoother ------------------------------------------------------
         if self.cell.noise:
             loss = []
-            self.noise_K_resampled, self.noise_V_resampled = [], []
+            self.noise_K_resampled, self.noise_V_resampled, preds_resampl = [], [], []
             for t in range(self.seq_len):
                 lag = self.compute_effective_lag(t)
                 #print("LAG", lag)
@@ -164,10 +165,12 @@ class SMC_Transformer(tf.keras.Model):
                 loss.append(loss_timestep)
                 self.noise_K_resampled.append(noise_K_resampl)
                 self.noise_V_resampled.append(noise_V_resampl)
+                preds_resampl.append(pred_resampl)
             loss = tf.stack(loss, axis=0)
             loss = tf.reduce_mean(loss, axis=0)
             self.noise_K_resampled = tf.stack(self.noise_K_resampled, axis=-2) # shape (B,P,S,D)
             self.noise_V_resampled = tf.stack(self.noise_V_resampled, axis=-2)  # shape (B,P,S,D)
+            preds_resampl = tf.squeeze(tf.stack(preds_resampl, axis=-2), axis=2)
         else:
             loss = 0.
 
