@@ -9,4 +9,4 @@ python src/scripts/run.py -dataset "stock" -data_path "data/stock" -algo "varma"
 echo "-------- energy ---------------------------------------------"
 python src/scripts/run.py -dataset "energy" -data_path "data/energy" -algo "varma" -p_model 1 -q 0 -ep 1000 -output_path "output/exp_energy" -multistep 1 -past_len 6
 echo "-------- weather ---------------------------------------------"
-python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "varma" -p_model 1 -q 0 -ep 1000 -output_path "output/exp_weather" -mc_samples 1000 -past_len 12 -multistep 1 -max_samples 50000
+python src/scripts/run.py -dataset "weather" -data_path "data/weather" -algo "varma" -p_model 1 -q 0 -ep 1000 -output_path "output/exp_weather" -mc_samples 1000 -past_len 12 -multistep 1 -max_samples 10000
