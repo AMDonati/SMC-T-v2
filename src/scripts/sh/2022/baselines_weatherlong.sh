@@ -17,7 +17,7 @@ conda activate smc-t
 
 export PYTHONPATH=src:${PYTHONPATH}
 
-python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -max_samples 10000 -p_drop 0. -pe 500
-python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -p_drop 0.1 -mc_samples 1000 -max_samples 10000 -past_len 120 -multistep 1 -pe 500
-python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -p_drop 0.2 -mc_samples 1000 -max_samples 10000 -past_len 120 -multistep 1 -pe 500
+#python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -max_samples 10000 -p_drop 0. -pe 500
+#python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -p_drop 0.1 -mc_samples 1000 -max_samples 10000 -past_len 120 -multistep 1 -pe 500
+#python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -p_drop 0.2 -mc_samples 1000 -max_samples 10000 -past_len 120 -multistep 1 -pe 500
 python src/scripts/run.py -dataset "weather_long" -data_path "data/weather_long" -algo "baseline_t" -d_model 32 -dff 32 -bs 64 -ep 20 -output_path "output/WEATHER_LONG/BASELINES" -p_drop 0.5 -mc_samples 1000 -max_samples 10000 -past_len 120 -multistep 1 -pe 500
